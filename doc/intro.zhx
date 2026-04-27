@@ -3,12 +3,12 @@
 
 		  VIM 参考手册
 
-介绍 Vim						*intro@zh*
+介绍 Vim					*intro@zh* *nvim-intro@zh*
 
                                       输入 |gO| 查看目录。
 
 ==============================================================================
-1. 简介							*intro*
+1. 简介							*intro-summary@zh*
 
 Vim 是 "Vi IMproved"（Vi 增强版）的缩写。它是一个文本编辑器，包含了 Unix
 程序 "Vi" 的大部分功能，并增加了许多新特性。它对于编辑程序和其他纯文本文件
@@ -19,11 +19,11 @@ Vim 在一些微妙的地方与 Vi 有所不同。要了解 Vim 与 Vi 的区别
 |vi-differences|。
 
 ==============================================================================
-2. Vim 的六种模式					*vim-modes-intro* *vim-modes*
+2. Vim 的六种模式			*vim-modes-intro@zh* *vim-modes@zh*
 
 Vim 有六种基本模式：
 
-					*Normal* *Normal-mode* *command-mode*
+				*Normal@zh* *Normal-mode@zh* *command-mode@zh*
 普通模式（Normal mode）		在普通模式下，你可以输入所有普通编辑命令。
 				当你用一个命令启动编辑器时，就处于这个模式
 				（如果你用 gvim 启动，可能处于 Easy 模式）。
@@ -56,7 +56,7 @@ Vim 有六种基本模式：
 
 还有五种附加模式。这些是基本模式的变体：
 
-				*Operator-pending* *Operator-pending-mode*
+			*Operator-pending@zh* *Operator-pending-mode@zh*
 操作符待定模式			这类似于普通模式，但在输入了一个操作符命令
 				后，Vim 在等待一个 {motion}（移动命令）来
 				指定操作符将作用的文本。
@@ -82,7 +82,7 @@ Vim 有六种基本模式：
 				结束后，返回插入模式。
 
 ==============================================================================
-3. 切换模式						*mode-switching*
+3. 切换模式						*mode-switching@zh*
 
 从普通模式切换到其他模式：
 	普通模式到插入模式:	|a| |A| |c| |C| |gI| |i| |I| |o| |O| |s| |S|
