@@ -1,0 +1,84 @@
+*nvimhelp.txt@zh*	Nvim
+
+==============================================================================
+nvimhelp.nvim 中文帮助插件			*nvimhelp@zh*
+
+nvimhelp.nvim 为 Neovim 提供中文帮助文档，替换默认的 <F1> 快捷键。
+
+==============================================================================
+1. 安装						*nvimhelp-install@zh*
+
+使用 lazy.nvim: >lua
+	{
+	  "你的用户名/nvimhelp.nvim",
+	  config = function()
+	    require("nvimhelp").setup()
+	  end,
+	}
+<
+
+使用 packer.nvim: >lua
+	use {
+	  "你的用户名/nvimhelp.nvim",
+	  config = function()
+	    require("nvimhelp").setup()
+	  end,
+	}
+<
+
+==============================================================================
+2. 配置						*nvimhelp-config@zh*
+
+默认配置: >lua
+	require("nvimhelp").setup({
+	  replace_f1 = true,      -- 替换 F1 快捷键
+	  helplang = "zh",        -- 帮助语言优先级
+	  fallback_to_en = true,  -- 没有中文翻译时回退到英文
+	})
+<
+
+==============================================================================
+3. 使用						*nvimhelp-usage@zh*
+
+快捷键:
+	<F1>		在普通模式下，查找光标下单词的中文帮助
+			在插入模式下，退出插入模式并查找光标下单词的帮助
+
+命令:
+	:HelpZh {tag}	查找 {tag} 的中文帮助，支持 Tab 补全
+	:HelpZh		不带参数时打开帮助主页
+	:HelpZhInput	弹出交互式输入框搜索帮助
+
+==============================================================================
+4. 已翻译的文档					*nvimhelp-translated@zh*
+
+目前已翻译以下核心文档：
+
+- |help.txt@zh|		帮助主页
+- |intro.txt@zh|	Vim 入门介绍
+- |motion.txt@zh|	光标移动命令
+- |insert.txt@zh|	插入和替换模式
+- |change.txt@zh|	删除和修改文本
+- |options.txt@zh|	常用选项说明
+
+欢迎贡献更多翻译！
+
+==============================================================================
+5. 贡献翻译					*nvimhelp-contribute@zh*
+
+翻译文件格式要求：
+
+1. 文件名格式：{原文件名}.zhx
+   例如：motion.zhx
+
+2. 首行标签格式：*原文件名.txt@zh*
+   例如：*motion.txt@zh*
+
+3. 每个标签都需要加上 @zh 后缀
+   例如：*cursor-motions@zh*
+
+4. 保持原文的格式结构（分隔线、缩进等）
+
+5. 翻译完成后运行 :helptags 生成标签索引
+
+ vim:tw=78:isk=!-~,^*,^\|,^\":ts=8:noet:ft=help:norl:
