@@ -10,7 +10,7 @@ nvimhelp.nvim 为 Neovim 提供中文帮助文档，替换默认的 <F1> 快捷�
 
 使用 lazy.nvim: >lua
 	{
-	  "你的用户名/nvimhelp.nvim",
+	  "cxwx/nvimhelp.nvim",
 	  config = function()
 	    require("nvimhelp").setup()
 	  end,
@@ -19,7 +19,7 @@ nvimhelp.nvim 为 Neovim 提供中文帮助文档，替换默认的 <F1> 快捷�
 
 使用 packer.nvim: >lua
 	use {
-	  "你的用户名/nvimhelp.nvim",
+	  "cxwx/nvimhelp.nvim",
 	  config = function()
 	    require("nvimhelp").setup()
 	  end,
