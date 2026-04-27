@@ -1,6 +1,7 @@
 # nvimhelp.nvim
 
 Neovim 中文帮助文档插件。替换默认 `<F1>` 快捷键，提供中文版本的帮助文档。
+这是利用 codex 开发的测试版本。并未完善
 
 ## 功能
 
@@ -16,7 +17,7 @@ Neovim 中文帮助文档插件。替换默认 `<F1>` 快捷键，提供中文�
 
 ```lua
 {
-  "你的用户名/nvimhelp.nvim",
+  "cxwx/nvimhelp.nvim",
   config = function()
     require("nvimhelp").setup()
   end,
@@ -27,7 +28,7 @@ Neovim 中文帮助文档插件。替换默认 `<F1>` 快捷键，提供中文�
 
 ```lua
 use {
-  "你的用户名/nvimhelp.nvim",
+  "cxwx/nvimhelp.nvim",
   config = function()
     require("nvimhelp").setup()
   end,
