@@ -1,0 +1,480 @@
+*pack.txt*                            Nvim
+
+                            NVIM REFERENCE MANUAL
+
+                                扩展 Nvim
+
+
+                                       Type |gO| to see the table of contents.
+
+==============================================================================
+使用 Vim 包                                      *packages*
+
+Vim "包"是一个包含 |plugin| 的目录。与普通插件相比，包可以...
+- 作为归档文件下载并解压到自己的目录中，这样文件不会与其他插件的文件混合。
+- 作为 git、mercurial 等代码仓库，因此易于更新。
+- 包含多个相互依赖的插件。
+- 包含在启动时自动加载的插件（"start" 包，位于 "pack/*/start/*"）和仅在需要时
+  通过 |:packadd| 加载的插件（"opt" 包，位于 "pack/*/opt/*"）。
+
+                                                        *runtime-search-path*
+Nvim 在以下位置搜索 |:runtime| 文件：
+- 1. 'runtimepath' 中的所有路径
+- 2. 所有 "pack/*/start/*" 目录
+
+注意 "pack/*/start/*" 路径并未显式包含在 'runtimepath' 中，因此 ":set rtp" 或
+"echo &rtp" 不会报告它们。脚本可以使用 |nvim_list_runtime_paths()| 列出所有
+使用的目录，使用 |nvim_get_runtime_file()| 查询运行时路径中的特定文件或子文件
+夹。示例：>
+    " List all runtime dirs and packages with Lua paths.
+    :echo nvim_get_runtime_file("lua/", v:true)
+
+使用包并自动加载 ~
+
+假设你的 Nvim 文件在 "~/.local/share/nvim/site" 中，你想从 zip 归档
+"/tmp/foopack.zip" 添加一个包：>
+    % mkdir -p ~/.local/share/nvim/site/pack/foo
+    % cd ~/.local/share/nvim/site/pack/foo
+    % unzip /tmp/foopack.zip
+
+目录名 "foo" 是任意的，你可以选择任何你喜欢的名称。
+
+你现在会在 ~/.local/share/nvim/site 下有这些文件：>
+    pack/foo/README.txt
+    pack/foo/start/foobar/plugin/foo.vim
+    pack/foo/start/foobar/syntax/some.vim
+    pack/foo/opt/foodebug/plugin/debugger.vim
+
+在启动时处理完你的 |config| 之后，Nvim 扫描 'packpath' 中所有目录下
+"pack/*/start/*" 中的插件，然后加载这些插件。
+
+为了在解析 |vimrc| 时能够调用包的功能，|:colorscheme| 和 |autoload| 除了
+'runtimepath' 外，还会自动搜索 'packpath' 下的内容。详见各自的文档。
+
+在此示例中，Nvim 将找到 "pack/foo/start/foobar/plugin/foo.vim" 并加载它。
+
+如果 "foobar" 插件生效并将 'filetype' 设置为 "some"，Nvim 将找到
+syntax/some.vim 文件，因为其目录在运行时搜索路径中。
+
+Nvim 还会加载 ftdetect 文件（如果有的话）。
+
+注意 "pack/foo/opt" 下的文件不会自动加载，只有 "pack/foo/start" 下的会。
+关于如何使用 "opt" 目录，参见下面的 |pack-add|。
+
+如果禁用了加载插件，自动加载包不会发生，参见 |load-plugins|。
+
+要更早地加载包，使 plugin/ 文件被加载：
+    :packloadall
+即使禁用了加载插件也有效。自动加载只会发生一次。
+
+如果包有 "after" 目录，该目录会被添加到 'runtimepath' 的末尾，使其中的内容
+稍后加载。
+
+
+使用单个插件并自动加载 ~
+
+如果你没有一个包而是单个插件，需要创建额外的目录层级：>
+    % mkdir -p ~/.local/share/nvim/site/pack/foo/start/foobar
+    % cd ~/.local/share/nvim/site/pack/foo/start/foobar
+    % unzip /tmp/someplugin.zip
+
+你现在会有这些文件：>
+    pack/foo/start/foobar/plugin/foo.vim
+    pack/foo/start/foobar/syntax/some.vim
+
+之后的工作方式与上面相同。
+
+
+可选插件 ~
+                                                        *pack-add*
+要从包中加载可选插件，使用 `:packadd` 命令：>
+    :packadd foodebug
+这会在 'packpath' 中搜索 "pack/*/opt/foodebug"，并找到
+~/.local/share/nvim/site/pack/foo/opt/foodebug/plugin/debugger.vim 并加载它。
+
+这可以在满足某些条件时执行。例如，取决于 Nvim 是否支持某个特性或某个依赖
+是否缺失。
+
+你也可以在启动时加载可选插件，方法是在你的 |config| 中添加此命令：>
+    :packadd! foodebug
+额外的 "!" 是为了在 Nvim 以 |--noplugin| 启动时不加载该插件。
+
+一个包只包含 "opt" 目录中的文件是完全正常的。那么你需要在想使用每个插件时
+手动加载它。
+
+
+放置位置 ~
+
+由于颜色方案通过 `:colorscheme` 加载，在 "pack/*/start" 和 "pack/*/opt" 下都能
+找到，所以你可以把它们放在任何地方。我们建议放在 "pack/*/opt" 下，例如
+"~/.config/nvim/pack/mycolors/opt/dark/colors/very_dark.vim"。
+
+文件类型插件应放在 "pack/*/start" 下，这样它们总能被找到。除非你有多个同一文件
+类型的插件，并想用 `:packadd` 选择加载哪一个。例如根据编译器版本：>
+    if foo_compiler_version > 34
+      packadd foo_new
+    else
+      packadd foo_old
+    endif
+
+"after" 目录在包中最可能不太有用。但也不禁止使用。
+
+==============================================================================
+创建 Vim 包                                   *package-create*
+
+这假设你编写了一个或多个作为包分发的插件。
+
+如果你有两个不相关的插件，应使用两个包，这样 Vim 用户可以选择包含或不包含。
+或者你可以决定使用一个包含可选插件的包，并告诉用户使用 `:packadd` 添加他们
+想要的。
+
+决定如何分发包。你可以创建一个归档或使用代码仓库。归档可以被更多用户使用，
+但更新到新版本稍微困难。代码仓库通常可以轻松保持最新，但需要 "git" 等程序
+可用。你可以两者都做，github 可以自动为发布创建归档。
+
+你的目录布局应如下：>
+   start/foobar/plugin/foo.vim          " always loaded, defines commands
+   start/foobar/plugin/bar.vim          " always loaded, defines commands
+   start/foobar/autoload/foo.vim        " loaded when foo command used
+   start/foobar/doc/foo.txt             " help for foo.vim
+   start/foobar/doc/tags                " help tags
+   opt/fooextra/plugin/extra.vim        " optional plugin, defines commands
+   opt/fooextra/autoload/extra.vim      " loaded when extra command used
+   opt/fooextra/doc/extra.txt           " help for extra.vim
+   opt/fooextra/doc/tags                " help tags
+<
+这允许用户执行：>
+    mkdir ~/.local/share/nvim/site/pack
+    cd ~/.local/share/nvim/site/pack
+    git clone https://github.com/you/foobar.git myfoobar
+
+这里 "myfoobar" 是用户可以选择的名称，唯一的条件是它与其他包不同。
+
+在你的文档中解释插件的功能，并告诉用户如何加载可选插件：>
+    :packadd! fooextra
+
+你可以在你的某个插件中添加此 packadd 命令，在需要可选插件时执行。
+
+运行 `:helptags` 命令生成 doc/tags 文件。在包中包含此生成的文件意味着用户可以
+直接将包放入 pack 目录，帮助命令就能立即工作。更改插件帮助后别忘了重新运行
+该命令：>
+    :helptags path/start/foobar/doc
+    :helptags path/opt/fooextra/doc
+
+
+插件间的依赖 ~
+                                                        *packload-two-steps*
+假设你有两个依赖相同功能的插件。你可以将公共功能放在 autoload 目录中，
+这样它会自动被找到。你的包会包含这些文件：
+
+pack/foo/start/one/plugin/one.vim  >
+    call foolib#getit()
+pack/foo/start/two/plugin/two.vim >
+    call foolib#getit()
+pack/foo/start/lib/autoload/foolib.vim >
+    func foolib#getit()
+
+这能工作，因为 start 包在加载插件时会搜索 autoload 文件。
+
+==============================================================================
+插件管理器                                                      *vim.pack*
+
+安装、更新和删除外部插件。警告：它仍被视为实验性的，但应该足够稳定以供日常
+使用。
+
+仅在专用的 *vim.pack-directory*（参见 |packages|）中管理插件："data"
+|standard-path| 的 `site/pack/core/opt` 子目录。"data" standard path 的
+`site` 子目录需要是 'packpath' 的一部分。通常是这样的，但在 |--clean| 或启动
+时设置 |$XDG_DATA_HOME| 等情况下可能不是。插件的子目录名称与规范中的插件名称
+匹配。假定该目录中的所有插件都由 `vim.pack` 独占管理。
+
+使用 Git 管理插件，需要可用的 `git` 可执行文件。目标插件应是 Git 仓库，版本
+为遵循 semver 约定 `v<major>.<minor>.<patch>` 的命名标签。
+
+所有受管理插件的最新状态存储在 *vim.pack-lockfile* 中，位于
+`$XDG_CONFIG_HOME/nvim/nvim-pack-lock.json`。它是一个 JSON 文件，用于持久跟踪
+插件数据。为了更稳健的配置，将锁文件视为配置的一部分：放入版本控制等。在这种
+情况下，锁文件中的所有插件将同时安装，且使用锁文件中的版本（而非从 `version`
+推断）。这在第一次 `vim.pack` 函数调用时完成，以确保锁文件与磁盘上的实际内容
+一致。锁文件不应手动编辑。已安装插件的损坏数据会被修复（包括删除整个文件后），
+但尚未添加的插件的 `version` 字段将缺失。
+
+                                                           *vim.pack-examples*
+
+基本安装和管理 ~
+• 在 'init.lua' 中添加 |vim.pack.add()| 调用：>lua
+
+    vim.pack.add({
+      -- Install "plugin1" and use default branch (usually `main` or `master`)
+      'https://github.com/user/plugin1',
+
+      -- Same as above, but using a table (allows setting other options)
+      { src = 'https://github.com/user/plugin1' },
+
+      -- Specify plugin's name (here the plugin will be called "plugin2"
+      -- instead of "generic-name")
+      { src = 'https://github.com/user/generic-name', name = 'plugin2' },
+
+      -- Specify version to follow during install and update
+      {
+        src = 'https://github.com/user/plugin3',
+        -- Version constraint, see |vim.version.range()|
+        version = vim.version.range('1.0'),
+      },
+      {
+        src = 'https://github.com/user/plugin4',
+        -- Git branch, tag, or commit hash
+        version = 'main',
+      },
+    })
+
+    -- Plugin's code can be used directly after `add()`
+    plugin1 = require('plugin1')
+<
+• 重启 Nvim（例如使用 |:restart|）。尚未安装的插件将在 `add()` 调用后出现在
+  磁盘上。它们的版本从 |vim.pack-lockfile|（如果存在）获取或从 `version` 推断。
+• 要使用新变更更新所有插件：
+  • 执行 |vim.pack.update()|。这将从源下载更新并在单独的标签页中显示确认缓冲
+    区。
+  • 检查变更。确认所有更新执行 |:write|。放弃更新执行 |:quit|。
+  • （可选）|:restart| 以开始使用更新插件的代码。
+
+使用更短的源 ~
+
+创建自定义 Lua 辅助函数：>lua
+
+    local gh = function(x) return 'https://github.com/' .. x end
+    local cb = function(x) return 'https://codeberg.org/' .. x end
+    vim.pack.add({ gh('user/plugin1'), cb('user/plugin2') })
+<
+
+另一种方法是利用 Git 的 `insteadOf` 配置：
+• `git config --global url."https://github.com/".insteadOf "gh:"`
+• `git config --global url."https://codeberg.org/".insteadOf "cb:"`
+• 在 'init.lua' 中：`vim.pack.add({ 'gh:user/plugin1', 'cb:user/plugin2' })`。
+  这些源将逐字用于 |vim.pack-lockfile|，因此在不同机器上重用配置需要相同的
+  Git 配置。
+
+浏览已安装的插件 ~
+• `vim.pack.update(nil, { offline = true })`
+• 使用 `[[` 和 `]]` 在插件间导航。使用 `gO`
+  (|vim.lsp.buf.document_symbol()|) 列出它们。
+
+切换插件的版本和/或源 ~
+• 在 'init.lua' 中更新插件使其具有所需的 `version` 和/或 `src`。假设切换的
+  插件名为 'plugin1'。
+• |:restart|。插件在磁盘上的状态（版本和/或跟踪的源）尚未更改。只有
+  |vim.pack-lockfile| 中插件的 `version` 被更新。
+• 执行 `vim.pack.update({ 'plugin1' })`。插件的源被更新。如果只切换版本，
+  使用 `{ offline = true }` 选项表。
+• 检查变更并确认或放弃。如果放弃，也要在 'init.lua' 中还原 `version` 更改，
+  否则下次运行 |vim.pack.update()| 时会再次提示。
+
+冻结插件不被更新 ~
+• 在 'init.lua' 中更新插件，将 `version` 设为当前版本。从 |vim.pack-lockfile|
+  获取（插件的 `rev` 字段；形如 `abc12345`）。
+• |:restart|。
+
+解冻插件以开始接收更新 ~
+• 在 'init.lua' 中更新插件，将 `version` 设为你想要更新到的版本。
+• |:restart|。
+
+更新后还原插件 ~
+• 将 |vim.pack-lockfile| 还原到更新前的状态：
+  • 如果 Git 跟踪：`git checkout HEAD -- nvim-pack-lock.json`
+  • 如果未跟踪：检查日志文件（"log" |standard-path| 中的 "nvim-pack.log"），
+    找到最新更新前的版本，然后（仔细地）调整当前锁文件为那些版本。
+• |:restart|。
+• `vim.pack.update({ 'plugin' }, { offline = true, target = 'lockfile' })`。
+  阅读并确认。
+
+跨机器同步配置 ~
+• 在主机器上：
+  • 将 |vim.pack-lockfile| 添加到 VCS。
+  • 推送到远程服务器。
+• 在辅助机器上：
+  • 从服务器拉取。
+  • |:restart|。新插件（本地不存在但存在于锁文件中）将以正确的版本安装到磁盘。
+  • `vim.pack.update(nil, { target = 'lockfile' })`。阅读并确认。
+  • 使用 `vim.pack.del( { 'plugin' })` 手动删除过时的插件（本地存在但在重启前
+    的锁文件中不存在）。它们可以通过检查锁文件的 VCS 差异来定位
+    （Git 使用 `git diff -- nvim-pack-lock.json`）。
+
+从磁盘删除插件 ~
+• 从 'init.lua' 中的 |vim.pack.add()| 调用中删除插件规范，否则它们稍后会被
+  重新安装。
+• |:restart|。
+• 使用 |vim.pack.del()| 和插件名称列表来删除。使用 |vim.pack.get()| 获取所有
+  非活动插件：>lua
+    vim.iter(vim.pack.get())
+     :filter(function(x) return not x.active end)
+     :map(function(x) return x.spec.name end)
+     :totable()
+<
+
+                                                             *vim.pack-events*
+
+通过 `vim.pack` 函数执行操作可以触发以下事件：
+• *PackChangedPre* - 在尝试更改插件状态之前。
+• *PackChanged* - 在插件状态更改之后。
+
+每个事件填充以下 |event-data| 字段：
+• `active` - 插件是否通过 |vim.pack.add()| 添加到当前会话。
+• `kind` - "install"（安装到磁盘；加载前）、"update"（更新已安装的插件；
+  可能未加载）或 "delete"（从磁盘删除）之一。
+• `spec` - 插件的规范，默认值已显式化。
+• `path` - 插件目录的完整路径。
+
+这些事件可用于执行插件钩子。例如：>lua
+    local hooks = function(ev)
+      -- Use available |event-data|
+      local name, kind = ev.data.spec.name, ev.data.kind
+
+      -- Run build script after plugin's code has changed
+      if name == 'plug-1' and (kind == 'install' or kind == 'update') then
+        -- Append `:wait()` if you need synchronous execution
+        vim.system({ 'make' }, { cwd = ev.data.path })
+      end
+
+      -- If action relies on code from the plugin (like user command or
+      -- Lua code), make sure to explicitly load it first
+      if name == 'plug-2' and kind == 'update' then
+        if not ev.data.active then
+          vim.cmd.packadd('plug-2')
+        end
+        vim.cmd('PlugTwoUpdate')
+        require('plug2').after_update()
+      end
+    end
+
+    -- If hooks need to run on install, run this before `vim.pack.add()`
+    -- To act on install from lockfile, run before very first `vim.pack.add()`
+    vim.api.nvim_create_autocmd('PackChanged', { callback = hooks })
+<
+
+
+*vim.pack.Spec*
+
+    Fields: ~
+      • {src}       (`string`) 安装和拉取更新的 URI。支持 `git clone` 支持的
+                    任何格式。
+      • {name}?     (`string`) 插件名称。将用作目录名称。
+                    默认：`src` 仓库名称。
+      • {version}?  (`string|vim.VersionRange`) 用于安装和更新的版本。可以是：
+                    • `nil`（无值，默认）使用仓库的默认分支（通常是 `main`
+                      或 `master`）。
+                    • 字符串，使用特定的分支、标签或提交哈希。
+                    • |vim.version.range()| 的输出，安装版本约束内最大/最后的
+                      semver 标签。
+      • {data}?     (`any`) 与插件关联的任意数据。
+
+
+add({specs}, {opts})                                          *vim.pack.add()*
+    将插件添加到当前会话
+    • 对于每个规范，检查插件是否存在于 |vim.pack-directory| 的磁盘上：
+      • 如果存在，检查其 `src` 是否与输入相同。如果不同 - 立即删除以从新源
+        全新安装。否则不做任何操作。
+      • 如果不存在，通过从 `src` 下载到 `name` 子目录来安装（通过部分无 blob
+        的 `git clone`）并更新版本以匹配 `version`（通过 `git checkout`）。
+        如果任何步骤出错，插件将不会出现在磁盘上。
+    • 对于每个插件执行 |:packadd|（或可自定义的 `load` 函数）使其可被 Nvim
+      访问。
+
+    注意：
+    • 安装并行完成，但会等待所有安装完成后再继续执行后续代码。
+    • 如果插件已存在于磁盘上，不会检查其当前版本。指定的 `version` 可能不是
+      磁盘上实际存在的版本。执行 |vim.pack.update()| 来同步。
+    • 在单个会话中第二次及更多次添加插件不会做任何操作：只有首次添加的数据
+      被记录。
+
+    Parameters: ~
+      • {specs}  (`(string|vim.pack.Spec)[]`) 插件规范列表。字符串项被视为
+                 `src`。
+      • {opts}   (`table?`) 具有以下字段的表：
+                 • {load}?
+                   (`boolean|fun(plug_data: {spec: vim.pack.Spec, path: string})`)
+                   加载 `plugin/` 文件和 `ftdetect/` 脚本。如果为 `false`，
+                   工作方式类似 `:packadd!`。如果为函数，使用插件数据调用，
+                   完全负责加载插件。默认在 |init.lua| 加载期间为 `false`，
+                   之后为 `true`。
+                 • {confirm}? (`boolean`) 是否要求用户确认初始安装。
+                   默认 `true`。
+
+del({names}, {opts})                                          *vim.pack.del()*
+    从磁盘删除插件
+
+    Parameters: ~
+      • {names}  (`string[]`) 要从磁盘删除的插件名称列表。必须由 |vim.pack|
+                 管理，不一定已添加到当前会话。
+      • {opts}   (`table?`) 具有以下字段的表：
+                 • {force}? (`boolean`) 是否允许删除活动插件。
+                   默认 `false`。
+
+get({names}, {opts})                                          *vim.pack.get()*
+    获取 |vim.pack| 插件信息，可选按 `names` 过滤。
+
+    Parameters: ~
+      • {names}  (`string[]?`) 插件名称列表。默认：|vim.pack| 管理的所有
+                 插件。
+      • {opts}   (`table?`) 具有以下字段的表：
+                 • {info} (`boolean`) 是否包含额外的插件信息。
+                   默认 `true`。
+
+    Return: ~
+        (`table[]`) 具有以下字段的对象列表：
+        • {active} (`boolean`) 插件是否通过 |vim.pack.add()| 添加到当前会话。
+        • {branches}? (`string[]`) 可用的 Git 分支（第一个是默认分支）。
+          如果 `info=false` 则缺失。
+        • {path} (`string`) 插件在磁盘上的路径。
+        • {rev} (`string`) 当前 Git 版本。
+        • {spec} (`vim.pack.SpecResolved`) 已解析 `name` 的 |vim.pack.Spec|。
+        • {tags}? (`string[]`) 可用的 Git 标签。如果 `info=false` 则缺失。
+
+update({names}, {opts})                                    *vim.pack.update()*
+    更新插件
+    • 从源下载新变更。
+    • 推断更新信息（当前/目标版本、变更日志等）。
+    • 如果 `force` 为 `false`（默认），显示确认缓冲区。如果 `force` 为
+      `true`，立即执行更新。
+
+    注意：
+    • 每次实际更新都记录在 "log" |standard-path| 中的 "nvim-pack.log" 文件。
+    • 如果源的默认分支已更改（如从 `master` 到 `main`），不会更新。要让
+      `version = nil` 指向新的默认分支，重新安装插件（|vim.pack.del()| +
+      |vim.pack.add()|）。
+
+    确认缓冲区 ~
+
+    确认缓冲区的目标是显示更新详情，供用户阅读、确认（执行 |:write|）或
+    拒绝（执行 |:quit|）更新。
+
+    以 `>` 开头的待定变更将被应用，以 `<` 开头的将被还原。
+
+    提供了便捷的缓冲区本地映射：
+    • |]]| 和 |[[| 在插件部分间导航。
+
+    一些功能通过 LSP 提供：
+    • 'textDocument/documentSymbol' (通过 |lsp-defaults| 的 `gO` 或
+      |vim.lsp.buf.document_symbol()|) - 显示缓冲区结构。
+    • 'textDocument/hover' (通过 |lsp-defaults| 的 `K` 或
+      |vim.lsp.buf.hover()|) - 显示光标处的更多信息。如特定待定变更的详情
+      或更新的标签。
+    • 'textDocument/codeAction' (通过 |lsp-defaults| 的 `gra` 或
+      |vim.lsp.buf.code_action()|) - 显示与"光标处插件"相关的代码操作。
+      如"删除"（如果插件未激活）、"更新"或"跳过更新"（如果有待定更新）。
+
+    Parameters: ~
+      • {names}  (`string[]?`) 要更新的插件名称列表。必须由 |vim.pack| 管理，
+                 不一定已添加到当前会话。默认：|vim.pack| 管理的所有插件名称。
+      • {opts}   (`table?`) 具有以下字段的表：
+                 • {force}? (`boolean`) 是否跳过确认并立即执行更新。
+                   默认 `false`。
+                 • {offline}? (`boolean`) 是否跳过下载新更新。
+                   默认：`false`。
+                 • {target}? (`string`) 如何计算新的插件版本。以下之一：
+                   • "version"（默认）：使用与插件规范中 `version` 匹配的
+                     最新版本。
+                   • "lockfile"：使用锁文件中的版本。用于还原或执行受控更新。
+
+
+ vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

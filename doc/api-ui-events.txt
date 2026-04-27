@@ -1,0 +1,804 @@
+*api-ui-events.txt*	Nvim
+
+
+			    NVIM REFERENCE MANUAL
+
+
+Nvim UI 协议					*UI* *ui* *api-ui-events*
+
+本文档描述 UI 协议。参见 |gui| 和 |tui| 了解面向用户的 UI 组件和功能。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+UI 事件						*ui-protocol* *ui-events*
+
+UI 可以实现为通过 RPC API 与 Nvim 通信的外部客户端进程。默认 UI 模型是一个
+类终端的网格，使用单一的等宽字体。UI 可以选择让窗口绘制在单独的网格上，并让
+一些元素（"widget"）由 UI 自己而不是 Nvim 呈现（"外部化"）。
+
+							*ui-option*
+调用 |nvim_ui_attach()| 来告诉 Nvim 你的程序要绘制宽度 x 高度个单元格的 Nvim
+屏幕网格。这通常由嵌入器在启动时完成（参见 |ui-startup|），但 UI 也可以连接到
+正在运行的 Nvim 实例并调用 nvim_ui_attach()。`options` 参数是一个映射，包含
+以下（可选）键:
+
+							*ui-rgb*
+- `rgb`			决定颜色格式。
+			- true:（默认）24 位 RGB 颜色
+			- false: 终端颜色（8 位，最多 256 色）
+
+							*ui-override*
+- `override`		决定 UI 能力如何解析。
+			- true: 启用请求的 UI 能力，即使并非所有连接的 UI
+			  （包括 |TUI|）都支持。
+			- false:（默认）禁用并非所有连接的 UI（包括 TUI）
+			  都支持的 UI 能力。
+
+							*ui-ext-options*
+- `ext_cmdline`		外部化命令行。|ui-cmdline|
+- `ext_hlstate`		详细高亮状态。|ui-hlstate|
+			隐式设置 `ext_linegrid`。
+- `ext_linegrid`	基于行的网格事件。|ui-linegrid|
+			隐式停用 |ui-grid-old|。
+- `ext_messages`	外部化消息。|ui-messages|
+			隐式设置 `ext_linegrid` 和 `ext_cmdline`。
+- `ext_multigrid`	每窗口网格事件。|ui-multigrid|
+			隐式设置 `ext_linegrid`。
+- `ext_popupmenu`	外部化 |popupmenu-completion| 和
+			'wildmenu'。|ui-popupmenu|
+- `ext_tabline`		外部化标签栏。|ui-tabline|
+- `ext_termcolors`	使用外部默认颜色。
+- `term_name`		设置终端名称 'term'。
+- `term_colors`		设置支持的颜色数 't_Co'。
+- `stdin_fd`		使用 |--| 时将此 fd 当作 stdin。
+			仅限启动时的 |--embed| UI。|ui-startup-stdin|
+- `stdin_tty`		告知 `stdin` 是否是 `tty`。
+- `stdout_tty`		告知 `stdout` 是否是 `tty`。
+
+指定未知选项会报错；UI 可以检查 |api-metadata| 的 `ui_options` 键以获取支持
+的选项。
+
+默认情况下 Nvim 要求所有连接的 UI 支持相同的能力，因此活跃的能力是所请求
+能力的交集。UI 可以指定 |ui-override| 来反转此行为（对调试有用）。
+"option_set" 事件宣告哪些能力处于活跃状态。
+
+Nvim 向所有连接的 UI 发送 RPC 通知，方法名为 "redraw"，带有单个参数：一个
+屏幕 "更新事件" 的数组（批次）。每个更新事件本身是一个数组，其第一个元素是
+事件名，其余元素是事件参数元组。因此同类型的多个事件可以连续发送而无需重复
+事件名。
+
+典型 "redraw" 批次在单个 RPC 通知中的示例: >
+
+    ['notification', 'redraw',
+      [
+	['grid_resize', [2, 77, 36]],
+	['grid_line',
+	  [2, 0, 0, [[' ' , 0, 77]], false],
+	  [2, 1, 0, [['~', 7], [' ', 7, 76]], false],
+	  [2, 9, 0, [['~', 7], [' ', 7, 76]], false],
+	  ...
+	  [2, 35, 0, [['~', 7], [' ', 7, 76]], false],
+	  [1, 36, 0, [['[', 9], ['N'], ['o'], [' '], ['N'], ['a'], ['m'], ['e'], [']']], false],
+	  [1, 36, 9, [[' ', 9, 50]], false],
+	  [1, 36, 59, [['0', 9], [','], ['0'], ['-' ], ['1'], [' ', 9, 10], ['A'], ['l', 9, 2]], false]
+	],
+	['msg_showmode', [[]]],
+	['win_pos', [2, 1000, 0, 0, 77, 36]],
+	['grid_cursor_goto', [2, 0, 0]],
+	['flush', []]
+      ]
+    ]
+
+事件必须按顺序处理。Nvim 在完成整个屏幕的重绘后发送 "flush" 事件（因此所有
+窗口都有一致的缓冲区状态、选项等视图）。在整个屏幕重绘完成前可能会发送多个
+"redraw" 批次，"flush" 仅跟在最后一个批次之后。用户应该只看到最终状态（当
+"flush" 发送时），而不是处理批次数组一部分时的任何中间状态，也不是在不以
+"flush" 结尾的批次之后的状态。
+
+默认情况下，Nvim 发送 |ui-global| 和 |ui-grid-old| 事件（用于向后兼容）；
+这些足以实现类终端界面。然而新的 |ui-linegrid| 更高效地表示文本（特别是高亮
+文本），并允许需要多个网格的 UI 能力。新的 UI 应该实现 |ui-linegrid| 而不是
+|ui-grid-old|。
+
+Nvim 可选地将各种屏幕元素作为结构化事件而非原始网格行 "语义化" 发送，如
+|ui-ext-options| 所指定。UI 必须自己呈现此类元素，Nvim 不会在网格上绘制它们。
+
+未来版本的 Nvim 可能会添加新的更新类型，也可能向现有更新类型追加新参数。
+客户端必须准备好忽略此类扩展，以实现前向兼容。|api-contract|
+
+==============================================================================
+UI 启动							   *ui-startup*
+
+UI 嵌入器（使用 |--embed| 启动 Nvim 并稍后调用 |nvim_ui_attach()| 的客户端）
+必须在不使用 |--headless| 的情况下启动 Nvim: >bash
+    nvim --embed
+Nvim 会在加载启动文件和读取缓冲区之前暂停，以便 UI 有机会调用请求并进行早期
+初始化。当 UI 调用 |nvim_ui_attach()| 时启动将继续。
+
+简单的 UI 只需要执行单个 |nvim_ui_attach()| 请求，然后准备好处理任何 UI 事件。
+更高级的 UI 可能需要对 Nvim 进程进行额外配置，应使用以下启动过程:
+
+1. 如果需要设置客户端库和/或获取支持的 UI 扩展列表，调用
+   |nvim_get_api_info()|。
+2. 执行应在加载用户配置之前进行的任何配置。此时缓冲区和窗口不可用，但可以
+   用来设置 init.vim 可见的 |g:| 变量。
+3. 如果 UI 想在加载用户配置后进行额外设置，注册一个 VimEnter 自动命令: >lua
+      nvim_command("autocmd VimEnter * call rpcrequest(1, 'vimenter')")
+4. 现在调用 |nvim_ui_attach()|。此时 UI 必须处理用户输入：加载 init.vim 和
+   读取缓冲区可能导致阻塞提示。
+5. 如果使用了步骤 3，Nvim 将向 UI 发送一个阻塞的 "vimenter" 请求。在此请求
+   处理程序内，UI 可以在进入普通模式之前安全地进行任何初始化，例如读取
+   init.vim 设置的变量。
+
+							   *ui-startup-stdin*
+UI 可以按以下方式支持从 stdin 读取（如 `command | nvim -`，参见 |--|）:
+
+1. 嵌入进程检测到 stdin fd 不是终端。
+2. 然后需要将此 fd 转发给 Nvim。因为 fd=0 已经用于从嵌入器向 Nvim 发送 RPC
+   数据，必须使用其他文件描述符，如 fd=3 或更高。
+3. 然后将该 fd 作为 `nvim_ui_attach` 的 `stdin_fd` 参数传递。Nvim 将其作为
+   文本读入缓冲区 1。
+
+==============================================================================
+全局事件							    *ui-global*
+
+以下 UI 事件始终发出，描述编辑器的全局状态。
+
+["set_title", title] ~
+["set_icon", icon] ~
+	分别设置窗口标题和图标（最小化时的）窗口标题。在不区分两者的窗口系统
+	中，可以忽略 "set_icon"。
+
+["mode_info_set", cursor_style_enabled, mode_info] ~
+	`cursor_style_enabled` 是一个布尔值，指示 UI 是否应设置光标样式。
+	`mode_info` 是模式属性映射的列表。当前模式由 `mode_change` 事件的
+	`mode_idx` 字段给出。
+
+	每个模式属性映射可能包含以下键:
+
+	键		描述 ~
+	`cursor_shape`:	"block"、"horizontal"、"vertical"
+	`cell_percentage`: 光标占据的单元格百分比。
+	`blinkwait`, `blinkon`, `blinkoff`: 参见 |cursor-blinking|。
+	`attr_id`:	光标属性 id（由 `hl_attr_define` 定义）。
+			当 attr_id 为 0 时，应交换背景色和前景色。
+	`attr_id_lm`:	当 |:lmap| 开启时的光标属性 id。
+	`short_name`:	模式代码名称，参见 'guicursor'。
+	`name`:		模式描述名称。
+	`mouse_shape`:	（待实现。）
+
+	某些模式中可能缺少某些键。
+
+	以下键已弃用:
+
+	`hl_id`:	使用 `attr_id` 代替。
+	`id_lm`:	使用 `attr_id_lm` 代替。
+
+["option_set", name, value] ~
+	UI 相关选项已更改，其中 `name` 是以下之一:
+
+	- 'arabicshape'
+	- 'ambiwidth'
+	- 'emoji'
+	- 'guifont'
+	- 'guifontwide'
+	- 'linespace'
+	- 'mousefocus'
+	- 'mousehide'
+	- 'mousemoveevent'
+	- 'pumblend'
+	- 'showtabline'
+	- 'termguicolors'
+	- "ext_*"（所有 |ui-ext-options|）
+
+	在 UI 首次连接到 Nvim 时以及用户或插件更改选项时触发。
+
+	如果选项的效果已在其他 UI 事件中传达，则不在此处表示。例如，不是转发
+	'mouse' 选项值，而是由 "mouse_on" 和 "mouse_off" UI 事件直接指示鼠标
+	支持是否处于活跃状态。某些选项如 'ambiwidth' 已经在网格上生效，其中已
+	添加了适当的空单元格，但 UI 在渲染 Nvim 发送的原始文本时仍可能使用
+	此类选项，如 |ui-cmdline|。
+
+["chdir", path] ~
+	|current-directory| 已更改为 `path`。
+
+["mode_change", mode, mode_idx] ~
+	编辑器模式已更改。`mode` 参数是表示当前模式的字符串。`mode_idx` 是
+	`mode_info_set` 事件中发出的数组的索引。UI 应根据对应条目中指定的属性
+	更改光标样式。报告的模式集合可能在 Nvim 的新版本中更改，例如更多子模式
+	和临时状态可能会作为单独的模式表示。
+
+["mouse_on"] ~
+["mouse_off"] ~
+	在当前编辑器模式中启用/禁用了 'mouse'。对于终端 UI 或嵌入到 Nvim 鼠标
+	会与其他鼠标用途冲突的应用程序中很有用。其他 UI 可以忽略此事件。
+
+["busy_start"] ~
+["busy_stop"] ~
+	指示 UI 必须停止渲染光标。此事件的命名有误，实际上与忙碌无关。
+
+["connect", server_addr] ~
+	用户调用了 |:connect| 命令。Nvim 已分离当前 UI。
+
+	UI 应该:
+	1. 连接到 `server_addr` 处的服务器。
+
+["restart", listen_addr] ~
+	用户调用了 |:restart| 命令。Nvim 启动了新服务器。旧服务器即将退出并
+	关闭其通道。
+
+	UI 应该:
+	1. 等待通道关闭，以确认旧服务器确实已退出。
+	2. 连接到 `listen_addr` 处的新服务器。
+
+["suspend"] ~
+	使用了 |:suspend| 命令或 |CTRL-Z| 映射。终端客户端（或其他有意义的
+	客户端）可以挂起自身。其他客户端可以安全地忽略它。
+
+["update_menu"] ~
+	菜单映射已更改。
+
+["bell"] ~
+["visual_bell"] ~
+	分别通过听觉或视觉铃声通知用户。
+
+["flush"] ~
+	Nvim 已完成屏幕重绘。对于渲染到内部缓冲区的实现，这是将重绘部分显示给
+	用户的时机。
+
+["ui_send", content] ~
+	将 {content} 写入连接的 TTY。只有设置了 "stdout_tty" |ui-option| 的 UI
+	才会收到此事件。
+
+==============================================================================
+网格事件（基于行）					  *ui-linegrid*
+
+由 `ext_linegrid` |ui-option| 激活。推荐所有新 UI 使用。
+隐式停用 |ui-grid-old|。
+
+与 |ui-grid-old| 不同，此 UI 扩展发出单个 `grid_line` 事件来更新一个屏幕行
+（而旧协议每个屏幕行发出单独的光标、高亮和文本事件）。
+
+这些事件大多数以 `grid` 索引作为第一个参数。网格 1 是默认用于整个编辑器屏幕
+状态的全局网格。`ext_linegrid` 能力本身永远不会导致创建额外的网格；要启用
+每窗口网格，请激活 |ui-multigrid|。
+
+高亮属性组是预定义的。UI 应维护一个表，将数字高亮 id 映射到实际属性。
+
+["grid_resize", grid, width, height] ~
+	调整 `grid` 的大小。如果客户端之前没有见过 `grid`，则正在创建一个此
+	大小的新网格。
+
+["default_colors_set", rgb_fg, rgb_bg, rgb_sp, cterm_fg, cterm_bg] ~
+	前三个参数分别设置默认的前景色、背景色和特殊色。`cterm_fg` 和
+	`cterm_bg` 指定在 256 色终端中使用的默认颜色代码。
+
+	RGB 值默认情况下始终是有效颜色。如果没有设置颜色，它们将根据
+	'background' 默认为黑色和白色。通过设置 `ext_termcolors` 选项，对于
+	未设置的颜色将使用 -1。这主要对 TUI 实现有用，其中预期使用终端内置
+	的（"ANSI"）默认值。
+
+	注意：与对应的 |ui-grid-old| 事件不同，发送此事件后屏幕不一定会被清除。
+	UI 必须自行使用更改的背景色重绘屏幕。
+
+							*ui-event-hl_attr_define*
+["hl_attr_define", id, rgb_attr, cterm_attr, info] ~
+	将 `id` 对应的高亮添加到高亮表中，使用 `rgb_attr` 和 `cterm_attr`
+	字典指定的属性，包含以下（全部可选的）键。
+
+	`foreground`:		前景色。
+	`background`:		背景色。
+	`special`:		存在时用于各种下划线的颜色。
+	`reverse`:		反转视频。交换前景色和背景色。
+	`italic`:		斜体文本。
+	`bold`:			粗体文本。
+	`strikethrough`:	删除线文本。
+	`underline`:		下划线文本。线条使用 `special` 颜色。
+	`undercurl`:		波浪下划线文本。波浪使用 `special` 颜色。
+	`underdouble`:		双下划线文本。线条使用 `special` 颜色。
+	`underdotted`:		点状下划线文本。点使用 `special` 颜色。
+	`underdashed`:		虚线下划线文本。虚线使用 `special` 颜色。
+	`altfont`:		替代字体。
+	`dim`:			半亮/暗淡文本。
+	`blink`:		闪烁文本。
+	`conceal`:		隐藏文本。
+	`overline`:		上划线文本。
+	`blend`:		混合级别（0-100）。UI 可以使用它来支持浮动
+				窗口混合到背景或发出透明光标信号。
+	`url`:			与此高亮关联的 URL。UI 应将该区域呈现为
+				可点击的超链接。
+
+	对于缺失的颜色键应使用默认颜色。不要在表中存储默认值，而是使用哨兵值，
+	以便更改的默认颜色能生效。
+	所有布尔键默认为 false，且仅在为 true 时发送。
+
+	高亮始终同时以 RGB 格式和终端 256 色代码两种形式传输，分别作为
+	`rgb_attr` 和 `cterm_attr` 参数。|ui-rgb| 选项不再有任何效果。
+	大多数外部 UI 只需要存储和使用 `rgb_attr` 属性。
+
+	`id` 0 始终用于默认高亮，颜色由 `default_colors_set` 定义且不应用
+	任何样式。
+
+	注意：如果 Nvim 的内部高亮表已满，可能会重用 `id` 值。在这种情况下
+	Nvim 将始终对受重定义 id 影响的屏幕单元格发出重绘，因此 UI 不需要
+	自行跟踪此情况。
+
+	除非启用了 |ui-hlstate|，否则 `info` 是空数组。
+
+["hl_group_set", name, hl_id] ~
+	内置高亮组 `name` 被设置为使用先前 `hl_attr_define` 调用定义的属性
+	`hl_id`。此事件对于直接使用属性 id 渲染网格不是必需的，但对于想要使用
+	一致高亮渲染自己元素的 UI 很有用。例如使用 |ui-popupmenu| 事件的 UI
+	可能使用 |hl-Pmenu| 系列内置高亮。
+
+							    *ui-event-grid_line*
+["grid_line", grid, row, col_start, cells, wrap] ~
+	重绘 `grid` 上一 `row` 的连续部分，从列 `col_start` 开始。`cells` 是
+	一个数组，每个元素包含 1 到 3 项: `[text(, hl_id, repeat)]`。`text` 是
+	应放入单元格的 UTF-8 文本，高亮为先前 `hl_attr_define` 调用定义的
+	`hl_id`。如果 `hl_id` 不存在，则应使用同一调用中最近出现的 `hl_id`
+	（事件中的第一个单元格始终会发送它）。如果存在 `repeat`，则该单元格应
+	重复 `repeat` 次（包括第一次），否则只重复一次。
+
+	双宽字符的右侧单元格将表示为空字符串。双宽字符不使用 `repeat`。
+
+	如果单元格更改数组没有到达行尾，其余部分应保持不变。当行的其余部分应被
+	清除时，会发送一个空白字符，重复足够次数以覆盖剩余行。
+
+	`wrap` 是一个布尔值，指示此行是否折行到下一行。当重绘折行到下一行的
+	行时，Nvim 会发出一个覆盖行最后一列的 `grid_line` 事件（`wrap` 设为
+	true），紧接着在下一行第一列开始的 `grid_line` 事件。
+
+["grid_clear", grid] ~
+	清除一个 `grid`。
+
+["grid_destroy", grid] ~
+	`grid` 将不再使用，UI 可以释放与之关联的任何数据。
+
+["grid_cursor_goto", grid, row, col] ~
+	使 `grid` 成为当前网格，`row, col` 成为此网格上的光标位置。此事件在
+	一个 `redraw` 批次中最多发送一次，指示可见的光标位置。
+
+["grid_scroll", grid, top, bot, left, right, rows, cols] ~
+	滚动 `grid` 的一个区域。这在语义上与编辑器 |scrolling| 无关，而是一种
+	优化的方式来表示 "复制这些屏幕单元格"。
+
+	以下图表显示了每个滚动方向发生的情况。
+	"===" 表示 SR（滚动区域）边界。
+	"---" 表示移动的矩形。
+	注意 dst 和 src 共享一个公共区域。
+
+	如果 `rows` 大于 0，在 SR 中向上移动一个矩形，这可能在向下滚动时发生。
+>
+		+-------------------------+
+		| (clipped above SR)      |            ^
+		|=========================| dst_top    |
+		| dst (still in SR)       |            |
+		+-------------------------+ src_top    |
+		| src (moved up) and dst  |            |
+		|-------------------------| dst_bot    |
+		| src (invalid)           |            |
+		+=========================+ src_bot
+<
+	如果 `rows` 小于零，在 SR 中向下移动一个矩形，这可能在向上滚动时发生。
+>
+		+=========================+ src_top
+		| src (invalid)           |            |
+		|------------------------ | dst_top    |
+		| src (moved down) and dst|            |
+		+-------------------------+ src_bot    |
+		| dst (still in SR)       |            |
+		|=========================| dst_bot    |
+		| (clipped below SR)      |            v
+		+-------------------------+
+<
+	在此版本的 Nvim 中 `cols` 始终为零，保留供将来使用。
+
+	从 |ui-grid-old| 事件更新代码时注意：范围是末尾排他的，这与 API 约定
+	一致，但与末尾包含的 `set_scroll_region` 不同。
+
+	滚入的区域将在滚动事件之后直接使用 |ui-event-grid_line| 填充。因此
+	UI 不需要在处理滚动事件时清除此区域。
+
+==============================================================================
+网格事件（基于单元格）					   *ui-grid-old*
+
+这是屏幕网格的旧版表示，在 |ui-linegrid| 未激活时发出。新 UI 应改为实现
+|ui-linegrid|。
+
+["resize", width, height] ~
+	网格调整为 `width` 和 `height` 个单元格。
+
+["clear"] ~
+	清除网格。
+
+["eol_clear"] ~
+	从光标位置清除到当前行末尾。
+
+["cursor_goto", row, col] ~
+	将光标移动到位置 (row, col)。目前，同一个光标用于定义文本插入位置和
+	可见光标。但是，只有处理 "redraw" 事件中整个数组后的最后一个光标位置
+	才是可见光标位置。
+
+["update_fg", color] ~
+["update_bg", color] ~
+["update_sp", color] ~
+	分别设置默认前景色、背景色和特殊色。
+
+							*ui-event-highlight_set*
+["highlight_set", attrs] ~
+	设置放到网格上的下一个文本将具有的属性。`attrs` 是一个字典，包含以下
+	键。任何缺失的键都会重置为其默认值。颜色默认值由 `update_fg` 等更新
+	设置。所有布尔键默认为 false。
+
+	`foreground`:	前景色。
+	`background`:	背景色。
+	`special`:	存在时用于各种下划线的颜色。
+	`reverse`:	反转视频。交换前景色和背景色。
+	`italic`:	斜体文本。
+	`bold`:		粗体文本。
+	`strikethrough`:  删除线文本。
+	`underline`:	下划线文本。线条使用 `special` 颜色。
+	`undercurl`:	波浪下划线文本。波浪使用 `special` 颜色。
+	`underdouble`:	双下划线文本。线条使用 `special` 颜色。
+	`underdotted`:	点状下划线文本。点使用 `special` 颜色。
+	`underdashed`:	虚线下划线文本。虚线使用 `special` 颜色。
+	`dim`:		半亮/暗淡文本。
+	`blink`:	闪烁文本。
+	`conceal`:	隐藏文本。
+	`overline`:	上划线文本。
+
+["put", text] ~
+	（utf-8 编码的）字符串 `text` 放在光标位置（光标向前移动），使用最后
+	一次 `highlight_set` 更新设置的高亮。
+
+["set_scroll_region", top, bot, left, right] ~
+	定义下面 `scroll` 使用的滚动区域。
+
+	注意：范围是末尾包含的，这与 API 约定不一致。
+
+["scroll", count] ~
+	滚动滚动区域中的文本。下面的图表说明了根据滚动方向将会发生什么。"="
+	用于表示 SR（滚动区域）边界，"-" 表示移动的矩形。注意 dst 和 src 共享
+	一个公共区域。
+
+	如果 count 大于 0，在 SR 中向上移动一个矩形，这可能在向下滚动时发生。
+>
+		+-------------------------+
+		| (clipped above SR)      |            ^
+		|=========================| dst_top    |
+		| dst (still in SR)       |            |
+		+-------------------------+ src_top    |
+		| src (moved up) and dst  |            |
+		|-------------------------| dst_bot    |
+		| src (cleared)           |            |
+		+=========================+ src_bot
+<
+	如果 count 小于零，在 SR 中向下移动一个矩形，这可能在向上滚动时发生。
+>
+		+=========================+ src_top
+		| src (cleared)           |            |
+		|------------------------ | dst_top    |
+		| src (moved down) and dst|            |
+		+-------------------------+ src_bot    |
+		| dst (still in SR)       |            |
+		|=========================| dst_bot    |
+		| (clipped below SR)      |            v
+		+-------------------------+
+<
+==============================================================================
+高亮事件						  *ui-hlstate*
+
+由 `ext_hlstate` |ui-option| 激活。
+隐式激活 |ui-linegrid|。
+
+如果启用 `ext_hlstate`，Nvim 将在 |ui-linegrid| 事件中发出详细的高亮状态。
+否则（默认情况下）Nvim 仅使用 |ui-event-highlight_set| 中描述的最终计算的
+高亮属性来描述网格单元格。
+
+`ext_hlstate` 为每个网格单元格提供活跃高亮的语义描述。高亮在表中预定义，
+参见 |ui-event-hl_attr_define| 和 |ui-event-grid_line|。
+
+`hl_attr_define` 中的 `info` 参数包含高亮的语义描述。因为高亮组可以组合，
+所以这是一个数组，最高优先级的项在最后。每个项是一个字典，包含以下键:
+
+    `kind`:	始终存在。以下值之一:
+	"ui":       内置 UI 高亮。|highlight-groups|
+	"syntax":   通过语法声明或其他运行时/插件功能（如
+		    |nvim_buf_set_extmark()|）应用于缓冲区的高亮
+	"terminal": 来自在 |terminal-emulator| 中运行的进程的高亮。
+		    不包含更多语义信息。
+    `ui_name`:	|highlight-groups| 中的高亮名称。仅适用于 "ui" 类型。
+    `hi_name`:	定义所使用属性的最终 |:highlight| 组的名称。
+    `id`:	表示此项的唯一数字 id。
+
+注意："ui" 项同时具有 `ui_name` 和 `hi_name`。它们可能不同，因为内置组被链接
+到另一个组 |:hi-link|，或因为使用了 'winhighlight'。即使高亮组被清除，UI 项
+也会被传输，因此 `ui_name` 始终可以用于可靠地识别屏幕元素，即使没有应用
+任何属性。
+
+==============================================================================
+多网格事件						 *ui-multigrid*
+
+由 `ext_multigrid` |ui-option| 激活。
+隐式激活 |ui-linegrid|。
+
+参见 |ui-linegrid| 了解网格事件。
+参见 |nvim_ui_try_resize_grid()| 请求更改网格大小。
+参见 |nvim_input_mouse()| 向 Nvim 发送鼠标事件。
+
+多网格扩展给予 UI 更多控制窗口显示方式的权限:
+- UI 为每个窗口在单独的网格上接收更新。
+- UI 可以独立于窗口在全局布局上占据的空间来设置网格大小。因此 UI 可以为每个
+  窗口使用不同的字体大小。或在窗口边框周围为自己的元素保留空间，如 UI 工具包
+  中的滚动条。
+- 专用网格用于消息，消息可能会滚动覆盖窗口区域。（或者可以使用
+  |ui-messages|）。
+
+默认情况下，网格大小由 Nvim 处理，并在创建分割时设置为外部网格大小（即 Nvim
+中窗口框架的大小）。一旦 UI 设置了网格大小，Nvim 就不再处理该网格的大小，
+UI 必须在外部大小更改时更改网格大小。要将网格大小处理委托回 Nvim，请请求
+大小 (0, 0)。
+
+窗口可以被隐藏并重新显示而无需释放其网格。对于同一窗口这可能发生多次，例如
+在切换标签页时。
+
+["win_pos", grid, win, start_row, start_col, width, height] ~
+	在 Nvim 中设置网格的位置和大小（即外部网格大小）。如果窗口之前被隐藏，
+	现在应该再次显示。
+
+["win_float_pos", grid, win, anchor, anchor_grid, anchor_row, anchor_col, mouse_enabled, zindex, compindex, screen_row, screen_col] ~
+	显示或重新配置浮动窗口 `win`。
+
+	有两种定位窗口的替代方式
+	  - 手动 - 窗口应显示在另一个网格 `anchor_grid` 上方的指定位置
+	     `anchor_row` 和 `anchor_col`。关于 `anchor` 的含义和更多定位详情，
+	     参见 |nvim_open_win()|。注意：你必须手动确保窗口适合屏幕，可能需要
+	     进一步重新定位。在这种情况下忽略 `screen_row` 和 `screen_col`。
+	  - 让 nvim 处理定位 - 你可以忽略 `anchor` 并在 `screen_row` 和
+	    `screen_col` 处显示窗口。
+
+	`mouse_enabled` 在窗口可以接收鼠标事件时为 true。
+
+	`zindex` 是配置的 zindex，而 `compindex` 是 nvim 确定的窗口的精确渲染
+	顺序。要与 TUI 完全相同地渲染，先渲染所有非浮动窗口，然后按 `compindex`
+	顺序渲染，覆盖任何浮动窗口单元格。最后，将浮动窗口单元格与非浮动背景
+	混合。要添加更多混合，可以按 zindex 对窗口分组，并在层之间混合。但注意
+	同一 zindex 内的窗口仍应覆盖同一层内的先前单元格而不混合。这确保渲染
+	多个窗口（例如添加边框）的插件按预期工作。
+
+["win_external_pos", grid, win] ~
+	显示或重新配置外部窗口 `win`。窗口应作为桌面环境中的单独顶级窗口显示，
+	或类似的东西。
+
+["win_hide", grid] ~
+	停止显示窗口。窗口稍后可以再次显示。
+
+["win_close", grid] ~
+	关闭窗口。
+
+["msg_set_pos", grid, row, scrolled, sep_char, zindex, compindex] ~
+	在 `grid` 上显示消息。网格将显示在默认网格（grid=1）的 `row` 行，覆盖
+	整个列宽。`scrolled` 指示消息区域是否已滚动覆盖其他网格。此时绘制分隔
+	线可能有用 |msgsep|。内置 TUI 绘制一条填充 `sep_char`（'fillchars'
+	msgsep 字段）和 |hl-MsgSeparator| 高亮的完整行。
+
+	当 |ui-messages| 激活时，不使用消息网格，此事件不会被发送。
+
+	`zindex` 和 `compindex` 与 `win_float_pos` 的含义相同。`zindex` 始终
+	具有固定值 200，为完整性而包含。
+
+["win_viewport", grid, win, topline, botline, curline, curcol, line_count, scroll_delta] ~
+	指示窗口中显示的缓冲区文本范围以及光标在缓冲区中的位置。所有位置都是
+	从零开始的。如果末尾有填充行，`botline` 设为超过缓冲区行数加一。
+	`scroll_delta` 包含自上次发出 `win_viewport` 以来窗口顶行移动了多少。
+	它旨在用于实现平滑滚动。为此它只计算 "虚拟" 或 "显示" 的行，因此折叠
+	只算一行。当滚动超过一整屏时它是一个近似值。
+
+	批次中的所有更新（如 `grid_line`）都影响新视口，尽管 `win_viewport` 在
+	更新之后才收到。例如实现平滑滚动的应用程序应考虑到这一点，将网格与
+	屏幕上显示的内容分开，并在收到 `win_viewport` 后将其复制到视口目标。
+
+["win_viewport_margins", grid, win, top, bottom, left, right] ~
+	指示窗口网格中 _不_ 属于 `win_viewport` 事件所指示视口的边距。例如在
+	存在 'winbar' 和浮动窗口边框的情况下会发生这种情况。
+
+["win_extmark", grid, win, ns_id, mark_id, row, col] ~
+	更新当前在窗口中可见的 extmark 的位置。仅在标记具有 `ui_watched`
+	属性时发出。
+
+==============================================================================
+弹出菜单事件						 *ui-popupmenu*
+
+由 `ext_popupmenu` |ui-option| 激活。
+
+此 UI 扩展将 |popupmenu-completion| 和命令行 'wildmenu' 的呈现委托给 UI。
+
+UI 决定如何呈现菜单。例如，根据最后一个 `mode_change` 事件，命令行 wildmenu
+可能水平呈现，而插入模式补全会显示垂直弹出菜单。
+
+["popupmenu_show", items, selected, row, col, grid] ~
+	显示 |popupmenu-completion|。`items` 是要显示的补全项数组；每个项是
+	形如 [word, kind, menu, info] 的数组，如 |complete-items| 中定义，但
+	如果存在 `abbr` 则替换 `word`。`selected` 是初始选中的项，是项数组的
+	从零开始的索引（如果没有选中项则为 -1）。`row` 和 `col` 给出锚点位置，
+	即被补全单词第一个字符的位置。当使用 |ui-multigrid| 时，`grid` 是锚点
+	位置的网格。当 `ext_cmdline` 激活时，`grid` 设为 -1 以指示弹出菜单
+	应锚定到外部命令行。此时 `col` 将是命令行文本中的字节位置。
+
+["popupmenu_select", selected] ~
+	在当前弹出菜单中选择一个项。`selected` 是上次 popupmenu_show 事件中
+	项数组的从零开始的索引，如果没有选中项则为 -1。
+
+["popupmenu_hide"] ~
+	隐藏弹出菜单。
+
+==============================================================================
+标签栏事件						   *ui-tabline*
+
+由 `ext_tabline` |ui-option| 激活。
+
+["tabline_update", curtab, tabs, curbuf, buffers] ~
+	标签栏已更新。UI 应在自定义标签栏 widget 中呈现此数据。注意：选项
+	`curbuf` + `buffers` 在 API7 中添加。
+	curtab:   当前标签页
+	tabs:     字典列表 [{ "tab": Tabpage, "name": String }, ...]
+	curbuf:   当前缓冲区句柄。
+	buffers:  字典列表 [{ "buffer": buffer handle, "name": String}, ...]
+
+==============================================================================
+命令行事件						   *ui-cmdline*
+
+由 `ext_cmdline` |ui-option| 激活。
+
+此 UI 扩展将 |cmdline|（'wildmenu' 除外）的呈现委托给 UI。
+对于命令行 'wildmenu' UI 事件，请激活 |ui-popupmenu|。
+
+["cmdline_show", content, pos, firstc, prompt, indent, level, hl_id] ~
+        content: [attrs, string, hl_id] 的列表
+	         [[{}, "t", hl_id], [attrs, "est", hl_id], ...]
+
+	当命令行显示或更改时触发。`content` 是应在命令行中显示的完整内容，
+	`pos` 是命令行中光标的位置。内容被分成具有不同高亮属性的块，以字典
+	表示（参见 |ui-event-highlight_set|）。
+
+	`firstc` 和 `prompt` 是文本，如果非空应显示在命令行前面。`firstc` 始终
+	指示内置命令行如 `:` (ex 命令) 和 `/` `?` (搜索)，而 `prompt` 是
+	|input()| 提示，使用 `hl_id` 高亮。`indent` 指示内容应缩进多少空格。
+
+	Nvim 命令行可以递归调用，例如在命令行提示处输入 `<c-r>=`。`level` 字段
+	用于区分同时活跃的不同命令行。第一个调用的命令行级别为 1，下一个递归
+	调用的提示级别为 2。从 |cmdline-window| 调用的命令行比编辑的命令行级别
+	更高。
+
+["cmdline_pos", pos, level] ~
+	更改命令行中的光标位置。
+
+["cmdline_special_char", c, shift, level] ~
+	在命令行光标位置显示特殊字符。这通常用于指示待定状态，例如
+	|c_CTRL-V| 之后。如果 `shift` 为 true，光标后的文本应移动，否则应覆盖
+	光标处的字符。
+
+	应在下一次 cmdline_show 时隐藏。
+
+["cmdline_hide", level, abort] ~
+	隐藏命令行。`level` 是要隐藏的命令行的嵌套级别。如果命令行在中止条件
+	（|c_Esc| 或 |c_CTRL-C|）后隐藏，`abort` 为 true。
+
+["cmdline_block_show", lines] ~
+	显示当前命令行的上下文块。例如如果用户交互式地定义 |:function|: >vim
+	    :function Foo()
+	    :  echo "foo"
+	    :
+<
+	`lines` 是高亮块行的列表，格式与 "cmdline_show" 的 `contents` 参数
+	相同。
+
+["cmdline_block_append", line] ~
+	在当前显示的块末尾追加一行。
+
+["cmdline_block_hide"] ~
+	隐藏块。
+
+==============================================================================
+消息/对话框事件					   *ui-messages*
+
+由 `ext_messages` |ui-option| 激活。
+隐式激活 |ui-linegrid| 和 |ui-cmdline|。
+
+此 UI 扩展将消息和对话框的呈现委托给 UI。否则会在消息/命令行屏幕空间中渲染
+的消息，作为 UI 事件发出。
+
+Nvim 不会为命令行或消息分配屏幕空间。'cmdheight' 将设为零，但可以更改并用于
+替换的命令行或消息窗口。命令行状态作为 |ui-cmdline| 事件发出，UI 必须处理。
+
+["msg_show", kind, content, replace_last, history, append, id, trigger] ~
+	向用户显示消息。更新（替换）任何与 `id` 匹配的现有消息。
+
+	kind
+	    指示消息类型的名称:
+		"" (空)		未知（考虑 |feature-request|）
+		"empty"		空消息（`:echo ""`），`content` 为空。
+				如果它是批次中唯一的消息，应清除共享
+				'cmdheight' 区域的消息。
+		"bufwrite"	|:write| 消息
+		"confirm"	提示前的消息（|:confirm|、
+				|confirm()|、|inputlist()|、|z=|，...）
+		"emsg"		错误（|errors|、内部错误、|:throw|，...）
+		"echo"		|:echo| 消息
+		"echomsg"	|:echomsg| 消息
+		"echoerr"	|:echoerr| 消息
+		"completion"    |ins-completion-menu| 消息
+		"list_cmd"	各种命令的列表输出（|:ls|、|:set|，...）
+		"lua_error"	|:lua| 代码中的错误
+		"lua_print"	|:lua| 代码中的 |print()|
+		"progress"	由 |nvim_echo()| 发出的进度消息
+		"rpc_error"	|rpcrequest()| 的错误响应
+		"quickfix"	Quickfix 导航消息
+		"search_cmd"	已输入的搜索命令
+		"search_count"	搜索计数消息（'shortmess' 的 "S" 标志）
+		"shell_cmd"	|:!cmd| 执行的命令
+		"shell_err"	|:!cmd| shell stderr 输出
+		"shell_out"	|:!cmd| shell stdout 输出
+		"shell_ret"	|:!cmd| shell 返回码
+		"undo"		|:undo| 和 |:redo| 消息
+		"verbose"	'verbose' 消息
+		"wildlist"	'wildmode' "list" 消息
+		"wmsg"		警告（"search hit BOTTOM"、|W10|，...）
+	    未来可能添加新的类型；客户端应将未知类型视为空类型。
+
+	content
+	    `[attr_id, text_chunk, hl_id]` 元组的数组，构建不同高亮块的消息
+	    文本。块之间不应添加额外空格，`text_chunk` 本身包含任何必要的空白。
+	    消息可以包含换行符 "\n"。
+
+	replace_last
+	    决定如何显示多条消息:
+	    false: 将消息与所有仍然可见的先前消息一起显示。
+	    true:  替换最近 `msg_show` 调用中的消息，但其他可见消息应保持不变。
+
+	history
+	    如果消息被添加到 |:messages| 历史记录则为 True。
+
+	append
+	    如果消息应追加到先前消息而不是在新行开始则为 True。为 |:echon|
+	    设置。
+
+	id
+	    消息的唯一标识符。可以是整数或字符串。具有相同 id 的（可见）消息
+	    应被替换。
+
+	trigger
+	    触发消息的操作类型:
+		"" (空)         未知（考虑 |feature-request|）
+		"typed_cmd"     在 |cmdline| 上交互式输入的命令
+
+["msg_clear"] ~
+	清除当前由 "msg_show" 显示的所有消息，在清除屏幕后发出（由下面其他
+	"msg_" 事件发送的消息不应受影响）。
+
+	指导："清除消息" 的行为是 UI 特定的。如果 UI 在新窗口中呈现消息，它
+	可以选择在几秒后清除消息。如果 UI 在持久区域（例如命令行）中呈现消息，
+	它应该在下一个批次开始时（通常是下一个事件循环周期）清除消息。
+
+["msg_showmode", content] ~
+	显示 'showmode' 和 |recording| 消息。`content` 与 "msg_show" 格式相同。
+	此事件以空 `content` 发送以隐藏最后的消息。
+
+["msg_showcmd", content] ~
+	显示 'showcmd' 消息。`content` 与 "msg_show" 格式相同。此事件以空
+	`content` 发送以隐藏最后的消息。
+
+["msg_ruler", content] ~
+	在状态栏中没有空间放置标尺时用于显示 'ruler'。`content` 与 "msg_show"
+	格式相同。此事件以空 `content` 发送以隐藏最后的消息。
+
+["msg_history_show", entries, prev_cmd] ~
+	当调用 |:messages| 或 |g<| 命令时发送。历史记录作为条目列表发送，每个
+	条目是 `[kind, content, append]` 元组。
+
+	prev_cmd
+	    使用 |g<| 命令时为 True，使用 |:messages| 时为 false。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

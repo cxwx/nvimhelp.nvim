@@ -1,0 +1,281 @@
+*news-0.9.txt*    Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+自 Nvim 0.8 以来的显著变化                                     *news-0.9*
+
+                                       输入 |gO| 查看目录。
+
+==============================================================================
+破坏性变更
+
+以下变更可能需要调整用户配置或插件。
+
+• Cscope 支持已被移除（参阅 |cscope| 和 |nvim-removed|）:
+  - 被移除的命令:
+    - `:cscope`
+    - `:lcscope`
+    - `:scscope`
+    - `:cstag`
+  - 被移除的选项:
+    - `cscopepathcomp`
+    - `cscopeprg`
+    - `cscopequickfix`
+    - `cscoperelative`
+    - `cscopetag`
+    - `cscopetagorder`
+    - `cscopeverbose`
+  - 被移除的求值函数:
+    - `cscope_connection()`
+
+  注意: 对 |ctags| 的支持仍然保留，没有移除计划。
+
+  更多信息请参阅 https://github.com/neovim/neovim/pull/20545。
+
+• `:hardcopy` 已被移除（参阅 |hardcopy| 和 |nvim-removed|）:
+  - 被移除的命令:
+    - `:hardcopy`
+  - 被移除的选项:
+    - `printdevice`
+    - `printencoding`
+    - `printexpr`
+    - `printfont`
+    - `printheader`
+    - `printmbcharset`
+
+• 'paste' 选项已弃用，'pastetoggle' 已被移除。|paste| 在 GUI 和
+  终端 (TUI) Nvim 中自动工作。直接粘贴即可。
+
+• |vim.treesitter.get_node_text()| 的变更:
+  - 现在返回 `string`，而不是 `string|string[]|nil`。
+  - `concat` 选项已被移除，因为它没有被一致地应用。
+  - 无效范围现在会导致错误而不是返回 `nil`。
+
+• `help` treesitter 解析器已重命名为 `vimdoc`。唯一用户可见的
+  变化是语言特定的高亮组需要从 `@foo.help` 重命名为 `@foo.vimdoc`。
+
+• 'commentstring' 的默认值现在是空字符串而不是 "/*%s*/"。
+
+• libiconv 和 intl 现在是必需的编译依赖。
+
+==============================================================================
+新功能
+
+以下新 API 或功能已被添加。
+
+• `help` 文件的 Treesitter 语法高亮现在支持高亮代码示例。要启用，
+  创建 `.config/nvim/ftplugin/help.lua` 文件，内容为 >lua
+    vim.treesitter.start()
+<
+  • 注意: 高亮代码示例仅在 Nvim 手册中可用，不适用于从 Vim 获取的
+    帮助文件。treesitter `vimdoc` 解析器也仍在开发中，不保证能正确
+    高亮所有帮助文件。
+
+• 为 LSP 客户端添加了语义令牌高亮支持。当支持此功能的客户端附加到
+  缓冲区时，此功能默认启用。可以在 `LspAttach` 回调中从 LSP 客户端
+  的 {server_capabilities} 中删除 `semanticTokensProvider` 来选择
+  退出。更多信息请参阅 |lsp-semantic-highlight|。
+
+• |vim.inspect_pos()|、|vim.show_pos()| 和 |:Inspect| 允许用户获取或
+  显示给定缓冲区位置的项目。目前包括 treesitter 捕获、LSP 语义
+  令牌、语法组和扩展标记。
+
+• |vim.treesitter.inspect_tree()| 和 |:InspectTree| 打开一个分割窗口，
+  显示当前缓冲区语言树中节点的文本表示。
+
+• 'statuscolumn' 选项用于自定义窗口侧边的区域，通常包含折叠列、
+  标记列和行号列。这个新选项遵循 'statusline' 语法，可用于转换
+  行号、为 |signs| 创建鼠标点击回调、引入自定义边距或分隔符等。
+
+• |vim.secure.trust()|、|:trust| 允许用户管理信任数据库中的文件。
+  |vim.secure.read()| 读取文件并提示用户是否应该信任它，如果是，
+  则返回文件的内容。被 'exrc' 使用。
+
+• EditorConfig 支持现在已内置。默认启用且自动运行。要禁用它，
+  在你的 |config| 中添加以下内容: >lua
+    vim.g.editorconfig = false
+<
+• 新增名为 NVIM_APPNAME 的环境变量，允许配置 Nvim 查找其配置和
+  状态文件的目录。参阅 `:help $NVIM_APPNAME`。
+
+• 添加了使用 |-l| 从 shell 运行 Lua 脚本的支持。>
+      nvim -l foo.lua --arg1 --arg2
+<  也适用于 stdin: >
+      echo "print(42)" | nvim -l -
+
+• 为 Lua 添加了 omnifunc 实现，|vim.lua_omnifunc()|
+
+• 添加了一个新的实验性 |vim.loader|，可以字节编译和缓存 Lua 文件。
+  要启用新的加载器，在你的 |init.lua| 顶部添加: >lua
+    vim.loader.enable()
+
+• 添加了 |vim.version|，用于解析和比较符合 semver 规范的版本字符串。
+
+• 在 tmux 3.2 或更高版本内使用 Nvim 时，默认剪贴板提供者现在会
+  复制到系统剪贴板。|provider-clipboard|
+
+• 'showcmdloc' 选项可在状态栏或标签栏中显示 'showcmd' 信息。
+  新增 %S 状态栏项目，可在自定义 'statusline' 中放置 'showcmd'
+  文本。在 'cmdheight' 设为 0 时很有用。
+
+• 'splitkeep' 选项用于控制水平分割的滚动行为。
+
+• 'wildoptions' 标志 "fuzzy" 在 |cmdline-completion| 期间启用
+  |fuzzy-matching|。
+
+• 'diffopt' 现在包含 `linematch` 选项，可在单个代码块上启用
+  二次差异比较，以提供更精确的差异。此选项也可用于
+  |vim.text.diff()|
+
+  参阅 https://github.com/neovim/neovim/pull/14537。
+
+• 添加了 |--remote-ui| 选项，可连接到远程实例并在本地终端的 |TUI|
+  中显示。这可以用来在后台运行无头 nvim 实例并按需显示其 UI，
+  此前这只能使用外部 UI 实现来完成。
+
+• 添加了 |vim.lsp.codelens.clear()| 函数来清除代码透镜。
+
+• 为 LSP 客户端添加了对 `willSave` 和 `willSaveWaitUntil` 能力的
+  支持。`willSaveWaitUntil` 允许服务器在文档保存前修改文档。语言
+  服务器的示例用例包括删除未使用的导入或格式化文件。
+
+• 为 LSP 客户端添加了对 `workspace/didChangeWatchedFiles` 能力的
+  初步支持，以通知服务器磁盘上的文件变更。此功能默认禁用，可通过
+  设置 `workspace.didChangeWatchedFiles.dynamicRegistration=true`
+  能力来启用。
+
+• |vim.diagnostic| 现在支持 LSP DiagnosticsTag。
+  参阅: https://microsoft.github.io/language-server-protocol/specification/#diagnosticTag
+
+• vim.diagnostic.is_disabled() 检查给定缓冲区或命名空间中的诊断
+  是否被禁用。
+
+• Treesitter 捕获现在可以通过指令进行转换。这将允许更复杂的动态
+  语言注入。
+
+• |vim.treesitter.get_node_text()| 现在接受 `metadata` 选项，用于
+  通过 |vim.treesitter.query.add_directive()| 编写自定义指令。
+
+• |vim.treesitter.language.add()| 替代了
+  `vim.treesitter.language.require_language`。
+
+• |vim.treesitter.foldexpr()| 可用作 'foldexpr'，使用 treesitter
+  进行折叠。
+
+• 扩展了 TSNode API:
+  - |TSNode:tree()|
+  - |TSNode:has_changes()|
+  - |TSNode:extra()|
+  - |TSNode:equal()|
+
+  此外 |TSNode:range()| 现在接受可选的 {include_bytes} 参数。
+
+• Treesitter 注入查询现在使用
+  https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting.html#language-injection
+  描述的格式。对旧格式的支持将在未来版本中移除。
+
+• 添加了 |nvim_get_hl()|，以与 |nvim_set_hl()| 兼容的格式获取
+  高亮组定义。
+
+• |vim.filetype.get_option()| 获取特定文件类型的默认选项值。这是
+  带有缓存的 |nvim_get_option_value()| 的包装。
+
+• `require'bit'` 现在始终可用 |lua-bit|
+
+==============================================================================
+变更的功能
+
+以下对现有 API 或功能的变更增加了新行为。
+
+• 'exrc' 现在支持 `.nvim.lua` 文件。
+• 'exrc' 不再被标记为弃用。
+
+• |TUI| 已改为在单独的进程中运行（之前使用的是单独的线程）。这
+  不应该是用户可见的变化，但可能导致微妙的行为变化和错误。
+
+  之前，TUI 可以作为编译时功能被禁用 (+tui/-tui)，这会产生一个
+  只能以无头模式运行或嵌入到外部进程中的 nvim 二进制文件。从
+  此版本起，TUI 始终可用。
+
+• Vim 的 `has('gui_running')` 现在可供插件检测是否有 GUI（而非
+  |TUI|）附加到 Nvim。|has()|
+
+• |msgsep| 现在始终启用，即使 'display' 不包含 "msgsep" 标志。
+  当显示的消息长于 'cmdheight' 时，不再可能滚动整个屏幕。
+
+• API 调用现在显示更多关于异常发生位置的信息。
+
+• `win_viewport` UI 事件现在包含虚拟行的信息，这意味着现在可以
+  更一致地实现平滑滚动。
+
+• `:= {expr}` 语法可用于对 Lua 表达式求值，作为 `:lua ={expr}`
+  的简短形式。不带参数的 `:=` 和 `:[range]=` 不变。但 `:#` 和
+  使用 |ex-flags| 的类似变体不再受支持。
+
+• 当 |channel-stdio| 关闭时，未保存的更改现在会被保留而不是丢弃。
+
+• |nvim_open_win()| 现在接受 relative `mouse` 选项，可打开相对于
+  鼠标位置的浮动窗口。注意，如果不设置
+  `vim.o.mousemoveevent = true`，鼠标位置不会频繁更新。
+
+• |nvim_eval_statusline()| 通过新的 `opts` 字段
+  `use_statuscol_lnum` 支持对 'statuscolumn' 求值。
+
+• |nvim_buf_get_extmarks()| 现在接受 -1 的 `ns_id` 来请求所有
+  命名空间的扩展标记，并将命名空间 id 添加到详情数组中。
+  其他缺失的属性也已添加到详情数组中，标记可以按类型过滤。
+
+• |vim.diagnostic.open_float()|（以及 |vim.diagnostic.config()|）
+  现在接受 `suffix` 选项，默认渲染 LSP 错误代码。类似地，
+  |vim.diagnostic.config()| 中的 `virtual_text` 配置现在也有
+  `suffix` 选项，默认不做任何事情。
+
+• |vim.fs.dir()| 现在有一个带有 depth 字段的 `opts` 参数，
+  允许递归搜索目录树。
+
+• |vim.gsplit()| 支持 |vim.split()| 的所有功能。
+
+• |:highlight| 现在支持额外的属性 "altfont"。
+
+• |:Man| 手册页查看器支持包含空格的手册页名称。
+
+• |nvim_select_popupmenu_item()| 现在支持 |cmdline-completion|
+  弹出菜单。
+
+• |nvim_list_uis()| 报告所有 |ui-option| 字段。
+
+• |nvim_get_option_value()| 现在有一个 `filetype` 选项，可以
+  返回特定文件类型的默认选项值。
+
+• 编译: 进行了多项改进使代码生成脚本更具确定性，并引入了
+  `LUA_GEN_PRG` 编译参数，作为解决某些剩余可重现性问题的
+  变通方案。
+
+==============================================================================
+移除的功能
+
+以下弃用的函数或 API 已被移除。
+
+• `filetype.vim` 已被移除，改用 |vim.filetype|
+  （注意，文件类型逻辑和测试仍然与 Vim 保持一致，因此添加或
+  变更需要先在那里贡献。）
+  参阅 https://github.com/neovim/neovim/pull/20674。
+
+• 'hkmap'、'hkmapp' 和 'aleph' 选项已被移除。请改用 'keymap' 选项。
+
+• |LanguageTree:parse()| 不再返回变更的区域。请改用
+  `on_changedtree` 回调。
+
+• `vim.highlight.create()`、`vim.highlight.link()` 已被移除，
+  请改用 |nvim_set_hl()|。
+
+• `require'health'` 已被移除。请改用 |vim.health|。
+
+==============================================================================
+弃用
+
+参阅 |deprecated-0.9|。
+
+ vim:tw=78:ts=8:sw=2:et:ft=help:norl:

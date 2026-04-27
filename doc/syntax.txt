@@ -1,0 +1,567 @@
+*syntax.txt*	Nvim
+
+
+		  VIM REFERENCE MANUAL	  able Bram Moolenaar
+
+
+语法高亮		*syntax* *syntax-highlighting* *coloring*
+
+语法高亮使 Vim 能够以不同的字体或颜色显示文本的各个部分。这些部分可以是
+特定的关键字或匹配模式的文本。Vim 不会解析整个文件（为了保持速度），因此
+高亮有其局限性。词法高亮可能是更准确的名称，但由于大家都称之为语法高亮，
+我们就继续使用这个名称。
+
+Vim 在所有终端上支持语法高亮。但由于大多数普通终端的高亮能力非常有限，
+它在 GUI 版本 gvim 中效果最好。
+
+在用户手册中：
+|usr_06.txt| 介绍语法高亮。
+|usr_44.txt| 介绍编写语法文件。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 快速入门						*:syn-qstart*
+
+				*:syn-enable* *:syntax-enable* *:syn-on* *:syntax-on*
+语法高亮默认启用。如果你需要在禁用后重新启用它（见下文），使用： >
+
+	:syntax enable
+
+或者： >
+
+	:syntax on
+
+此命令实际执行的是 >
+	:source $VIMRUNTIME/syntax/syntax.vim
+
+如果 VIM 环境变量未设置，Vim 将尝试通过其他方式找到路径（参见
+|$VIMRUNTIME|）。通常这能正常工作。如果不行，尝试将 VIM 环境变量设置为
+Vim 相关文件所在的目录。例如，如果你的语法文件在 "/usr/vim/vim82/syntax"
+目录中，设置 $VIMRUNTIME 为 "/usr/vim/vim82"。你必须在 shell 中，在启动
+Vim 之前完成这个设置。
+当 GUI 正在运行或即将启动时，此命令也会加载 |menu.vim| 脚本。
+
+					*:hi-normal* *:highlight-normal*
+如果你在 GUI 中运行，你可以通过以下方式获得黑色背景上的白色文本： >
+	:highlight Normal guibg=Black guifg=White
+对于彩色终端参见 |:hi-normal-cterm|。
+
+注意：MS-Windows 上的语法文件行以 <CR><NL> 结尾。Unix 文件以 <NL> 结尾。
+这意味着你应该使用适合你系统的正确类型的文件。虽然在 MS-Windows 上，如果
+'fileformats' 选项不为空，会自动选择正确的格式。
+
+注意：当使用反转视频（"gvim -fg white -bg black"）时，'background' 的默认值
+直到 GUI 窗口打开后才会被设置，这在读取 |gvimrc| 之后。这将导致使用错误的
+默认高亮。要在开启高亮之前设置 'background' 的默认值，在 |gvimrc| 中包含
+":gui" 命令： >
+
+   :gui		" 打开窗口并设置 'background' 的默认值
+   :syntax on	" 开始高亮，使用 'background' 来设置颜色
+
+注意：在 |gvimrc| 中使用 ":gui" 意味着 "gvim -f" 不会在前台启动！
+那时使用 ":gui -f"。
+
+							*g:syntax_on*
+你可以用此命令切换语法的开/关： >
+   :if exists("g:syntax_on") | syntax off | else | syntax enable | endif
+
+要将其放入映射中，你可以使用： >
+   :map <F7> :if exists("g:syntax_on") <Bar>
+	\   syntax off <Bar>
+	\ else <Bar>
+	\   syntax enable <Bar>
+	\ endif <CR>
+[使用 |<>| 记法，按字面输入]
+
+详情：
+":syntax" 命令通过加载文件来实现。要准确了解其工作方式，请查看以下文件：
+    命令		文件 ~
+    :syntax enable	$VIMRUNTIME/syntax/syntax.vim
+    :syntax on		$VIMRUNTIME/syntax/syntax.vim
+    :syntax manual	$VIMRUNTIME/syntax/manual.vim
+    :syntax off		$VIMRUNTIME/syntax/nosyntax.vim
+另见 |syntax-loading|。
+
+注意：如果显示长行很慢，关闭语法高亮后变快了，考虑将 'synmaxcol' 选项设置
+为较低的值。
+
+==============================================================================
+2. 语法文件						*:syn-files*
+
+一种语言的语法和高亮命令通常存储在语法文件中。命名约定是："{name}.vim"。
+其中 {name} 是语言的名称或缩写（适合 8.3 字符，这是在 DOS 文件系统上使用
+该文件的要求）。
+示例：
+	c.vim		perl.vim	java.vim	html.vim
+	cpp.vim		sh.vim		csh.vim
+
+语法文件可以包含任何 Ex 命令，就像 vimrc 文件一样。但其设计思想是只包含
+特定语言的命令。当一种语言是另一种语言的超集时，它可以包含另一种语言的文件，
+例如，cpp.vim 文件可以包含 c.vim 文件： >
+   :so $VIMRUNTIME/syntax/c.vim
+
+.vim 文件通常通过自动命令加载。例如： >
+   :au Syntax c	    runtime! syntax/c.vim
+   :au Syntax cpp   runtime! syntax/cpp.vim
+这些命令通常在文件 $VIMRUNTIME/syntax/synload.vim 中。
+
+
+创建你自己的语法文件				*mysyntaxfile*
+
+当你创建自己的语法文件，并且想让 Vim 在 ":syntax enable" 时自动使用它们，
+请执行以下操作：
+
+1. 创建你的用户运行时目录。你通常使用 'runtimepath' 选项的第一个项目。
+   Unix 示例： >
+	mkdir ~/.config/nvim
+
+2. 在其中创建名为 "syntax" 的目录。Unix 示例： >
+	mkdir ~/.config/nvim/syntax
+
+3. 编写 Vim 语法文件。或从互联网下载一个。然后将其写入你的 syntax 目录。
+   例如，对于 "mine" 语法： >
+	:w ~/.config/nvim/syntax/mine.vim
+
+现在你可以手动开始使用你的语法文件： >
+	:set syntax=mine
+你不需要退出 Vim 来使用它。
+
+如果你还想让 Vim 检测文件类型，参见 |new-filetype|。
+
+如果你正在设置一个有很多用户的系统，并且不想让每个用户都添加相同的语法文件，
+你可以使用 'runtimepath' 中的另一个目录。
+
+
+添加到现有语法文件				*mysyntaxfile-add*
+
+如果你对现有的语法文件基本满意，但想添加一些项目或更改高亮，请按以下步骤操作：
+
+1. 从 'runtimepath' 创建你的用户目录，参见上面。
+
+2. 在其中创建名为 "after/syntax" 的目录。Unix 示例： >
+	mkdir -p ~/.config/nvim/after/syntax
+
+3. 编写一个包含你想使用的命令的 Vim 脚本。例如，要更改 C 语法的颜色： >
+	highlight cComment ctermfg=Green guifg=Green
+
+4. 将该文件写入 "after/syntax" 目录。使用语法的名称，加上 ".vim"。
+   对于我们的 C 语法： >
+	:w ~/.config/nvim/after/syntax/c.vim
+
+就是这样。下次编辑 C 文件时，Comment 颜色将不同。你甚至不需要重启 Vim。
+
+如果你有多个文件，可以使用文件类型作为目录名。该目录中的所有 "*.vim" 文件
+都将被使用，例如：
+	~/.config/nvim/after/syntax/c/one.vim
+	~/.config/nvim/after/syntax/c/two.vim
+
+
+替换现有语法文件				*mysyntaxfile-replace*
+
+如果你不喜欢已分发的语法文件，或者你下载了一个新版本，按照与上面
+|mysyntaxfile| 相同的步骤操作。只需确保将语法文件写入 'runtimepath' 中较早
+的目录。Vim 只会加载找到的第一个语法文件，前提是它设置了 b:current_syntax。
+
+
+命名约定		    *group-name* *{group-name}* *E669* *E5248*
+
+语法组名称用于匹配同类内容的语法项。然后将它们链接到指定颜色的高亮组。
+语法组名称本身不指定任何颜色或属性。
+
+高亮或语法组的名称必须由 ASCII 字母、数字、下划线、点、连字符或 `@` 组成。
+作为正则表达式：`[a-zA-Z0-9_.@-]*`。组名的最大长度约为 200 字节。*E1249*
+
+为了允许每个用户选择自己喜欢的颜色集，许多语言共有的高亮组必须有推荐名称。
+以下是建议的组名（如果语法高亮正常工作，你可以看到实际颜色，"Ignore" 除外）：
+
+Comment		任何注释
+
+Constant	任何常量
+String		字符串常量："this is a string"
+Character	字符常量：'c'、'\n'
+Number		数字常量：234、0xff
+Boolean		布尔常量：TRUE、false
+Float		浮点常量：2.3e10
+
+Identifier	任何变量名
+Function	函数名（也包括：类的方法）
+
+Statement	任何语句
+Conditional	if、then、else、endif、switch 等
+Repeat		for、do、while 等
+Label		case、default 等
+Operator	"sizeof"、"+"、"*" 等
+Keyword		任何其他关键字
+Exception	try、catch、throw
+
+PreProc		通用预处理器
+Include		预处理器 #include
+Define		预处理器 #define
+Macro		与 Define 相同
+PreCondit	预处理器 #if、#else、#endif 等
+
+Type		int、long、char 等
+StorageClass	static、register、volatile 等
+Structure	struct、union、enum 等
+Typedef		typedef
+
+Special		任何特殊符号
+SpecialChar	常量中的特殊字符
+Tag		可以对此使用 CTRL-]
+Delimiter	需要注意的字符
+SpecialComment	注释中的特殊内容
+Debug		调试语句
+
+Underlined	突出的文本，HTML 链接
+
+Ignore		留空，隐藏 |hl-Ignore|
+
+Error		任何错误的构造
+
+Todo		任何需要额外注意的内容；主要是关键字 TODO FIXME 和 XXX
+
+Added		diff 中添加的行
+Changed		diff 中更改的行
+Removed		diff 中删除的行
+
+注意高亮组名称不区分大小写。"String" 和 "string" 可以用于同一组。
+
+以下名称是保留的，不能用作组名：
+	NONE   ALL   ALLBUT   contains	 contained
+
+							*hl-Ignore*
+当使用 Ignore 组时，你也可以考虑使用 conceal 机制。参见 |conceal|。
+
+==============================================================================
+3. 语法加载过程					*syntax-loading*
+
+这解释了发出命令 ":syntax enable" 时发生的详细信息。当 Vim 初始化自身时，
+它会找出运行时文件的位置。这里用变量 |$VIMRUNTIME| 表示。
+
+":syntax enable" 和 ":syntax on" 做以下事情：
+
+    加载 $VIMRUNTIME/syntax/syntax.vim
+    |
+    +-	通过加载 $VIMRUNTIME/syntax/nosyntax.vim 清除所有旧语法
+    |
+    +-	加载 'runtimepath' 中的第一个 syntax/synload.vim
+    |	|
+    |	+-  设置语法自动命令，在设置 'syntax' 选项时加载适当的语法文件。
+    |	|   *synload-1*
+    |	|
+    |	+-  加载用户的可选文件，来自 |mysyntaxfile| 变量。
+    |	    这仅为了与 Vim 5.x 的向后兼容。*synload-2*
+    |
+    +-	执行 ":filetype on"，即 ":runtime! filetype.vim"。它加载找到的所有
+    |	filetype.vim 文件。它应该始终加载 $VIMRUNTIME/filetype.vim，
+    |	该文件做以下事情。
+    |	|
+    |	+-  根据后缀安装自动命令来设置 'filetype' 选项。
+    |	|   这是建立文件名和文件类型之间连接的地方，
+    |	|   用于已知文件类型。*synload-3*
+    |	|
+    |	+-  加载用户的可选文件，来自 *myfiletypefile* 变量。
+    |	|   这仅为了与 Vim 5.x 的向后兼容。*synload-4*
+    |	|
+    |	+-  安装一个自动命令，当尚未检测到文件类型时加载 scripts.vim。
+    |	|   *synload-5*
+    |	|
+    |	+-  加载 $VIMRUNTIME/menu.vim，设置语法菜单。|menu.vim|
+    |
+    +-	安装 FileType 自动命令，在检测到文件类型时设置 'syntax' 选项。
+    |	*synload-6*
+    |
+    +-	执行语法自动命令为每个已加载的缓冲区启动语法高亮。
+
+
+加载文件时，Vim 按以下方式查找相关语法文件：
+
+    加载文件触发 BufReadPost 自动命令。
+    |
+    +-	如果与 |synload-3|（已知文件类型）或 |synload-4|（用户文件类型）
+    |	中的某个自动命令匹配，'filetype' 选项被设置为该文件类型。
+    |
+    +-	|synload-5| 处的自动命令被触发。如果文件类型尚未找到，则在
+    |	'runtimepath' 中搜索 scripts.vim。这应该始终加载
+    |	$VIMRUNTIME/scripts.vim，它做以下事情。
+    |	|
+    |	+-  加载用户的可选文件，来自 *myscriptsfile* 变量。
+    |	|   这仅为了与 Vim 5.x 的向后兼容。
+    |	|
+    |	+-  如果文件类型仍然未知，再次检查文件内容，使用类似
+    |	    "getline(1) =~ pattern" 的检查来判断是否可以识别文件类型，
+    |	    并设置 'filetype'。
+    |
+    +-	当文件类型确定且 'filetype' 被设置时，这触发上面 |synload-6|
+    |	处的 FileType 自动命令。它将 'syntax' 设置为确定的文件类型。
+    |
+    +-	当上面设置了 'syntax' 选项时，这触发 |synload-1|（和 |synload-2|）
+    |	处的自动命令。这在 'runtimepath' 中查找主语法文件，使用命令：
+    |		runtime! syntax/<name>.vim
+    |
+    +-	任何其他用户安装的 FileType 或 Syntax 自动命令被触发。这可用于
+	更改特定语法的高亮。
+
+==============================================================================
+4. 转换为 HTML					*convert-to-HTML* *2html.vim*
+
+旧的 HTML 转换器已被 Lua 版本替代，文档已移至 |:TOhtml|。
+
+==============================================================================
+5. 语法文件备注					*:syn-file-remarks*
+
+						*b:current_syntax-variable*
+Vim 将已加载的语法名称存储在 "b:current_syntax" 变量中。如果你想根据活动
+的语法加载其他设置，可以使用此变量。示例： >
+   :au BufReadPost * if b:current_syntax == "csh"
+   :au BufReadPost *   do-some-things
+   :au BufReadPost * endif
+
+各语言特定的语法文件备注（ABEL、ADA、ANT、APACHE、ASSEMBLY、ASTRO、
+ASPPERL、ASPVBS、ASYMPTOTE、BAAN、BASIC、C、CANGJIE、CH、CHILL、
+CHANGELOG、CLOJURE、COBOL、COLDFUSION、CPP、CSH、CSV、CYNLIB、CWEB、
+CSHARP、DART、DESKTOP、DIFF、DIRCOLORS、DOCBOOK、DOSBATCH、DOXYGEN、
+DTD、EIFFEL、EUPHORIA、ERLANG、ELIXIR、FLEXWIKI、FORM、FORTH、FORTRAN、
+FREEBASIC、FVWM、GSP、GDB、GROFF、HASKELL、HTML、HTML/OS、IA64、INFORM、
+IDL、JAVA、JSON、JQ、KCONFIG、LACE、LF、LEX、LIFELINES、LISP、LITE、LOG、
+LPC、LUA、MAIL、MAKE、MAPLE、MARKDOWN、MATHEMATICA、MBSYNC、MEDIAWIKI、
+MODULA2、MOO、MSQL、NEOMUTT、N1QL、NCF、NROFF、OCAML、PANDOC、PAPP、
+PASCAL、PERL、PHP、PLAINTEX、PPWIZARD、PHTML、POSTSCRIPT、PRINTCAP/
+TERMCAP、PROGRESS、PYTHON、QUAKE、R、R MARKDOWN、R RESTRUCTURED TEXT、
+RASI、READLINE、REGO、RESTRUCTURED TEXT、REXX、RUBY、SCHEME、SDL、SED、
+SGML、SH、SPEEDUP、SQL、SQUIRREL、TCSH、TEX、TF、TYPESCRIPT、TYPST、
+VIM、WDL、XF86CONFIG、XML、XPM、YAML、ZSH）的配置变量和选项保持原样，
+因为它们是编程接口。请使用 `:help ft-{lang}-syntax` 查看具体语言的配置。
+
+==============================================================================
+6. 定义语法						*:syn-define* *E410*
+
+Vim 理解三种类型的语法项：
+
+1. 关键字
+   只能包含关键字字符，由 |:syn-iskeyword| 或 'iskeyword' 选项指定的字符
+   决定。不能包含其他语法项。只在完整单词时匹配（匹配前后没有关键字字符）。
+   关键字 "if" 会在 "if(a=b)" 中匹配，但不会在 "ifdef x" 中匹配，因为
+   "(" 不是关键字字符而 "d" 是。
+
+2. 匹配
+   这是与单个正则表达式模式的匹配。
+
+3. 区域
+   从 "start" 正则表达式模式的匹配开始，到 "end" 正则表达式模式的匹配
+   结束。两者之间可以出现任何其他文本。"skip" 正则表达式模式可用于避免
+   匹配 "end" 模式。
+
+多个语法项可以放入一个语法组。对于一个语法组，你可以指定高亮属性。例如，
+你可以有一个项目定义 `/* ... */` 注释，另一个定义 "// ..." 注释，并将
+它们都放入 "Comment" 组。然后你可以指定 "Comment" 为粗体且蓝色。你可以
+为一个语法项创建一个高亮组，或将所有项目放入一个组。这取决于你想如何指定
+高亮属性。将每个项目放入自己的组需要为很多组指定高亮。
+
+注意语法组和高亮组是类似的。对于高亮组你将指定高亮属性。这些属性将用于
+同名的语法组。
+
+当多个项目在同一位置匹配时，最后定义的那个获胜。因此你可以通过使用匹配
+相同文本的项目来覆盖先前定义的语法项。但关键字总是优先于匹配或区域。
+且区分大小写的关键字总是优先于忽略大小写的关键字。
+
+
+优先级						*:syn-priority*
+
+当多个语法项可能匹配时，使用以下规则：
+
+1. 当多个匹配或区域项在同一位置开始时，最后定义的项有优先权。
+2. 关键字优先于匹配和区域项。
+3. 在较早位置开始的项优先于在较晚位置开始的项。
+
+
+定义大小写					*:syn-case* *E390*
+
+:sy[ntax] case [match | ignore]
+	定义后续 ":syntax" 命令是使用匹配大小写（"match"）还是忽略大小写
+	（"ignore"）。注意之前的项不受影响，直到下一个 ":syntax case" 命令
+	之前的所有项都受影响。
+
+:sy[ntax] case
+	显示 "syntax case match" 或 "syntax case ignore"。
+
+
+定义折叠级别					*:syn-foldlevel*
+
+:sy[ntax] foldlevel start
+:sy[ntax] foldlevel minimum
+	定义使用 foldmethod=syntax 时一行的折叠级别如何计算
+	（参见 |fold-syntax| 和 |:syn-fold|）：
+
+	start:		使用包含行首的项的级别。
+	minimum:	使用行中项的最低本地最小级别。
+
+	默认为 "start"。使用 "minimum" 在一行中水平搜索最低级别，
+	后面跟着一个更高的级别。当语法项可能在一行内水平关闭和打开时，
+	这会产生更自然的折叠。
+
+:sy[ntax] foldlevel
+	显示当前折叠级别方法。
+
+拼写检查					*:syn-spell*
+
+:sy[ntax] spell toplevel
+:sy[ntax] spell notoplevel
+:sy[ntax] spell default
+	定义不在语法项中的文本的拼写检查位置：
+
+	toplevel:	检查文本拼写。
+	notoplevel:	不检查文本拼写。
+	default:	当有 @Spell 集群时不进行拼写检查。
+
+	对于语法项中的文本使用 @Spell 和 @NoSpell 集群 |spell-syntax|。
+	当既没有 @Spell 也没有 @NoSpell 集群时，对 "default" 和
+	"toplevel" 进行拼写检查。
+
+	要激活拼写检查，必须设置 'spell' 选项。
+
+:sy[ntax] spell
+	显示当前语法拼写检查方法。
+
+
+语法 ISKEYWORD 设置				*:syn-iskeyword*
+
+:sy[ntax] iskeyword [clear | {option}]
+	定义关键字字符。类似于 'iskeyword' 选项但仅适用于语法高亮。
+
+	clear:		禁用语法特定的 iskeyword 设置，使用缓冲区本地的
+			'iskeyword' 设置。
+	{option}	将语法 'iskeyword' 选项设置为新值。
+
+	示例： >
+  :syntax iskeyword @,48-57,192-255,$,_
+<
+	这会将语法特定的 iskeyword 选项设置为包含所有字母字符、数字字符、
+	所有重音字符，还包括 "_" 和 "$"。
+
+	如果未给出参数，将输出当前值。
+
+	设置此选项影响 |/\k| 在语法模式中的匹配内容，也确定 |:syn-keyword|
+	在何处检查新匹配。
+
+	建议在编写语法文件时使用此命令为特定语法语言设置正确的值，而不要
+	更改 'iskeyword' 选项。
+
+定义关键字					*:syn-keyword*
+
+:sy[ntax] keyword {group-name} [{options}] {keyword} ... [{options}]
+
+	定义一些关键字。
+
+	{group-name}	语法组名称，如 "Comment"。
+	[{options}]	参见下面的 |:syn-arguments|。
+	{keyword} ...	属于此组的关键字列表。
+
+	示例： >
+  :syntax keyword   Type   int long char
+<
+	[{options}] 可以在行中的任何位置给出。它们将应用于给出的所有关键字，
+	也包括关键字之后的选项。
+	这些示例做完全相同的事情： >
+  :syntax keyword   Type   contained int long char
+  :syntax keyword   Type   int long contained char
+  :syntax keyword   Type   int long char contained
+<								*E789* *E890*
+	当你有带可选尾部的关键字时（如 Vim 中的 Ex 命令），你可以将可选
+	字符放在 [] 中，一次定义所有变体： >
+  :syntax keyword   vimCommand	 ab[breviate] n[ext]
+<
+	不要忘记关键字只有在所有字符都包含在 'iskeyword' 选项中时才能被
+	识别。如果有一个字符不包含，关键字将永远不会被识别。
+	也可以使用多字节字符。这些不必在 'iskeyword' 中。
+	参见 |:syn-iskeyword| 定义语法特定的 iskeyword 设置。
+
+	关键字总是比匹配或区域有更高的优先级。如果多个项在同一位置匹配，
+	使用关键字。关键字不嵌套，关键字不能包含其他内容。
+
+	注意当你有一个与选项同名的关键字时（即使是此处不允许的选项），
+	你不能使用它。请改用匹配。
+
+	关键字的最大长度为 80 个字符。
+
+	同一关键字可以多次定义，当其包含关系不同时。例如，你可以定义关键字
+	一次不包含并使用一个高亮组，然后一次包含并使用另一个高亮组。示例： >
+  :syn keyword vimCommand tag
+  :syn keyword vimSetting contained tag
+<	在任何语法项外找到 "tag" 时，使用 "vimCommand" 高亮组。在包含
+	"vimSetting" 的语法项中找到 "tag" 时，使用 "vimSetting" 组。
+
+
+定义匹配					*:syn-match*
+
+:sy[ntax] match {group-name} [{options}]
+		[excludenl]
+		[keepend]
+		{pattern}
+		[{options}]
+
+	定义一个匹配。
+
+	{group-name}		语法组名称，如 "Comment"。
+	[{options}]		参见下面的 |:syn-arguments|。
+	[excludenl]		不要让包含行尾 "$" 的模式扩展包含的
+				匹配或区域。必须在模式之前给出。
+				|:syn-excludenl|
+	keepend			不允许被包含的匹配越过与结束模式的匹配。
+				参见 |:syn-keepend|。
+	{pattern}		定义匹配的搜索模式。参见下面的 |:syn-pattern|。
+				注意模式可能匹配多行，这使匹配依赖于 Vim
+				从哪里开始搜索模式。你需要确保同步处理好这一点。
+
+	示例（匹配字符常量）： >
+  :syntax match Character /'.'/hs=s+1,he=e-1
+<
+
+定义区域	*:syn-region* *:syn-start* *:syn-skip* *:syn-end*
+							*E398* *E399*
+:sy[ntax] region {group-name} [{options}]
+		[matchgroup={group-name}]
+		[keepend]
+		[extend]
+		[excludenl]
+		start={start-pattern} ...
+		[skip={skip-pattern}]
+		end={end-pattern} ...
+		[{options}]
+
+	定义一个区域。它可能跨越多行。
+
+	{group-name}		语法组名称，如 "Comment"。
+	[{options}]		参见下面的 |:syn-arguments|。
+	[matchgroup={group-name}]  用于后续开始或结束模式匹配的语法组。
+				不用于匹配的开始和结束模式之间的文本。使用
+				NONE 重置为不使用不同的组。参见
+				|:syn-matchgroup|。
+	keepend			不允许被包含的匹配越过与结束模式的匹配。
+				参见 |:syn-keepend|。
+	extend			覆盖此区域包含在的项的 "keepend"。
+				参见 |:syn-extend|。
+	excludenl		不要让包含行尾 "$" 的模式扩展包含的匹配或项。
+				仅对结束模式有用。必须在它适用的模式之前给出。
+				|:syn-excludenl|
+	start={start-pattern}	定义区域开始的搜索模式。参见下面的
+				|:syn-pattern|。
+	skip={skip-pattern}	定义区域内不查找结束模式的文本的搜索模式。
+				参见下面的 |:syn-pattern|。
+	end={end-pattern}	定义区域结束的搜索模式。参见下面的
+				|:syn-pattern|。
+
+	示例： >
+  :syntax region String   start=+"+  skip=+\\"+  end=+"+
+<
+
+后续的语法参数（|:syn-arguments|）、语法模式（|:syn-pattern|）、
+语法集群（|:syn-cluster|）、包含语法文件（|:syn-include|）、
+同步（|:syn-sync|）、列出语法项（|:syn-list|）、highlight 命令
+（|:highlight|）、链接组（|:hi-link|）、清理（|:syn-clear|）、
+高亮标签（tag-highlight）、彩色 xterm（xterm-color）、语法慢时
+的处理（|:syntime|）等部分的命令语法和参数保持不变，它们是 Vim 的
+编程接口。请使用对应的英文帮助标签查看完整文档。
+
+ vim:tw=78:sw=4:ts=8:noet:ft=help:norl:

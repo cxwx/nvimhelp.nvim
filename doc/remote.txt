@@ -1,0 +1,125 @@
+*remote.txt*    Nvim
+
+
+		  VIM REFERENCE MANUAL	  by Bram Moolenaar
+
+
+Vim 客户端-服务器通信				*client-server*
+
+                                      Type |gO| to see the table of contents.
+
+==============================================================================
+1. 通用功能					*clientserver*
+
+Nvim 的 |RPC| 功能允许客户端以编程方式控制 Nvim。Nvim 本身也接受命令行参数，
+使其成为另一个作为服务器运行的 Nvim 的客户端。这些参数与 Vim 的 clientserver
+选项提供的相同。
+
+以下命令行参数可用：
+
+    参数			含义 ~
+
+   --remote [+{cmd}] {file} ...					*--remote*
+				在远程 Vim 中打开文件列表。当没有
+				Vim 服务器时，在本地执行。
+				Vim 允许一个初始命令：+{cmd}。
+				这必须是一个可以跟 "|" 的 Ex 命令。
+				Nvim 尚不支持此功能。
+				命令行的其余部分被视为文件列表。
+				因此任何非文件参数必须放在此之前。
+				你不能用这种方式编辑 stdin |--|。
+				远程 Vim 会被提升到前台。如果你不想
+				这样，可以使用 >
+				 nvim --remote-send "<C-\><C-N>:n filename<CR>"
+<
+   --remote-silent [+{cmd}] {file} ...			*--remote-silent*
+				与上面相同，但如果没有服务器且文件
+				在本地编辑时不会报错。
+							*--remote-tab*
+   --remote-tab			类似 --remote，但在新标签页中打开
+				每个文件。
+							*--remote-tab-silent*
+   --remote-tab-silent		类似 --remote-silent，但在新标签页中
+				打开每个文件。
+								*--remote-send*
+   --remote-send {keys}		向服务器发送 {keys} 并退出。{keys}
+				不会被映射。识别特殊键名，例如
+				"<CR>" 会产生一个 CR 字符。
+								*--remote-expr*
+   --remote-expr {expr}		在服务器中执行 {expr} 并在 stdout
+				上打印结果。
+								*--remote-ui*
+   --remote-ui			在终端中显示服务器的 UI。完全交互式：
+				键盘和鼠标输入被转发到服务器。
+								*--server*
+   --server {addr}		连接到指定地址的命名管道或套接字，
+				以执行远程命令。启动服务器时指定
+				地址参见 |--listen|。
+
+示例 ~
+
+启动一个在命名管道 '~/.cache/nvim/server.pipe' 上监听的 Nvim 服务器：>
+    nvim --listen ~/.cache/nvim/server.pipe
+
+在监听 '~/.cache/nvim/server.pipe' 的 Nvim 服务器中编辑 "file.txt"：>
+    nvim --server ~/.cache/nvim/server.pipe --remote file.txt
+
+这不起作用，--remote 之后的所有参数将被视为文件名：>
+    nvim --remote --server ~/.cache/nvim/server.pipe file.txt
+
+告诉远程服务器写入所有文件并退出：>
+    nvim --server ~/.cache/nvim/server.pipe --remote-send '<C-\><C-N>:wqa<CR>'
+
+
+远程编辑
+
+--remote 参数将从命令行的其余部分构造一个 |:drop| 命令并按上述方式发送。
+注意 --remote 和 --remote-wait 参数将消耗命令行的其余部分。即所有剩余参数
+都将被视为文件名。你不能在那里放置选项！
+
+
+==============================================================================
+2. 缺失的功能			*E5600* *clientserver-missing*
+
+Vim 在 clientserver 中支持的一些额外功能尚未在 Nvim 中实现。特别是，尚不支持
+任何 "wait" 变体。以下命令行参数尚不可用：
+
+    参数			含义 ~
+
+   --remote-wait [+{cmd}] {file} ...				*--remote-wait*
+				Nvim 尚不支持。
+				类似 --remote，但等待文件在远程 Vim
+				中完成（卸载）。
+   --remote-wait-silent [+{cmd}] {file} ...		*--remote-wait-silent*
+				Nvim 尚不支持。
+				类似 --remote-wait，但如果没有服务器
+				不会报错。
+							*--remote-tab-wait*
+   --remote-tab-wait		Nvim 尚不支持。
+				类似 --remote-wait，但在新标签页中
+				打开每个文件。
+						*--remote-tab-wait-silent*
+   --remote-tab-wait-silent	Nvim 尚不支持。
+				类似 --remote-wait-silent，但在新
+				标签页中打开每个文件。
+							    *--servername*
+   --servername {name}          Nvim 尚不支持。
+				成为名为 {name} 的服务器。当与某个
+                                --remote 命令一起使用时：连接到名为
+                                {name} 的服务器而非默认服务器（见
+                                下文）。使用的名称将被转为大写。
+
+								*--serverlist*
+   --serverlist			Nvim 尚不支持。
+				输出服务器名称列表。
+
+
+
+
+服务器名称						*client-server-name*
+
+默认情况下 Vim 会尝试注册其被调用时的名称（gvim、egvim ...）。这可以用
+--servername 参数覆盖。Nvim 监听命名管道或套接字，尚不支持
+--servername 功能。
+
+ vim:tw=78:sw=4:ts=8:noet:ft=help:norl:

@@ -1,0 +1,181 @@
+*pi_zip.txt*	Nvim
+
+				+====================+
+				| Zip 文件接口       |
+				+====================+
+
+Author:  Charles E. Campbell  <NcampObell@SdrPchip.AorgM-NOSPAM>
+	  (remove NOSPAM from Campbell's email first)
+Copyright: Copyright (C) 2005-2015 Charles E Campbell	 *zip-copyright*
+	The VIM LICENSE (see |copyright|) applies to the files in this
+	package, including zipPlugin.vim, zip.vim, and pi_zip.vim.  except use
+	"zip.vim" instead of "VIM".  Like anything else that's free, zip.vim
+	and its associated files are provided as is and comes with no
+	warranty of any kind, either expressed or implied.  No guarantees of
+	merchantability.  No guarantees of suitability for any purpose.  By
+	using this plugin, you agree that in no event will the copyright
+	holder be liable for any damages resulting from the use of this
+	software. Use at your own risk!
+
+==============================================================================
+1. 目录						*zip* *zip-contents*
+   1. 目录................................................|zip-contents|
+   2. 用法................................................|zip-usage|
+   3. 额外扩展名.........................................|zip-extension|
+   4. 历史................................................|zip-history|
+
+==============================================================================
+2. 用法						*zip-usage* *zip-manual*
+
+   当编辑 `*.zip` 文件时，此插件会处理显示内容页面。将光标移到所需的文件上，
+   然后按 <return> 键来选择要编辑的文件。编辑后，也可以写入文件。目前，不能
+   通过插件在 zip 归档中创建新文件。
+
+   zip 插件尝试检测一些常见的路径遍历攻击模式，但可能无法捕获所有可能的
+   情况。使用此插件处理不受信任的输入时请非常小心。
+
+   命令~
+								*zip-x*
+   x : 当光标在列出的文件上时提取该文件
+
+   选项~
+
+							*g:zip_nomax*
+
+   如果此变量存在且为真，打开时文件窗口不会被自动最大化。
+
+							*g:zip_shq*
+   不同的操作系统可能使用一个或多个 shell 来执行命令。Zip 会尝试猜测
+   正确的引号机制以允许文件名中包含空格等字符；但是，如果它对你的设置
+   猜错了引号，你可以使用 >
+	g:zip_shq
+<  默认在 Unix 下是单引号 (')，在 Windows 下是双引号 (")。如果你不想要
+   引号，只需在 <.vimrc> 中将 g:zip_shq 设置为空字符串 (let g:zip_shq= "")。
+
+							*g:zip_unzipcmd*
+   使用此选项指定执行 "unzip" 功能的程序。浏览时使用。默认值: >
+	let g:zip_unzipcmd= "unzip"
+<
+							*g:zip_zipcmd*
+   使用此选项指定执行 "zip" 功能的程序。在写入 (更新) zip 文件中已有的
+   文件时使用；默认值: >
+	let g:zip_zipcmd= "zip"
+<
+							*g:zip_extractcmd*
+   此选项指定用于从 zip 归档中提取文件的程序 (及所需的选项)。默认值: >
+	let g:zip_extractcmd= g:zip_unzipcmd
+<
+							*g:zip_exec*
+   出于安全原因，可以阻止 Vim 在打开缓冲区时自动运行可执行文件。此选项
+   (默认值: "1") 设置为 "0" 时可以阻止执行 "unzip" 命令: >
+	let g:zip_exec=0
+<
+   回退到 POWERSHELL CORE~
+
+   此插件首先会尝试使用 (功能更强的) GNU zip/unzip 命令。如果这些命令
+   不可用或失败，并且用户使用的是 PowerShell Core (即 'shell' 选项匹配
+   "pwsh")，插件将回退到 PowerShell Core cmdlet。PowerShell Core cmdlet
+   功能有限: 它们无法在 zip 归档的子目录中写入或提取文件。但优点是不需要
+   单独安装 unzip 二进制文件。
+
+   阻止加载~
+
+   如果由于某种原因你不希望使用 vim 来检查 zip 文件，可以在 <.vimrc> 中
+   设置以下两个变量来阻止 zip 插件加载: >
+
+	let g:loaded_zipPlugin= 1
+	let g:loaded_zip      = 1
+<
+
+==============================================================================
+3. 额外扩展名					*zip-extension*
+
+   显然有许多归档工具会生成不使用 .zip 扩展名的 zip 文件 (.jar、.xpi 等)。
+   要处理此类文件，在 <.vimrc> 文件中放置以下行: >
+
+	au BufReadCmd *.jar,*.xpi call zip#Browse(expand("<amatch>"))
+<
+   只需扩展此行即可适应应被视为 zip 文件的其他扩展名。
+
+   或者，可以在 .vimrc 中更改 *g:zipPlugin_ext*。目前 (截至 2025 年 10 月)
+   其内容为: >
+
+        let g:zipPlugin_ext='*.aar,*.apk,*.celzip,*.crtx,*.docm,*.docx,
+       \ *.dotm,*.dotx,*.ear,*.epub,*.gcsx,*.glox,*.gqsx,*.ja,*.jar,*.kmz,
+       \ *.odb,*.odc,*.odf,*.odg,*.odi,*.odm,*.odp,*.ods,*.odt,*.otc,*.otf,
+       \ *.otg,*.oth,*.oti,*.otp,*.ots,*.ott,*.oxt,*.pkpass,*.potm,*.potx,
+       \ *.ppam,*.ppsm,*.ppsx,*.pptm,*.pptx,*.sldx,*.thmx,*.vdw,*.war,*.whl,
+       \ *.wsz, *.xap,*.xlam,*.xlsb,*.xlsm,*.xlsx,*.xltm,*.xltx,*.xpi,*.zip'
+
+==============================================================================
+4. 历史							*zip-history* {{{1
+   unreleased:
+       Sep 19, 2025 * support PowerShell Core
+       Jul 12, 2025 * drop ../ on write to prevent path traversal attacks
+       Mar 11, 2025 * handle filenames with leading '-' correctly
+       Aug 21, 2024 * simplify condition to detect MS-Windows
+       Aug 18, 2024 * correctly handle special globbing chars
+       Aug 05, 2024 * clean-up and make it work with shellslash on Windows
+       Aug 05, 2024 * workaround for the FreeBSD's unzip
+       Aug 04, 2024 * escape '[' in name of file to be extracted
+       Jul 30, 2024 * fix opening remote zipfile
+       Jul 24, 2024 * use delete() function
+       Jul 23, 2024 * fix 'x' command
+       Jun 16, 2024 * handle whitespace on Windows properly (#14998)
+   v33 Dec 07, 2021 * `*.xlam` mentioned twice in zipPlugin
+   v32 Oct 22, 2021 * to avoid an issue with a vim 8.2 patch, zipfile: has
+		      been changed to zipfile:// . This often shows up
+		      as zipfile:/// with zipped files that are root-based.
+   v29 Apr 02, 2017 * (Klartext) reported that an encrypted zip file could
+		      opened but the swapfile held unencrypted contents.
+		      The solution is to edit the contents of a zip file
+		      using the |:noswapfile| modifier.
+   v28 Oct 08, 2014 * changed the sanity checks for executables to reflect
+		      the command actually to be attempted in zip#Read()
+		      and zip#Write()
+		    * added the extraction of a file capability
+       Nov 30, 2015 * added `*.epub` to the |g:zipPlugin_ext| list
+       Sep 13, 2016 * added `*.apk` to the |g:zipPlugin_ext| list and
+		      sorted the suffices.
+   v27 Jul 02, 2013 * sanity check: zipfile must have "PK" as its first
+		      two bytes.
+		    * modified to allow zipfile: entries in quickfix lists
+   v26 Nov 15, 2012 * (Jason Spiro) provided a lot of new extensions that
+		      are synonyms for .zip
+   v25 Jun 27, 2011 * using keepj with unzip -Z
+		      (consistent with the -p variant)
+		    * (Ben Staniford) now uses
+			has("win32unix") && executable("cygpath")
+		      before converting to cygwin-style paths
+   v24 Jun 21, 2010 * (Cédric Bosdonnat) unzip seems to need its filenames
+		      fnameescape'd as well as shellquote'd
+		    * (Motoya Kurotsu) inserted keepj before 0d to protect
+		      jump list
+   v17 May 09, 2008 * arno caught a security bug
+   v15 Sep 07, 2007 * &shq now used if not the empty string for g:zip_shq
+   v14 May 07, 2007 * using b:zipfile instead of w:zipfile to avoid problem
+                      when editing alternate file to bring up a zipfile
+   v10 May 02, 2006 * now using "redraw then echo" to show messages, instead
+                      of "echo and prompt user"
+		    * g:zip_shq provided to allow for quoting control for the
+		      command being passed via :r! ... commands.
+   v8 Apr 10, 2006 * Bram Moolenaar reported that he received an error message
+                     due to `Pattern not found: ^.*\%0c`; this was caused by
+		     stridx finding a Name... at the beginning of the line;
+		     zip.vim tried `4,$s/^.*\%0c//`, but that doesn't work.
+		     Fixed.
+   v7 Mar 22, 2006 * escaped some characters that can cause filename handling
+                     problems.
+   v6 Dec 21, 2005 * writing to files not in directories caused problems -
+                     fixed (pointed out by Christian Robinson)
+   v5 Nov 22, 2005 * report option workaround installed
+   v3 Oct 18, 2005 * <amatch> used instead of <afile> in autocmds
+   v2 Sep 16, 2005 * silenced some commands (avoiding hit-enter prompt)
+                   * began testing under Windows; works thus far
+		   * filetype detection fixed
+      Nov 03, 2005 * handles writing zipfiles across a network using
+                     netrw#NetWrite()
+   v1 Sep 15, 2005 * Initial release, had browsing, reading, and writing
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:noet:norl:fdm=marker

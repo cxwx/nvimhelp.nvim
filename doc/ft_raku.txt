@@ -1,0 +1,122 @@
+*ft_raku.txt*	The Raku programming language filetype
+
+                                                      *vim-raku*
+
+Vim-raku 为编辑 Raku 程序提供语法高亮、缩进及其他支持。
+
+1. 在 Raku 文件中使用 Unicode	|raku-unicode|
+
+==============================================================================
+1. 在 Raku 文件中使用 Unicode                           *raku-unicode*
+
+使用 Unicode 符号定义新运算符是使 Raku 程序易于阅读的好方法。参见:
+https://perl6advent.wordpress.com/2012/12/18/day-18-formulas-resistance-is-futile/
+
+虽然 Raku 为一些常见运算符定义了 ASCII 替代方案 (参见
+https://docs.raku.org/language/unicode_ascii)，但使用完整范围的 Unicode
+运算符是非常可取的。你的操作系统提供了输入功能，但使用 Vim 内建的功能可能
+更方便。
+
+在 Vim 中输入这些符号的自然方式是使用二合字母快捷键
+(:help |digraphs-use|)。已定义了许多二合字母；输入 `:digraphs` 可获取
+列表。读取二合字母列表的便捷方式是将它们保存到文件。从 shell: >
+        vim +'redir >/tmp/vim-digraphs-listing.txt' +digraphs +'redir END' +q
+
+其中一些可通过标准 Vim 二合字母获取:
+	<< «    /0 ∅    !< ≮  ~
+	>> »    Ob ∘    !> ≯  ~
+	., …    00 ∞    (C ⊂  ~
+	(U ∩    -: ÷    )C ⊃  ~
+	)U ∪    (_ ⊆    >= ≥  ~
+	?= ≅    )_ ⊇    =< ≤  ~
+	(- ∈    ?= ≅    != ≠  ~
+	-) ∋    ?- ≃  ~
+
+希腊字母可用 "*" 加上类似的拉丁符号获取: >
+	*p π
+	*t τ
+	*X ×
+
+数字、下标和上标可用 's' 和 'S' 获取:
+	0s ₀    0S ⁰  ~
+	1s ₁    1S ¹  ~
+	2s ₂    9S ⁹  ~
+
+但有些默认未定义。以下是可以添加到 ~/.vimrc 文件中的二合字母定义。 >
+	exec 'digraph \\ ' .. char2nr('∖')
+	exec 'digraph \< ' .. char2nr('≼')
+	exec 'digraph \> ' .. char2nr('≽')
+	exec 'digraph (L ' .. char2nr('⊈')
+	exec 'digraph )L ' .. char2nr('⊉')
+	exec 'digraph (/ ' .. char2nr('⊄')
+	exec 'digraph )/ ' .. char2nr('⊅')
+	exec 'digraph )/ ' .. char2nr('⊅')
+	exec 'digraph U+ ' .. char2nr('⊎')
+	exec 'digraph 0- ' .. char2nr('⊖')
+	" 欧拉常数
+	exec 'digraph ne ' .. char2nr('𝑒')
+	" Raku 的原子操作标记
+	exec 'digraph @@ ' .. char2nr('⚛')
+
+或者，你可以编写插入模式缩写，将基于 ASCII 的运算符转换为等价的单字符
+Unicode 形式。 >
+	iabbrev <buffer> !(<) ⊄
+	iabbrev <buffer> !(<=) ⊈
+	iabbrev <buffer> !(>) ⊅
+	iabbrev <buffer> !(>=) ⊉
+	iabbrev <buffer> !(cont) ∌
+	iabbrev <buffer> !(elem) ∉
+	iabbrev <buffer> != ≠
+	iabbrev <buffer> (&) ∩
+	iabbrev <buffer> (+) ⊎
+	iabbrev <buffer> (-) ∖
+	iabbrev <buffer> (.) ⊍
+	iabbrev <buffer> (<) ⊂
+	iabbrev <buffer> (<+) ≼
+	iabbrev <buffer> (<=) ⊆
+	iabbrev <buffer> (>) ⊃
+	iabbrev <buffer> (>+) ≽
+	iabbrev <buffer> (>=) ⊇
+	iabbrev <buffer> (\|) ∪
+	iabbrev <buffer> (^) ⊖
+	iabbrev <buffer> (atomic) ⚛
+	iabbrev <buffer> (cont) ∋
+	iabbrev <buffer> (elem) ∈
+	iabbrev <buffer> * ×
+	iabbrev <buffer> **0 ⁰
+	iabbrev <buffer> **1 ¹
+	iabbrev <buffer> **2 ²
+	iabbrev <buffer> **3 ³
+	iabbrev <buffer> **4 ⁴
+	iabbrev <buffer> **5 ⁵
+	iabbrev <buffer> **6 ⁶
+	iabbrev <buffer> **7 ⁷
+	iabbrev <buffer> **8 ⁸
+	iabbrev <buffer> **9 ⁹
+	iabbrev <buffer> ... …
+	iabbrev <buffer> / ÷
+	iabbrev <buffer> << «
+	iabbrev <buffer> <<[=]<< «=«
+	iabbrev <buffer> <<[=]>> «=»
+	iabbrev <buffer> <= ≤
+	iabbrev <buffer> =~= ≅
+	iabbrev <buffer> >= ≥
+	iabbrev <buffer> >> »
+	iabbrev <buffer> >>[=]<< »=«
+	iabbrev <buffer> >>[=]>> »=»
+	iabbrev <buffer> Inf ∞
+	iabbrev <buffer> atomic-add-fetch ⚛+=
+	iabbrev <buffer> atomic-assign ⚛=
+	iabbrev <buffer> atomic-fetch ⚛
+	iabbrev <buffer> atomic-dec-fetch --⚛
+	iabbrev <buffer> atomic-fetch-dec ⚛--
+	iabbrev <buffer> atomic-fetch-inc ⚛++
+	iabbrev <buffer> atomic-inc-fetch ++⚛
+	iabbrev <buffer> atomic-sub-fetch ⚛−=
+	iabbrev <buffer> e 𝑒
+	iabbrev <buffer> o ∘
+	iabbrev <buffer> pi π
+	iabbrev <buffer> set() ∅
+	iabbrev <buffer> tau τ
+<
+ vim:tw=78:ts=8:noet:ft=help:norl:

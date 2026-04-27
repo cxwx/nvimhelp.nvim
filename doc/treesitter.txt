@@ -1,0 +1,1745 @@
+*treesitter.txt*    Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+Treesitter 集成                                 *treesitter*
+
+Nvim 集成了 `tree-sitter` 库，用于对缓冲区进行增量解析：
+https://tree-sitter.github.io/tree-sitter/
+
+警告：Treesitter 支持仍处于实验阶段，可能会频繁变化。本文档可能也未
+完全反映最新的更改。
+
+                                      Type |gO| to see the table of contents.
+
+==============================================================================
+解析器文件                                              *treesitter-parsers*
+
+解析器是 treesitter 的核心。它们是 treesitter 会在 `parser` 运行时
+目录中搜索的库。
+
+Nvim 包含以下解析器：
+
+- C
+- Lua
+- Markdown
+- Vimscript
+- Vimdoc
+- Treesitter 查询文件 |ft-query-plugin|
+
+你可以手动安装更多解析器，或使用插件如
+https://github.com/nvim-treesitter/nvim-treesitter 。
+
+解析器在任何 'runtimepath' 目录中以 `parser/{lang}.*` 搜索。如果找到
+同一语言的多个解析器，使用第一个。（注意：这通常意味着优先级为
+"用户配置 > 插件 > 内置"。）
+
+从文件路径加载解析器：>lua
+
+    vim.treesitter.language.add('python', { path = "/path/to/python.so" })
+<
+如果文件系统区分大小写，解析器名称假定为小写。
+
+要将某些 |filetypes| 与 treesitter 语言（解析器名称）关联，使用
+|vim.treesitter.language.register()|。例如，要对文件类型为 `svg` 或
+`xslt` 的缓冲区使用 `xml` treesitter 解析器，使用：>lua
+
+    vim.treesitter.language.register('xml', { 'svg', 'xslt' })
+<
+                                                    *treesitter-parsers-wasm*
+
+如果 Nvim 构建时启用了 `ENABLE_WASMTIME`，还可以加载 wasm 解析器：>lua
+
+    vim.treesitter.language.add('python', { path = "/path/to/python.wasm" })
+<
+
+==============================================================================
+TREESITTER 查询                                          *treesitter-query*
+
+Treesitter 查询是从已解析的 |TSTree| 中提取信息的方式，例如用于高亮。
+简而言之，`query`（查询）由一个或多个模式组成。`pattern`（模式）定义在
+语法树中的节点类型上。`match`（匹配）对应语法树中匹配模式的特定元素。
+模式可以选择性地定义捕获和谓词。`capture`（捕获）允许你将名称与模式中
+的特定节点关联。`predicate`（谓词）为匹配添加任意元数据和条件数据。
+
+查询用类 lisp 语言编写，文档在
+https://tree-sitter.github.io/tree-sitter/using-parsers/queries/1-syntax.html
+注意：其中列出的谓词与 Nvim 支持的不同。参见 |treesitter-predicates|
+了解 Nvim 支持的完整谓词列表。
+
+Nvim 在 `runtimepath` 下的 `queries` 目录中查找 `*.scm` 文件形式的
+查询，其中每个文件包含特定语言和用途的查询，例如
+`queries/lua/highlights.scm` 用于高亮 Lua 文件。
+默认使用 `runtimepath` 上的第一个查询（通常意味着用户配置优先于插件，
+插件优先于 Nvim 内置查询）。如果查询应扩展其他查询而非替换它们，
+使用 |treesitter-query-modeline-extends|。
+
+Lua 接口在 |lua-treesitter-query| 中描述。
+
+
+TREESITTER 查询谓词                            *treesitter-predicates*
+
+谓词是特殊的 scheme 节点，用于条件性地捕获节点。例如，`eq?` 谓词
+可以如下使用：>query
+
+    ((identifier) @variable.builtin
+      (#eq? @variable.builtin "self"))
+<
+仅匹配对应 `"self"` 文本的标识符。此类查询可用于以不同方式高亮
+内置函数或变量。
+
+以下谓词是内置的：
+
+    `eq?`                                            *treesitter-predicate-eq?*
+        将字符串与节点对应的文本匹配：>query
+            ((identifier) @variable.builtin (#eq? @variable.builtin "self"))
+            ((node1) @left (node2) @right (#eq? @left @right))
+<
+    `any-eq?`                                    *treesitter-predicate-any-eq?*
+        类似 `eq?`，但对量化模式只需一个捕获的节点匹配。
+
+    `match?`                                      *treesitter-predicate-match?*
+    `vim-match?`                              *treesitter-predicate-vim-match?*
+         将 |regexp| 与节点对应的文本匹配：>query
+            ((identifier) @constant (#match? @constant "^[A-Z_]+$"))
+<
+         注意：`^` 和 `$` 锚点将匹配节点文本的开头和结尾。
+
+    `any-match?`                              *treesitter-predicate-any-match?*
+    `any-vim-match?`                      *treesitter-predicate-any-vim-match?*
+        类似 `match?`，但对量化模式只需一个捕获的节点匹配。
+
+    `lua-match?`                              *treesitter-predicate-lua-match?*
+         将 |lua-pattern| 与节点对应的文本匹配，类似 `match?`
+
+    `any-lua-match?`                      *treesitter-predicate-any-lua-match?*
+         类似 `lua-match?`，但对量化模式只需一个捕获的节点匹配。
+
+    `contains?`                                *treesitter-predicate-contains?*
+        将字符串与节点对应文本的部分匹配：>query
+            ((identifier) @foo (#contains? @foo "foo"))
+            ((identifier) @foo-bar (#contains? @foo-bar "foo" "bar"))
+<
+    `any-contains?`                        *treesitter-predicate-any-contains?*
+        类似 `contains?`，但对量化模式只需一个捕获的节点匹配。
+
+    `any-of?`                                    *treesitter-predicate-any-of?*
+        将给定字符串中的任意一个与节点对应的文本匹配：>query
+            ((identifier) @foo (#any-of? @foo "foo" "bar"))
+<
+        这是检查节点是否匹配多个关键字之一的推荐方式，因为已为此
+        进行了优化。
+
+    `has-ancestor?`                        *treesitter-predicate-has-ancestor?*
+        将给定节点类型与节点的所有祖先匹配：>query
+            ((identifier) @variable.builtin
+              (#any-of? @variable.builtin "begin" "end")
+              (#has-ancestor? @variable.builtin range_expression))
+<
+    `has-parent?`                            *treesitter-predicate-has-parent?*
+        将给定节点类型与节点的直接祖先匹配：>query
+            (((field_expression
+                 (field_identifier) @method)) @_parent
+             (#has-parent? @_parent template_method function_declarator))
+<
+                                                    *treesitter-predicate-not*
+每个谓词都有一个 `not-` 前缀的谓词，即该谓词的否定。
+
+                                                    *treesitter-predicate-all*
+                                                    *treesitter-predicate-any*
+查询可以使用量词来捕获多个节点。当捕获包含多个节点时，谓词仅在捕获
+包含的所有节点都匹配谓词时才匹配。某些谓词（`eq?`、`match?`、
+`lua-match?`、`contains?`）接受 `any-` 前缀，改为在捕获包含的任意
+节点匹配谓词时匹配。
+
+例如，考虑以下 Lua 代码：>lua
+
+  -- TODO: This is a
+  -- very long
+  -- comment (just imagine it)
+<
+使用以下带谓词的查询：
+>query
+    (((comment)+ @comment)
+     (#match? @comment "TODO"))
+<
+此查询不会匹配，因为不是所有被 @comment 捕获的节点都匹配谓词。
+改为使用：
+>query
+    (((comment)+ @comment)
+     (#any-match? @comment "TODO"))
+<
+
+可以通过 |vim.treesitter.query.add_predicate()| 添加更多谓词。
+使用 |vim.treesitter.query.list_predicates()| 列出所有可用谓词。
+
+
+TREESITTER 查询指令                            *treesitter-directives*
+
+Treesitter 指令为节点或匹配存储元数据并执行副作用。例如，`set!`
+指令在匹配或节点上设置元数据：>query
+
+        ((identifier) @foo (#set! type "parameter"))
+<
+以下指令是内置的：
+
+    `set!`                                          *treesitter-directive-set!*
+        为特定匹配或捕获设置键/值元数据。值可以通过
+        `metadata[key]`（匹配特定）或
+        `metadata[capture_id][key]`（捕获特定）访问。
+
+        参数: ~
+            {capture_id}（可选）
+            {key}
+            {value}
+
+        示例：>query
+            ((identifier) @foo (#set! @foo kind "parameter"))
+            ((node1) @left (node2) @right (#set! type "pair"))
+            ((codeblock) @markup.raw.block (#set! priority 90))
+<
+    `offset!`                                      *treesitter-directive-offset!*
+        获取捕获节点的范围并应用偏移。这将为具有 `capture_id` 的捕获
+        节点设置形如 { {start_row}, {start_col}, {end_row}, {end_col} }
+        列表的新范围作为 `metadata[capture_id].offset`。此偏移将应用于
+        |vim.treesitter.get_range()| 返回的范围。对
+        |treesitter-language-injections| 很有用。
+
+        参数: ~
+            {capture_id}
+            {start_row}
+            {start_col}
+            {end_row}
+            {end_col}
+
+        示例：>query
+            ((identifier) @constant (#offset! @constant 0 1 0 -1))
+<
+    `gsub!`                                          *treesitter-directive-gsub!*
+        使用 |lua-pattern| 转换节点内容。这将设置新的
+        `metadata[capture_id].text`。
+
+        参数: ~
+            {capture_id}
+            {pattern}
+            {replacement}
+
+        示例：>query
+            (#gsub! @_node ".*%.(.*)" "%1")
+<
+    `trim!`                                          *treesitter-directive-trim!*
+        修剪节点中的空白。设置新的 `metadata[capture_id].range`。接受
+        捕获 ID，以及可选的四个整数来自定义修剪行为（`1` 表示修剪，
+        `0` 表示不修剪）。仅给出捕获 ID 时，修剪节点末尾的空行
+        （仅包含空白或为空的行）（为向后兼容）。如果给出参数，可以
+        修剪节点两侧的所有空白。
+
+        示例：>query
+            ; only trim blank lines from the end of the node
+            ; (equivalent to (#trim! @fold 0 0 1 0))
+            (#trim! @fold)
+
+            ; trim blank lines from both sides of the node
+            (#trim! @fold 1 0 1 0)
+
+            ; trim all whitespace around the node
+            (#trim! @fold 1 1 1 1)
+<
+        参数: ~
+            {capture_id}
+            {trim_start_linewise}
+            {trim_start_charwise}
+            {trim_end_linewise}（仅给出 {capture_id} 时默认 `1`）
+            {trim_end_charwise}
+
+可以通过 |vim.treesitter.query.add_directive()| 添加更多指令。
+使用 |vim.treesitter.query.list_directives()| 列出所有可用指令。
+
+
+TREESITTER 查询模式行                          *treesitter-query-modeline*
+
+Nvim 支持使用一组"模式行"来自定义查询的行为，即查询中以 `;` 开头的
+注释。以下是当前支持的模式行替代方案：
+
+    `inherits: {lang}...`                     *treesitter-query-modeline-inherits*
+        指定此查询应继承 {lang} 的查询。这将递归地深入到 {lang} 的
+        查询中，除非用括号包裹：`({lang})`。
+        注意：这旨在用于包含另一语言的查询。如果你想让查询扩展
+        同一语言的查询，使用 `extends`。
+
+    `extends`                                  *treesitter-query-modeline-extends*
+        指定此查询应作为查询的扩展使用，即应与其他查询合并。
+        注意：扩展的顺序和用作基础的查询取决于你的 'runtimepath' 值。
+
+注意：这些模式行注释必须在查询顶部，但可以重复，例如以下两个模式行
+块都是有效的：
+>query
+    ;; inherits: typescript,jsx
+    ;; extends
+<
+>query
+    ;; extends
+    ;;
+    ;; inherits: css
+<
+==============================================================================
+TREESITTER 语法高亮                          *treesitter-highlight*
+
+语法高亮通过名为 `highlights.scm` 的查询指定，这些查询将已解析的
+|TSTree| 中的 |TSNode| 匹配到可以分配高亮组的 `capture`（捕获）。
+例如，查询 >query
+
+    (parameters (identifier) @variable.parameter)
+<
+将函数 `parameters` 节点内的任何 `identifier` 节点匹配到名为
+`@variable.parameter` 的捕获。例如，对 Lua 代码 >lua
+
+    function f(foo, bar) end
+<
+将被解析为（参见 |:InspectTree|）：>query
+
+    (function_declaration ; [1:1 - 24]
+      name: (identifier) ; [1:10 - 10]
+      parameters: (parameters ; [1:11 - 20]
+        name: (identifier) ; [1:12 - 14]
+        name: (identifier))) ; [1:17 - 19]
+<
+上述查询将 `foo` 和 `bar` 高亮为 `@variable.parameter`。
+
+也可以匹配字面表达式（前提是解析器返回它们）：
+>query
+    [
+      "if"
+      "else"
+    ] @keyword.conditional
+<
+假设在 runtimepath 中找到了合适的解析器和 `highlights.scm` 查询，
+只需通过 |vim.treesitter.start()| 即可启用当前缓冲区的 treesitter
+高亮。
+
+                                                 *treesitter-highlight-groups*
+捕获名称加 `@` 前缀后可直接用作高亮组。对于许多常用捕获，对应的
+高亮组默认链接到 Nvim 的标准 |highlight-groups|（例如 `@comment`
+链接到 `Comment`），但可以在配色方案中覆盖。
+
+实现了回退系统，使更具体的组回退到更通用的组。例如，在有单独文档
+注释的语言中（如 c、java 等），可以使用 `@comment.documentation`。
+如果此组未定义，则使用普通 `@comment` 的高亮。这样，现有配色方案
+已经开箱即用，但可以为提供它们的查询添加更具体的变体。
+
+作为附加规则，捕获高亮始终可以通过在额外点后附加语言名来针对特定
+语言进行特化。例如，按语言不同方式高亮注释：>vim
+
+    hi @comment.c guifg=Blue
+    hi @comment.lua guifg=DarkBlue
+    hi link @comment.documentation.java String
+<
+以下是 Nvim 查询中使用的标准捕获列表，按当前配色方案高亮（在其上
+使用 |:Inspect| 查看确切定义）：
+
+@variable                       各种变量名
+@variable.builtin               内置变量名（如 `this`、`self`）
+@variable.parameter             函数参数
+@variable.parameter.builtin     特殊参数（如 `_`、`it`）
+@variable.member                对象和结构体字段
+
+@constant               常量标识符
+@constant.builtin       内置常量值
+@constant.macro         预处理器定义的常量
+
+@module                 模块或命名空间
+@module.builtin         内置模块或命名空间
+@label                  `GOTO` 和其他标签（如 C 中的 `label:`），包括 heredoc 标签
+
+@string                 字符串字面量
+@string.documentation   文档化代码的字符串（如 Python 文档字符串）
+@string.regexp          正则表达式
+@string.escape          转义序列
+@string.special         其他特殊字符串（如日期）
+@string.special.symbol  符号或原子
+@string.special.path    文件名
+@string.special.url     URI（如超链接）
+
+@character              字符字面量
+@character.special      特殊字符（如通配符）
+
+@boolean                布尔字面量
+@number                 数字字面量
+@number.float           浮点数字面量
+
+@type                   类型或类的定义和注解
+@type.builtin           内置类型
+@type.definition        类型定义中的标识符（如 C 中 `typedef <type> <identifier>`）
+
+@attribute              属性注解（如 Python 装饰器、Rust 生命周期）
+@attribute.builtin      内置注解（如 Python 中的 `@property`）
+@property               键/值对中的键
+
+@function               函数定义
+@function.builtin       内置函数
+@function.call          函数调用
+@function.macro         预处理器宏
+
+@function.method        方法定义
+@function.method.call   方法调用
+
+@constructor            构造函数调用和定义
+@operator               符号运算符（如 `+`、`*`）
+
+@keyword                不适合特定类别的关键字
+@keyword.coroutine      协程相关关键字（如 Go 中的 `go`、Python 中的 `async/await`）
+@keyword.function       定义函数的关键字（如 Go 中的 `func`、Python 中的 `def`）
+@keyword.operator       英文单词形式的运算符（如 `and`、`or`）
+@keyword.import         导入或导出模块的关键字（如 Python 中的 `import`、`from`）
+@keyword.type           描述命名空间和复合类型的关键字（如 `struct`、`enum`）
+@keyword.modifier       修饰其他结构的关键字（如 `const`、`static`、`public`）
+@keyword.repeat         循环相关关键字（如 `for`、`while`）
+@keyword.return         如 `return` 和 `yield` 的关键字
+@keyword.debug          调试相关关键字
+@keyword.exception      异常相关关键字（如 `throw`、`catch`）
+
+@keyword.conditional         条件相关关键字（如 `if`、`else`）
+@keyword.conditional.ternary 三元运算符（如 `?`、`:`）
+
+@keyword.directive           各种预处理器指令和 shebang
+@keyword.directive.define    预处理器定义指令
+
+@punctuation.delimiter  分隔符（如 `;`、`.`、`,`）
+@punctuation.bracket    括号（如 `()`、`{}`、`[]`）
+@punctuation.special    特殊符号（如字符串插值中的 `{}`）
+
+@comment                行和块注释
+@comment.documentation  文档化代码的注释
+
+@comment.error          错误类型注释（如 `ERROR`、`FIXME`、`DEPRECATED`）
+@comment.warning        警告类型注释（如 `WARNING`、`FIX`、`HACK`）
+@comment.todo           待办类型注释（如 `TODO`、`WIP`）
+@comment.note           备注类型注释（如 `NOTE`、`INFO`、`XXX`）
+
+@markup.strong          粗体文本
+@markup.italic          斜体文本
+@markup.strikethrough   删除线文本
+@markup.underline       下划线文本（仅用于字面下划线标记！）
+
+@markup.heading         标题（包括标记符）
+@markup.heading.1       顶级标题
+@markup.heading.2       章节标题
+@markup.heading.3       小节标题
+@markup.heading.4       依此类推
+@markup.heading.5       继续
+@markup.heading.6       六级应该够用了
+
+@markup.quote           块引用
+@markup.math            数学环境（如 LaTeX 中的 `$ ... $`）
+
+@markup.link            文本引用、脚注、引文等
+@markup.link.label      链接、引用描述
+@markup.link.url        URL 样式的链接
+
+@markup.raw             字面或逐字文本（如内联代码）
+@markup.raw.block       作为独立块的字面或逐字文本
+
+@markup.list            列表标记
+@markup.list.checked    已选中的待办列表标记
+@markup.list.unchecked  未选中的待办列表标记
+
+@diff.plus              添加的文本（用于 diff 文件）
+@diff.minus             删除的文本（用于 diff 文件）
+@diff.delta             更改的文本（用于 diff 文件）
+
+@tag                    XML 样式的标签名（如在 XML、HTML 等中）
+@tag.builtin            内置标签名（如 HTML5 标签）
+@tag.attribute          XML 样式的标签属性
+@tag.delimiter          XML 样式的标签分隔符
+
+                                                  *treesitter-highlight-spell*
+特殊的 `@spell` 捕获可用于指示节点应由 Nvim 的内置 |spell| 检查器
+进行拼写检查。例如，以下捕获将注释标记为需要检查：>query
+
+    (comment) @spell
+<
+
+还有 `@nospell` 可以在 `@spell` 区域内禁用拼写检查。
+
+                                                *treesitter-highlight-conceal*
+Treesitter 高亮通过 `conceal` 和 `conceal_lines` 元数据支持 |conceal|。
+按惯例，要隐藏的节点捕获为 `@conceal`，但可以使用任何捕获。例如，
+以下查询可用于隐藏 Markdown 中的代码块分隔符：>query
+
+    ((fenced_code_block_delimiter) @conceal (#set! conceal ""))
+<
+也可以用单个字符替换节点，该字符（与传统语法不同）可以赋予自定义
+高亮。例如，以下（不明智的）查询将 `!=` 运算符替换为 Unicode 字形，
+仍然像其他运算符一样高亮：>query
+
+    "!=" @operator (#set! conceal "≠")
+<
+要隐藏整行（完全不绘制），可以使用带 `conceal_lines` 元数据的查询：
+>query
+
+    ((comment) @comment @spell
+      (#set! conceal_lines ""))
+<
+以这种方式指定的隐藏遵循 'conceallevel' 和 'concealcursor'。
+
+注意虽然你可以为 `conceal` 使用任何字符串，但只使用第一个字符：>query
+
+    ; identifiers will be concealed with 'f'.
+    ((identifier) @conceal (#set! conceal "foo"))
+<
+
+                                               *treesitter-highlight-priority*
+Treesitter 使用 |nvim_buf_set_extmark()| 设置高亮，默认优先级为 100。
+这使插件可以设置低于或高于 treesitter 的高亮优先级。也可以通过设置
+`"priority"` 元数据属性手动更改单个查询模式的优先级：>query
+
+    ((super_important_node) @superimportant (#set! priority 105))
+<
+
+                                          *treesitter-highlight-commentstring*
+Treesitter 高亮支持更细粒度的 'commentstring'，由内置 |commenting|
+插件使用。当光标在设置了 `bo.commentstring` 元数据属性
+（|treesitter-directive-set!|）的节点内时，该属性定义注释分隔符
+（"最内层优先"）。这对于像 `JSX` 这样根据代码区域有不同注释语法的
+语言很有用，例如：>query
+
+    ((jsx_element) @_tag (#set! @_tag bo.commentstring "{/* %s */}"))
+<
+当多个捕获在一个区域上设置此元数据时，只有最内层（最具体的）应用于
+给定区域。
+
+==============================================================================
+TREESITTER 语言注入                *treesitter-language-injections*
+
+注意以下信息改编自：
+https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting.html#language-injection
+
+某些源文件包含用多种不同语言编写的代码。示例包括：
+
+    • HTML 文件，可在 `<script>` 标签内包含 JavaScript，在 `<style>`
+      标签内包含 CSS
+    • ERB 文件，在 `<%` `%>` 标签内包含 Ruby，在这些标签外包含 HTML
+    • PHP 文件，可在 `<php` 标签之间包含 HTML
+    • JavaScript 文件，在正则字面量中包含正则表达式语法
+    • Ruby，可在 heredoc 字面量中包含代码片段，其中 heredoc 分隔符
+      通常指示语言
+    • Lua，可在 |vim.cmd()| 调用中包含 Vimscript 片段。
+    • Vimscript，可在 |:lua-heredoc| 块中包含 Lua 片段。
+
+所有这些示例都可以用父语法树和一个或多个注入语法树建模，注入语法树
+位于父树的某些节点内。语言注入查询允许你使用以下捕获指定这些"注入"：
+
+    • `@injection.content` - 表示捕获的节点应使用另一种语言重新解析其
+      内容。如果一个模式中有多个 `@injection.content` 捕获，所有范围
+      将被收集并解析为一棵树。这允许查询作者使用注入查询量词创建
+      "作用域"注入。
+    • `@injection.language` - 表示捕获节点的文本可能包含应用于重新
+      解析 `@injection.content` 的语言名称。
+    • `@injection.filename` - 表示捕获节点的文本可能包含文件名；通过
+      |vim.filetype.match()| 查找对应的文件类型，并将其作为应用于
+      重新解析 `@injection.content` 的语言名称。
+
+语言注入行为也可以通过与模式关联的一些属性进行配置：
+
+    • `injection.language` - 可用于硬编码特定语言的名称。
+    • `injection.combined` - 表示树中所有匹配节点的内容应作为一个
+    嵌套文档解析。
+    • `injection.include-children` - 表示 `@injection.content` 节点
+    的整个文本应重新解析，包括其子节点的文本。默认情况下，子节点
+    的文本将从注入文档中排除。
+    • `injection.self` - 表示节点的文本应使用与节点的 LanguageTree
+      相同的语言解析。
+    • `injection.parent` - 表示捕获节点的文本应使用与节点的父
+      LanguageTree 相同的语言解析。
+
+注入查询当前在整个缓冲区上运行，对大缓冲区可能较慢。要禁用特定语言
+（如 `c`）的注入，只需在你的 'runtimepath' 中放置一个空的
+`queries/c/injections.scm` 文件。
+
+==============================================================================
+默认值                                                 *treesitter-defaults*
+
+                                            *treesitter-incremental-selection*
+                                                                        *v_an*
+an                      选择第 [count] 个父节点。
+
+                        如果缓冲区没有 treesitter 解析器，
+                        回退到 |vim.lsp.buf.selection_range()|。
+
+                                                                        *v_in*
+in                      选择第 [count] 个上一个（或第一个）子节点。
+
+                        如果缓冲区没有 treesitter 解析器，
+                        回退到 |vim.lsp.buf.selection_range()|。
+
+                                                                        *v_]n*
+]n                      选择第 [count] 个下一个节点。
+
+                                                                        *v_[n*
+[n                      选择第 [count] 个上一个节点。
+
+==============================================================================
+VIM.TREESITTER                                                *lua-treesitter*
+
+本文档的其余部分是 `vim.treesitter` Lua 模块的参考手册，它是 Nvim 的
+treesitter 集成的主要接口。以下大部分内容由函数文档自动生成。
+
+
+                                             *vim.treesitter.language_version*
+内置 treesitter 库支持的最新解析器 ABI 版本。
+
+                                     *vim.treesitter.minimum_language_version*
+内置 treesitter 库支持的最早解析器 ABI 版本。
+
+==============================================================================
+TREESITTER 树                                    *treesitter-tree* *TSTree*
+
+"treesitter 树"表示缓冲区的已解析内容，可用于进一步分析。它是对
+treesitter 库持有的对象的 |userdata| 引用。
+
+`TSTree` 实例支持以下方法。
+
+
+TSTree:copy()                                                  *TSTree:copy()*
+    返回 `TSTree` 的副本。
+
+    返回: ~
+        (`TSTree`)
+
+TSTree:root()                                                  *TSTree:root()*
+    返回此树的根节点。
+
+    返回: ~
+        (`TSNode`)
+
+
+==============================================================================
+TREESITTER 节点                                    *treesitter-node* *TSNode*
+
+"treesitter 节点"表示缓冲区已解析内容的一个特定元素，可以被
+|treesitter-query| 捕获用于例如高亮。它是对 treesitter 库持有的对象
+的 |userdata| 引用。
+
+`TSNode` 实例支持以下方法。
+
+
+TSNode:byte_length()                                    *TSNode:byte_length()*
+    返回此节点跨越的字节数。
+
+    返回: ~
+        (`integer`)
+
+TSNode:child({index})                                         *TSNode:child()*
+    获取节点在给定 {index} 处的子节点，零表示第一个子节点。
+
+    参数: ~
+      • {index}  (`integer`)
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:child_count()                                    *TSNode:child_count()*
+    获取节点的子节点数量。
+
+    返回: ~
+        (`integer`)
+
+                                              *TSNode:child_with_descendant()*
+TSNode:child_with_descendant({descendant})
+    获取包含 {descendant} 的节点子节点（包括 {descendant}）。
+
+    例如，在以下节点层次中：>
+        a -> b -> c
+
+        a:child_with_descendant(c) == b
+        a:child_with_descendant(b) == b
+        a:child_with_descendant(a) == nil
+<
+
+    参数: ~
+      • {descendant}  (`TSNode`)
+
+    返回: ~
+        (`TSNode?`)
+
+                                               *TSNode:descendant_for_range()*
+TSNode:descendant_for_range({start_row}, {start_col}, {end_row}, {end_col})
+    获取此节点内跨越给定 (row, column) 位置范围的最小节点
+
+    参数: ~
+      • {start_row}  (`integer`)
+      • {start_col}  (`integer`)
+      • {end_row}    (`integer`)
+      • {end_col}    (`integer`)
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:end_()                                                  *TSNode:end_()*
+    获取节点的结束位置。返回三个值：行、列和总字节数（均从零开始）。
+
+    返回（多值）: ~
+        (`integer`)
+        (`integer`)
+        (`integer`)
+
+TSNode:equal({node})                                          *TSNode:equal()*
+    检查 {node} 是否引用同一棵树中的同一个节点。
+
+    参数: ~
+      • {node}  (`TSNode`)
+
+    返回: ~
+        (`boolean`)
+
+TSNode:extra()                                                *TSNode:extra()*
+    检查节点是否为额外节点。额外节点表示如注释等语法不要求但可
+    出现在任何位置的内容。
+
+    返回: ~
+        (`boolean`)
+
+TSNode:field({name})                                          *TSNode:field()*
+    返回节点具有给定字段名的所有子节点的列表。
+
+    参数: ~
+      • {name}  (`string`)
+
+    返回: ~
+        (`TSNode[]`)
+
+TSNode:has_changes()                                    *TSNode:has_changes()*
+    检查语法节点是否已被编辑。
+
+    返回: ~
+        (`boolean`)
+
+TSNode:has_error()                                        *TSNode:has_error()*
+    检查节点是否为语法错误或包含任何语法错误。
+
+    返回: ~
+        (`boolean`)
+
+TSNode:id()                                                      *TSNode:id()*
+    获取节点在其所属树中的唯一标识符。
+
+    不保证此标识符的内部表示，只保证它是具有值等价性的原始 Lua 类型
+    （因此不是表）。目前它是一个（不可打印的）字符串。
+
+    注意：不保证 `id` 在不同树的节点间唯一。
+
+    返回: ~
+        (`string`)
+
+TSNode:iter_children()                                *TSNode:iter_children()*
+    迭代 {TSNode} 的所有直接子节点，无论它们是否有名称。返回子
+    节点及对应该子节点的最终字段名。
+
+    返回: ~
+        (`fun(): TSNode, string`)
+
+TSNode:missing()                                            *TSNode:missing()*
+    检查节点是否缺失。缺失节点由解析器插入以从某些类型的语法
+    错误中恢复。
+
+    返回: ~
+        (`boolean`)
+
+TSNode:named()                                                *TSNode:named()*
+    检查节点是否有名称。有名节点对应语法中的命名规则，匿名节点
+    对应语法中的字符串字面量。
+
+    返回: ~
+        (`boolean`)
+
+TSNode:named_child({index})                             *TSNode:named_child()*
+    获取节点在给定 {index} 处的有名子节点，零表示第一个有名子节点。
+
+    参数: ~
+      • {index}  (`integer`)
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:named_child_count()                        *TSNode:named_child_count()*
+    获取节点的有名子节点数量。
+
+    返回: ~
+        (`integer`)
+
+TSNode:named_children()                              *TSNode:named_children()*
+    返回节点的有名子节点列表。
+
+    返回: ~
+        (`TSNode[]`)
+
+                                         *TSNode:named_descendant_for_range()*
+TSNode:named_descendant_for_range({start_row}, {start_col}, {end_row},
+                                  {end_col})
+    获取此节点内跨越给定 (row, column) 位置范围的最小有名节点
+
+    参数: ~
+      • {start_row}  (`integer`)
+      • {start_col}  (`integer`)
+      • {end_row}    (`integer`)
+      • {end_col}    (`integer`)
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:next_named_sibling()                      *TSNode:next_named_sibling()*
+    获取节点的下一个有名兄弟节点。
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:next_sibling()                                  *TSNode:next_sibling()*
+    获取节点的下一个兄弟节点。
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:parent()                                              *TSNode:parent()*
+    获取节点的直接父节点。如果需要迭代节点的祖先，优先使用
+    |TSNode:child_with_descendant()|。
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:prev_named_sibling()                      *TSNode:prev_named_sibling()*
+    获取节点的上一个有名兄弟节点。
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:prev_sibling()                                  *TSNode:prev_sibling()*
+    获取节点的上一个兄弟节点。
+
+    返回: ~
+        (`TSNode?`)
+
+TSNode:range({include_bytes})                                 *TSNode:range()*
+    获取节点的范围。
+
+    返回四个或六个值：
+    • 起始行
+    • 起始列
+    • 起始字节（如果 {include_bytes} 为 `true`）
+    • 结束行
+    • 结束列
+    • 结束字节（如果 {include_bytes} 为 `true`）
+
+    参数: ~
+      • {include_bytes}  (`false?`)
+
+    重载: ~
+      • `fun(self: TSNode, include_bytes: true): integer, integer, integer, integer, integer, integer`
+
+    返回（多值）: ~
+        (`integer`)
+        (`integer`)
+        (`integer`)
+        (`integer`)
+
+TSNode:sexpr()                                                *TSNode:sexpr()*
+    获取节点的 S 表达式字符串表示。
+
+    返回: ~
+        (`string`)
+
+TSNode:start()                                                *TSNode:start()*
+    获取节点的起始位置。返回三个值：行、列和总字节数（均从零开始）。
+
+    返回（多值）: ~
+        (`integer`)
+        (`integer`)
+        (`integer`)
+
+TSNode:symbol()                                              *TSNode:symbol()*
+    获取节点的类型作为数字 id。
+
+    返回: ~
+        (`integer`)
+
+TSNode:tree()                                                  *TSNode:tree()*
+    获取节点的 |TSTree|。
+
+    返回: ~
+        (`TSTree`)
+
+TSNode:type()                                                  *TSNode:type()*
+    获取节点的类型作为字符串。
+
+    返回: ~
+        (`string`)
+
+
+==============================================================================
+Lua 模块: vim.treesitter                               *lua-treesitter-core*
+
+本节及后续所有 Lua API 函数签名、参数名称、类型签名保持英文原样。
+仅翻译描述性文字。由于 lsp.txt（3142 行）极其庞大，treesitter.txt
+的 Lua API 参考部分（从此处到文件末尾约 940 行）内容量大且以 API
+签名为主，因此将其余 Lua API 参考部分的描述性文字翻译如下。
+
+foldexpr({lnum})                                   *vim.treesitter.foldexpr()*
+    返回当前缓冲区中 {lnum} 的折叠级别。可直接设置到 'foldexpr'：>lua
+        vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+<
+
+    属性: ~
+        始于: 0.9.0
+
+    参数: ~
+      • {lnum}  (`integer?`) 要计算折叠级别的行号
+
+    返回: ~
+        (`string`)
+
+                                     *vim.treesitter.get_captures_at_cursor()*
+get_captures_at_cursor({winnr})
+    返回光标下的高亮捕获名称列表
+
+    参数: ~
+      • {winnr}  (`integer?`) |window-ID| 或 0 表示当前窗口（默认）
+
+    返回: ~
+        (`string[]`) 捕获名称列表
+
+                                        *vim.treesitter.get_captures_at_pos()*
+get_captures_at_pos({bufnr}, {row}, {col})
+    返回给定位置的高亮捕获列表
+
+    每个捕获由包含捕获名称字符串、捕获语言、元数据表（`priority`、
+    `conceal` 等；未定义时为空）和捕获 id 的表表示。
+
+    参数: ~
+      • {bufnr}  (`integer`) 缓冲区编号（0 表示当前缓冲区）
+      • {row}    (`integer`) 位置行
+      • {col}    (`integer`) 位置列
+
+    返回: ~
+        (`{capture: string, lang: string, metadata: vim.treesitter.query.TSMetadata, id: integer}[]`)
+
+get_node({opts})                                   *vim.treesitter.get_node()*
+    返回给定位置处的最小有名节点
+
+    注意：在未解析的树上调用此函数可能产生无效节点。如果树未被
+    （如活动高亮器）确认已解析，先通过以下方式解析树 >lua
+        vim.treesitter.get_parser(bufnr):parse(range)
+<
+
+    参数: ~
+      • {opts}  (`table?`) 可选关键字参数：
+                • {bufnr} (`integer?`) 缓冲区编号（nil 或 0 表示当前缓冲区）
+                • {pos} (`[integer, integer]?`) 基于 0 索引的 (row, col)
+                  元组。默认为当前窗口中的光标位置。如果 {bufnr} 不是
+                  当前缓冲区则必需
+                • {lang} (`string?`) 解析器语言。（默认：从缓冲区文件
+                  类型获取）
+                • {ignore_injections} (`boolean?`) 忽略注入语言
+                  （默认 true）
+                • {include_anonymous} (`boolean?`) 包含匿名节点
+                  （默认 false）
+
+    返回: ~
+        (`TSNode?`) 给定位置的节点
+
+get_node_range({node_or_range})              *vim.treesitter.get_node_range()*
+    返回节点的范围或解包的范围表
+
+    参数: ~
+      • {node_or_range}  (`TSNode|Range4`) 节点或位置表
+
+    返回（多值）: ~
+        (`integer`) start_row
+        (`integer`) start_col（字节偏移）
+        (`integer`) end_row
+        (`integer`) end_col（字节偏移）
+
+                                              *vim.treesitter.get_node_text()*
+get_node_text({node}, {source}, {opts})
+    获取给定节点对应的文本
+
+    参数: ~
+      • {node}    (`TSNode`)
+      • {source}  (`integer|string`) 从中提取 {node} 的缓冲区或字符串
+      • {opts}    (`table?`) 可选参数。
+                  • metadata (table) 特定捕获的元数据。使用
+                    |vim.treesitter.query.add_directive()| 时将设置为
+                    `metadata[capture_id]`。
+
+    返回: ~
+        (`string`)
+
+get_parser({bufnr}, {lang}, {opts})              *vim.treesitter.get_parser()*
+    返回特定缓冲区的解析器并将其附加到缓冲区
+
+    如果需要，这将创建解析器。
+
+    如果无法创建解析器，返回 nil（和错误消息）。
+
+    参数: ~
+      • {bufnr}  (`integer?`) 解析器应绑定到的缓冲区（默认：当前缓冲区）
+      • {lang}   (`string?`) 此解析器的语言（默认：从缓冲区文件类型获取）
+      • {opts}   (`table?`) 传递给创建的语言树的选项
+
+    返回（多值）: ~
+        (`vim.treesitter.LanguageTree?`) 用于解析的对象
+        (`string?`) 错误消息（如果适用）
+
+get_range({node}, {source}, {metadata})           *vim.treesitter.get_range()*
+    获取 |TSNode| 的范围。也可以提供 {source} 和 {metadata} 以获取
+    应用了指令的范围。
+
+    参数: ~
+      • {node}      (`TSNode`)
+      • {source}    (`integer|string?`) 从中提取 {node} 的缓冲区或字符串
+      • {metadata}  (`vim.treesitter.query.TSMetadata?`)
+
+    返回: ~
+        (`table`) 包含以下字段的表：
+        • {[1]} (`integer`) 起始行
+        • {[2]} (`integer`) 起始列
+        • {[3]} (`integer`) 起始字节
+        • {[4]} (`integer`) 结束行
+        • {[5]} (`integer`) 结束列
+        • {[6]} (`integer`) 结束字节
+
+                                          *vim.treesitter.get_string_parser()*
+get_string_parser({str}, {lang}, {opts})
+    返回字符串解析器
+
+    参数: ~
+      • {str}   (`string`) 要解析的文本
+      • {lang}  (`string`) 此字符串的语言
+      • {opts}  (`table?`) 传递给创建的语言树的选项
+
+    返回: ~
+        (`vim.treesitter.LanguageTree`) 用于解析的对象
+
+inspect_tree({opts})                           *vim.treesitter.inspect_tree()*
+    打开一个窗口，显示语言树中节点的文本表示。
+
+    在窗口中，按 "a" 切换匿名节点的显示，按 "I" 切换每个节点的源语言
+    显示，按 "o" 切换查询编辑器，按 <Enter> 跳转到源缓冲区中光标下的
+    节点。折叠也有效（试试 |zo|、|zc| 等）。
+
+    也可以用 `:InspectTree` 显示。                      *:InspectTree*
+
+    属性: ~
+        始于: 0.9.0
+
+    参数: ~
+      • {opts}  (`table?`) 包含以下可能键的可选选项表：
+                • lang (string|nil): 源缓冲区的语言。省略时从源缓冲区
+                  的文件类型检测。
+                • bufnr (integer|nil): 将树绘制到的缓冲区。省略时创建
+                  新缓冲区。
+                • winid (integer|nil): 显示树缓冲区的窗口 id。省略时用
+                  {command} 创建新窗口。
+                • command (string|nil): 创建窗口的 Vimscript 命令。默认
+                  值为 "60vnew"。仅在 {winid} 为 nil 时使用。
+                • title (string|fun(bufnr:integer):string|nil): 窗口标题。
+                  如果是函数，接受源缓冲区的缓冲区编号作为唯一参数，
+                  应返回字符串。
+
+is_ancestor({dest}, {source})                   *vim.treesitter.is_ancestor()*
+    判断一个节点是否是另一个节点的祖先
+
+    参数: ~
+      • {dest}    (`TSNode`) 可能的祖先
+      • {source}  (`TSNode`) 可能的后代
+
+    返回: ~
+        (`boolean`) 如果 {dest} 是 {source} 的祖先则为 True
+
+                                           *vim.treesitter.is_in_node_range()*
+is_in_node_range({node}, {line}, {col})
+    判断 (line, col) 位置是否在节点范围内
+
+    参数: ~
+      • {node}  (`TSNode`) 定义范围的节点
+      • {line}  (`integer`) 行（基于 0）
+      • {col}   (`integer`) 列（基于 0）
+
+    返回: ~
+        (`boolean`) 如果位置在节点范围内则为 True
+
+node_contains({node}, {range})                *vim.treesitter.node_contains()*
+    判断节点是否包含范围
+
+    参数: ~
+      • {node}   (`TSNode`)
+      • {range}  (`table`)
+
+    返回: ~
+        (`boolean`) 如果 {node} 包含 {range} 则为 True
+
+start({bufnr}, {lang})                                *vim.treesitter.start()*
+    为缓冲区启动 treesitter 高亮
+
+    可在 ftplugin 或 FileType 自动命令中使用。
+
+    注意：默认禁用正则语法高亮，某些插件可能需要它。在这种情况下，
+    在调用 `start` 后添加 `vim.bo.syntax = 'ON'`。
+
+    注意：默认情况下，高亮器异步解析代码，使用 3ms 的段时间。
+
+    示例：>lua
+        vim.api.nvim_create_autocmd( 'FileType', { pattern = 'tex',
+            callback = function(ev)
+                vim.treesitter.start(ev.buf, 'latex')
+                vim.bo[ev.buf].syntax = 'ON'  -- only if additional legacy syntax is needed
+            end
+        })
+<
+
+    参数: ~
+      • {bufnr}  (`integer?`) 要高亮的缓冲区（默认：当前缓冲区）
+      • {lang}   (`string?`) 解析器语言（默认：从缓冲区文件类型获取）
+
+stop({bufnr})                                          *vim.treesitter.stop()*
+    停止缓冲区的 treesitter 高亮
+
+    参数: ~
+      • {bufnr}  (`integer?`) 停止高亮的缓冲区（默认：当前缓冲区）
+
+
+==============================================================================
+Lua 模块: vim.treesitter.language                      *treesitter-language*
+
+add({lang}, {opts})                            *vim.treesitter.language.add()*
+    加载名为 {lang} 的解析器
+
+    解析器在 `parser` 运行时目录或提供的 {path} 中搜索。可在启用
+    treesitter 功能前用于检查可用解析器，例如 >lua
+          if vim.treesitter.language.add('markdown') then
+            vim.treesitter.start(bufnr, 'markdown')
+          end
+<
+
+    参数: ~
+      • {lang}  (`string`) 解析器名称（仅限字母数字和 `_`）
+      • {opts}  (`table?`) 选项：
+                • {path}? (`string`) 解析器所在的可选路径
+                • {symbol_name}? (`string`) 要加载的语言的内部符号名
+
+    返回（多值）: ~
+        (`boolean?`) 如果解析器已加载则为 True
+        (`string?`) 如果解析器无法加载则为错误
+
+get_filetypes({lang})                *vim.treesitter.language.get_filetypes()*
+    返回使用名为 {lang} 的解析器的文件类型。
+
+    列表包括 {lang} 本身加上所有通过
+    |vim.treesitter.language.register()| 注册的文件类型。
+
+    参数: ~
+      • {lang}  (`string`) 解析器名称
+
+    返回: ~
+        (`string[]`) 文件类型
+
+get_lang({filetype})                      *vim.treesitter.language.get_lang()*
+    返回加载 {filetype} 的解析器时要使用的语言名称。
+
+    如果没有通过 |vim.treesitter.language.register()| 显式注册语言，
+    默认为 {filetype}。对于像 `html.glimmer` 这样的复合文件类型，
+    仅返回主文件类型。
+
+    参数: ~
+      • {filetype}  (`string`)
+
+    返回: ~
+        (`string?`)
+
+inspect({lang})                            *vim.treesitter.language.inspect()*
+    检查提供的语言。
+
+    检查提供关于语言的一些有用信息，如 ABI 版本、解析器状态计数
+    （解析器复杂度的度量）、节点和字段名，以及语言是否来自 WASM 模块。
+
+    节点名称返回在将每个节点名映射到 `boolean` 的表中，指示节点
+    是否有名称（即非匿名）。匿名节点用双引号（`"`）包围。
+
+    对于 ABI 15 解析器，还显示解析器元数据（主、次、补丁版本）
+    和超类型及其各自子类型的表。
+
+    参数: ~
+      • {lang}  (`string`) 语言
+
+    返回: ~
+        (`TSLangInfo`)
+
+register({lang}, {filetype})              *vim.treesitter.language.register()*
+    注册名为 {lang} 的解析器用于 {filetype}。
+
+    注意：这添加或覆盖 {filetype} 的映射，其他文件类型到 {lang}
+    的现有映射将保留。
+
+    参数: ~
+      • {lang}      (`string`) 解析器名称
+      • {filetype}  (`string|string[]`) 与 lang 关联的文件类型
+
+
+==============================================================================
+Lua 模块: vim.treesitter.languagetree              *treesitter-languagetree*
+
+*LanguageTree* 包含解析器树：{lang} 的根 treesitter 解析器和任何
+"注入"语言解析器，这些解析器本身可能注入其他语言，递归进行。例如，
+包含一些 Vimscript 命令的 Lua 缓冲区需要多个解析器才能完全理解其内容。
+
+要为给定缓冲区和语言创建 LanguageTree（解析器对象），使用：>lua
+    local parser = vim.treesitter.get_parser(bufnr, lang)
+<
+
+（其中 `bufnr=0` 表示当前缓冲区）。`lang` 默认为 'filetype'。注意：
+目前解析器在缓冲区的生命周期内保留，但这可能会改变；如果插件需要
+增量更新，应保留对解析器对象的引用。
+
+每当需要访问当前语法树时，解析缓冲区：>lua
+    local tree = parser:parse({ start_row, end_row })
+<
+
+这返回表示缓冲区当前状态的不可变 |treesitter-tree| 对象表。当插件想在
+（可能的）编辑后访问状态时，必须再次调用 `parse()`。如果缓冲区未编辑，
+将返回相同的树而无额外工作。如果缓冲区之前已解析，将对更改的部分进行
+增量解析。
+
+注意：要在 |nvim_buf_attach()| Lua 回调中直接使用解析器，必须在注册
+回调之前调用 |vim.treesitter.get_parser()|。但最好不要直接在变更回调
+中进行解析，因为它们会非常频繁。执行任何树分析的插件应使用计时器来
+限制过于频繁的更新。
+
+
+LanguageTree:children()                              *LanguageTree:children()*
+    返回语言到子树的映射。
+
+    返回: ~
+        (`table<string,vim.treesitter.LanguageTree>`)
+
+LanguageTree:contains({range})                       *LanguageTree:contains()*
+    判断 {range} 是否包含在 |LanguageTree| 中。
+
+    参数: ~
+      • {range}  (`table`) 包含以下字段的表：
+                 • {[1]} (`integer`) 起始行
+                 • {[2]} (`integer`) 起始列
+                 • {[3]} (`integer`) 结束行
+                 • {[4]} (`integer`) 结束列
+
+    返回: ~
+        (`boolean`)
+
+LanguageTree:destroy()                                *LanguageTree:destroy()*
+    销毁此 |LanguageTree| 及其所有子节点。
+
+    任何清理逻辑应在此执行。
+
+    注意：这不会从父节点移除此树。必须在父节点上调用 `remove_child`
+    来移除它。
+
+LanguageTree:for_each_tree({fn})                *LanguageTree:for_each_tree()*
+    递归地对每个 |LanguageTree| 调用回调。
+
+    注意：这也包括调用树的子树。
+
+    参数: ~
+      • {fn}  (`fun(tree: TSTree, ltree: vim.treesitter.LanguageTree)`)
+
+LanguageTree:included_regions()              *LanguageTree:included_regions()*
+    获取此 LanguageTree 管理的包含区域集。这可能与注入查询设置的区域
+    不同，因为部分 |LanguageTree:parse()| 会丢弃请求范围外的区域。
+    每个列表表示形如 { {start_row}, {start_col}, {start_bytes},
+    {end_row}, {end_col}, {end_bytes} } 的范围。
+
+    返回: ~
+        (`table<integer, Range6[]>`)
+
+LanguageTree:invalidate({reload})                  *LanguageTree:invalidate()*
+    使此解析器及其子节点无效。
+
+    仅应在 LanguageTree 的跟踪状态对 treesitter 中的解析树无效时
+    调用。不清除文件系统缓存。经常调用，所以需要快速。
+
+    参数: ~
+      • {reload}  (`boolean?`)
+
+                                                     *LanguageTree:is_valid()*
+LanguageTree:is_valid({exclude_children}, {range})
+    返回此 LanguageTree 是否有效，即 |LanguageTree:trees()| 反映
+    源的最新状态。如果无效，用户应调用 |LanguageTree:parse()|。
+
+    参数: ~
+      • {exclude_children}  (`boolean?`) 是否忽略子节点的有效性
+                            （默认 `false`）
+      • {range}             (`Range|Range[]?`) 要检查有效性的范围
+                            （或按升序起始点排序的范围列表）
+
+    返回: ~
+        (`boolean`)
+
+LanguageTree:lang()                                      *LanguageTree:lang()*
+    获取此树节点的语言。
+
+    返回: ~
+        (`string`)
+
+                                           *LanguageTree:language_for_range()*
+LanguageTree:language_for_range({range})
+    获取包含 {range} 的适当语言。
+
+    参数: ~
+      • {range}  (`table`) 包含以下字段的表：
+                 • {[1]} (`integer`) 起始行
+                 • {[2]} (`integer`) 起始列
+                 • {[3]} (`integer`) 结束行
+                 • {[4]} (`integer`) 结束列
+
+    返回: ~
+        (`vim.treesitter.LanguageTree`) 管理 {range} 的树
+
+                                         *LanguageTree:named_node_for_range()*
+LanguageTree:named_node_for_range({range}, {opts})
+    获取包含 {range} 的最小有名节点。
+
+    参数: ~
+      • {range}  (`table`) 包含以下字段的表：
+                 • {[1]} (`integer`) 起始行
+                 • {[2]} (`integer`) 起始列
+                 • {[3]} (`integer`) 结束行
+                 • {[4]} (`integer`) 结束列
+      • {opts}   (`table?`) 包含以下字段的表：
+                 • {ignore_injections}? (`boolean`, 默认: `true`)
+                   忽略注入语言
+
+    返回: ~
+        (`TSNode?`)
+
+                                               *LanguageTree:node_for_range()*
+LanguageTree:node_for_range({range}, {opts})
+    获取包含 {range} 的最小节点。
+
+    参数: ~
+      • {range}  (`table`) 包含以下字段的表：
+                 • {[1]} (`integer`) 起始行
+                 • {[2]} (`integer`) 起始列
+                 • {[3]} (`integer`) 结束行
+                 • {[4]} (`integer`) 结束列
+      • {opts}   (`table?`) 包含以下字段的表：
+                 • {ignore_injections}? (`boolean`, 默认: `true`)
+                   忽略注入语言
+
+    返回: ~
+        (`TSNode?`)
+
+LanguageTree:parent()                                  *LanguageTree:parent()*
+    返回父树。根树返回 `nil`。
+
+    返回: ~
+        (`vim.treesitter.LanguageTree?`)
+
+LanguageTree:parse({range}, {on_parse})                 *LanguageTree:parse()*
+    使用对应语言的 |treesitter-parsers| 递归解析语言树中的所有区域，
+    并在已解析的树上运行注入查询以确定是否应创建和解析子树。
+
+    具有空范围（`{}`，通常只有根树）的区域始终被解析；否则（通常是
+    注入）仅在与 {range} 相交时（或 {range} 为 `true` 时）解析。
+
+    参数: ~
+      • {range}     (`boolean|Range|Range[]?`) 在解析器源中解析此范围
+                    （或按升序起始点排序的范围列表）。设为 `true` 对源
+                    进行完整解析（注意：对大文件可能较慢！）。设为
+                    `false|nil` 仅解析具有空范围的区域（通常只有无注入
+                    的根树）。
+      • {on_parse}  (`fun(err?: string, trees?: table<integer, TSTree>)?`)
+                    解析完成时调用的函数。提供此参数且未设置
+                    `vim.g._ts_force_sync_parsing` 时，解析将异步运行。
+                    函数的第一个参数是表示错误类型的字符串（失败时，
+                    目前仅可能超时）。第二个参数是解析返回的树列表
+                    （成功时），或 `nil`（如果解析超时，由 'redrawtime'
+                    决定）。
+
+                    如果解析仍能同步完成（在 3ms 内），`parse()` 返回
+                    树列表。否则返回 `nil`。
+
+    返回: ~
+        (`table<integer, TSTree>?`)
+
+                                                 *LanguageTree:register_cbs()*
+LanguageTree:register_cbs({cbs}, {recursive})
+    为 |LanguageTree| 注册回调。
+
+    参数: ~
+      • {cbs}        (`table<TSCallbackNameOn,function>`) 类似
+                     |nvim_buf_attach()| 的表参数，包含以下处理器：
+                     • `on_bytes`：参见 |nvim_buf_attach()|。
+                     • `on_changedtree`：每次树有语法更改时调用的回调。
+                       它将接收两个参数：更改的范围表（作为节点范围）
+                       和更改的树。
+                     • `on_child_added`：当子节点添加到树时触发。
+                     • `on_child_removed`：当子节点从树中移除时触发。
+                     • `on_detach`：当缓冲区被分离时触发，参见
+                       |nvim_buf_detach_event|。接受一个参数，缓冲区编号。
+      • {recursive}  (`boolean?`) 递归地为所有子节点应用回调。任何新
+                     子节点也将继承回调。
+
+LanguageTree:source()                                  *LanguageTree:source()*
+    返回语言树的源内容（缓冲区编号或字符串）。
+
+    返回: ~
+        (`integer|string`)
+
+                                               *LanguageTree:tree_for_range()*
+LanguageTree:tree_for_range({range}, {opts})
+    获取包含 {range} 的树。
+
+    参数: ~
+      • {range}  (`table`) 包含以下字段的表：
+                 • {[1]} (`integer`) 起始行
+                 • {[2]} (`integer`) 起始列
+                 • {[3]} (`integer`) 结束行
+                 • {[4]} (`integer`) 结束列
+      • {opts}   (`table?`) 包含以下字段的表：
+                 • {ignore_injections}? (`boolean`, 默认: `true`)
+                   忽略注入语言
+
+    返回: ~
+        (`TSTree?`)
+
+LanguageTree:trees()                                    *LanguageTree:trees()*
+    返回此解析器解析的所有区域的树。不包括子语言。如果满足以下条件，
+    结果是列表式的：
+    • 此 LanguageTree 是根，此时结果为空或单元素列表；或
+    • 根 LanguageTree 已完全解析。
+
+    返回: ~
+        (`table<integer, TSTree>`)
+
+
+==============================================================================
+Lua 模块: vim.treesitter.query                        *lua-treesitter-query*
+
+此 Lua |treesitter-query| 接口允许你创建查询并使用它们解析文本。
+参见 |vim.treesitter.query.parse()| 了解工作示例。
+
+
+*vim.treesitter.Query*
+    已解析的查询，参见 |vim.treesitter.query.parse()|
+
+    字段: ~
+      • {lang}                     (`string`) 解析器语言名称
+      • {captures}                 (`string[]`) 查询中定义的（唯一）
+                                   捕获名称列表
+      • {info}                     (`vim.treesitter.QueryInfo`) 查询上下文
+                                   （如捕获、谓词、指令）
+      • {has_conceal_line}         (`boolean`) 查询是否设置 conceal_lines
+                                   元数据
+      • {has_combined_injections}  (`boolean`) 查询是否包含组合注入
+      • {query}                    (`TSQuery`) 用户数据查询对象
+      • {iter_captures}            (`fun(self: vim.treesitter.Query, node: TSNode, source: integer|string, start_row: integer?, end_row: integer?, opts: table?): fun(end_line: integer?, end_col: integer?): integer, TSNode, vim.treesitter.query.TSMetadata, TSQueryMatch, TSTree`)
+                                   参见 |Query:iter_captures()|。
+      • {iter_matches}             (`fun(self: vim.treesitter.Query, node: TSNode, source: integer|string, start: integer?, stop: integer?, opts: table?): fun(): integer, table<integer, TSNode[]>, vim.treesitter.query.TSMetadata, TSTree`)
+                                   参见 |Query:iter_matches()|。
+
+
+                                        *vim.treesitter.query.add_directive()*
+add_directive({name}, {handler}, {opts})
+    添加在查询中使用的新指令
+
+    处理器可以通过直接在元数据对象上设置 `metadata.key = value` 来
+    设置匹配级别数据。此外，处理器可以使用元数据表上的捕获 id
+    `metadata[capture_id].key = value` 来设置节点级别数据
+
+    参数: ~
+      • {name}     (`string`) 指令名称，不含前导 #
+      • {handler}  (`fun(match: table<integer,TSNode[]>, pattern: integer, source: integer|string, predicate: any[], metadata: vim.treesitter.query.TSMetadata)`)
+                   • match: 将捕获 ID 映射到捕获节点列表的表
+                   • pattern: 查询文件中匹配模式的索引
+                   • predicate: 包含完整指令调用的字符串列表，例如
+                     `(node (#set! conceal "-"))` 将得到谓词
+                     `{ "#set!", "conceal", "-" }`
+      • {opts}     (`table`) 包含以下字段的表：
+                   • {force}? (`boolean`) 覆盖同名的现有谓词
+
+                                        *vim.treesitter.query.add_predicate()*
+add_predicate({name}, {handler}, {opts})
+    添加在查询中使用的新谓词
+
+    参数: ~
+      • {name}     (`string`) 谓词名称，不含前导 #
+      • {handler}  (`fun(match: table<integer,TSNode[]>, pattern: integer, source: integer|string, predicate: any[], metadata: vim.treesitter.query.TSMetadata): boolean?`)
+                   • 参见 |vim.treesitter.query.add_directive()| 了解
+                     参数含义
+      • {opts}     (`table?`) 包含以下字段的表：
+                   • {force}? (`boolean`) 覆盖同名的现有谓词
+
+edit({lang})                                     *vim.treesitter.query.edit()*
+    打开一个实时编辑器来查询你开始的缓冲区。
+
+    也可以用 *:EditQuery* 命令显示。`:EditQuery <tab>` 补全可用的
+    解析器。
+
+    如果你将光标移到捕获名称（"@foo"）上，匹配捕获的文本将在源缓冲区
+    中用 |hl-DiagnosticVirtualTextHint| 高亮。查询编辑器是临时缓冲区，
+    使用 `:write` 保存。你可以在 `$VIMRUNTIME/queries/` 找到示例查询。
+
+    参数: ~
+      • {lang}  (`string?`) 要打开查询编辑器的语言。省略时从当前缓冲区
+                的文件类型推断。
+
+get({lang}, {query_name})                         *vim.treesitter.query.get()*
+    返回 {lang} 的运行时查询 {query_name}。
+
+    参数: ~
+      • {lang}        (`string`) 查询使用的语言
+      • {query_name}  (`string`) 查询名称（如 "highlights"）
+
+    返回: ~
+        (`vim.treesitter.Query?`) 已解析的查询。如果未找到查询文件
+        则为 `nil`。参见 |vim.treesitter.Query|。
+
+                                            *vim.treesitter.query.get_files()*
+get_files({lang}, {query_name}, {is_included})
+    获取组成查询的文件列表
+
+    参数: ~
+      • {lang}         (`string`) 获取查询的语言
+      • {query_name}   (`string`) 要加载的查询名称（如 "highlights"）
+      • {is_included}  (`boolean?`) 内部参数，大多数时候保留为 `nil`
+
+    返回: ~
+        (`string[]`) query_files 给定查询和语言要加载的文件列表
+
+lint({buf}, {opts})                              *vim.treesitter.query.lint()*
+    使用已安装的解析器检查 treesitter 查询，或清除检查错误。
+
+    使用 runtimepath 中的 |treesitter-parsers| 检查 {buf} 中的查询文件
+    是否有错误：
+    • 验证使用的节点是语法中的有效标识符。
+    • 验证谓词和指令是有效的。
+    • 验证顶级 s 表达式是有效的。
+
+    找到的诊断使用 |diagnostic-api| 报告。默认情况下，用于验证的解析器
+    由查询文件的包含文件夹决定，例如如果路径以 `/lua/highlights.scm`
+    结尾，将使用 `lua` 语言的解析器。
+
+    参数: ~
+      • {buf}   (`integer`) 缓冲区句柄
+      • {opts}  (`table?`) 可选关键字参数：
+                • {langs}? (`string|string[]`) 用于检查查询的语言。
+                  如果指定多种语言，查询将对所有语言验证
+                • {clear} (`boolean`) 仅清除当前检查错误
+
+list_directives()                     *vim.treesitter.query.list_directives()*
+    列出当前可在查询中使用的指令。
+
+    返回: ~
+        (`string[]`) 支持的指令。
+
+list_predicates()                     *vim.treesitter.query.list_predicates()*
+    列出当前可在查询中使用的谓词。
+
+    返回: ~
+        (`string[]`) 支持的谓词。
+
+omnifunc({findstart}, {base})                *vim.treesitter.query.omnifunc()*
+    用于在 treesitter 查询中补全节点名称和谓词的全能补全函数。
+
+    通过以下方式使用 >lua
+        vim.bo.omnifunc = 'v:lua.vim.treesitter.query.omnifunc'
+<
+
+    参数: ~
+      • {findstart}  (`0|1`)
+      • {base}       (`string`)
+
+parse({lang}, {query})                          *vim.treesitter.query.parse()*
+    解析 {query} 字符串并返回 `Query` 对象（|lua-treesitter-query|），
+    可用于搜索树中的查询模式（通过 |Query:iter_captures()|、
+    |Query:iter_matches()|），或通过以下字段检查/修改查询：
+    • `captures`：查询中定义的唯一捕获名称列表（别名：
+      `info.captures`）。
+    • `info.patterns`：关于谓词的信息。
+    • `query`：底层 |TSQuery|，可用于禁用模式或捕获。
+
+    示例：>lua
+        local query = vim.treesitter.query.parse('vimdoc', [[
+          ; query
+          ((h1) @str
+            (#trim! @str 1 1 1 1))
+        ]])
+        local tree = vim.treesitter.get_parser():parse()[1]
+        for id, node, metadata in query:iter_captures(tree:root(), 0) do
+           -- Print the node name and source text.
+           vim.print({node:type(), vim.treesitter.get_node_text(node, vim.api.nvim_get_current_buf())})
+        end
+<
+
+    参数: ~
+      • {lang}   (`string`) 查询使用的语言
+      • {query}  (`string`) 查询文本，s-expr 语法
+
+    返回: ~
+        (`vim.treesitter.Query`) 已解析的查询。参见 |vim.treesitter.Query|。
+
+    另见: ~
+      • |vim.treesitter.query.get()|
+
+                                                       *Query:iter_captures()*
+Query:iter_captures({node}, {source}, {start_row}, {end_row}, {opts})
+    迭代 {node} 中所有匹配的所有捕获。
+
+    如果查询包含谓词，{source} 是必需的；调用者必须确保使用与缓冲区
+    当前文本一致的新解析树（如果相关）。{start} 和 {stop} 可用于限制
+    行范围内的匹配（通常与根节点作为 {node} 一起使用，即获取当前
+    视口中的语法高亮匹配）。省略时，使用给定节点的 {start} 和 {stop}
+    行值。
+
+    迭代器返回四个值：
+    1. 标识捕获的数字 id
+
+    2. 捕获的节点
+
+    3. 来自处理匹配的任何指令的元数据
+
+    4. 匹配本身
+
+    示例：如何按名称获取捕获：>lua
+        for id, node, metadata, match in query:iter_captures(tree:root(), bufnr, first, last) do
+          local name = query.captures[id] -- name of the capture in the query
+          -- typically useful info about the node:
+          local type = node:type() -- type of the captured node
+          local row1, col1, row2, col2 = node:range() -- range of the capture
+          -- ... use the info here ...
+        end
+<
+
+    注意: ~
+      • 仅当特定捕获的查询模式包含谓词时才返回捕获。
+
+    参数: ~
+      • {node}       (`TSNode`) 搜索将在其下进行
+      • {source}     (`integer|string`) 从中提取文本的源缓冲区或字符串
+      • {start_row}  (`integer?`) 搜索的起始行。默认为 `node:start()`。
+      • {end_row}    (`integer?`) 搜索的停止行（末尾包含，除非提供
+                     `stop_col`）。默认为 `node:end_()`。
+      • {opts}       (`table?`) 可选关键字参数：
+                     • max_start_depth (integer) 非零时，设置每个匹配的
+                       最大起始深度。用于防止遍历树太深。
+                     • match_limit (integer) 设置进行中匹配的最大数量
+                       （默认：256）。
+                     • start_col (integer) 搜索的起始列。
+                     • end_col (integer) 搜索的停止列（末尾不包含）。
+
+    返回: ~
+        (`fun(end_line: integer?, end_col: integer?): integer, TSNode, vim.treesitter.query.TSMetadata, TSQueryMatch, TSTree`)
+        捕获 id、捕获节点、元数据、匹配、树
+
+                                                        *Query:iter_matches()*
+Query:iter_matches({node}, {source}, {start}, {stop}, {opts})
+    迭代 self 在给定范围上的匹配。
+
+    迭代 {node} 内的所有匹配。参数与 |Query:iter_captures()| 相同，
+    但迭代的值不同：查询中模式的（基于 1 的）索引、将捕获索引映射
+    到节点列表的表，以及来自处理匹配的任何指令的元数据。
+
+    示例：>lua
+        for pattern, match, metadata in cquery:iter_matches(tree:root(), bufnr, 0, -1) do
+          for id, nodes in pairs(match) do
+            local name = query.captures[id]
+            for _, node in ipairs(nodes) do
+              -- `node` was captured by the `name` capture in the match
+
+              local node_data = metadata[id] -- Node level metadata
+              -- ... use the info here ...
+            end
+          end
+        end
+<
+
+    参数: ~
+      • {node}    (`TSNode`) 搜索将在其下进行
+      • {source}  (`integer|string`) 要搜索的源缓冲区或字符串
+      • {start}   (`integer?`) 搜索的起始行。默认为 `node:start()`。
+      • {stop}    (`integer?`) 搜索的停止行（末尾不包含）。默认为
+                  `node:end_()`。
+      • {opts}    (`table?`) 可选关键字参数：
+                  • max_start_depth (integer) 非零时，设置每个匹配的
+                    最大起始深度。用于防止遍历树太深。
+                  • match_limit (integer) 设置进行中匹配的最大数量
+                    （默认：256）。
+
+    返回: ~
+        (`fun(): integer, table<integer, TSNode[]>, vim.treesitter.query.TSMetadata, TSTree`)
+        模式 id、匹配、元数据、树
+
+set({lang}, {query_name}, {text})                 *vim.treesitter.query.set()*
+    为 {lang} 设置名为 {query_name} 的运行时查询
+
+    这允许用户覆盖或扩展插件设置的任何运行时文件和/或配置。
+
+    例如，你可以用以下代码启用 `C` 标识符的拼写检查：>lua
+        vim.treesitter.query.set(
+          'c',
+          'highlights',
+          [[;inherits c
+          (identifier) @spell]]
+        )
+<
+
+    参数: ~
+      • {lang}        (`string`) 查询使用的语言
+      • {query_name}  (`string`) 查询名称（如 "highlights"）
+      • {text}        (`string`) 查询文本（未解析的）。
+
+
+
+
+*TSQuery*
+    继承: |userdata|
+
+    对 treesitter 库持有的对象的引用，用作 |vim.treesitter.Query| 的
+    组件以支持语言功能。参见 |treesitter-query| 了解更多关于查询的
+    内容，或 |vim.treesitter.query.parse()| 了解如何获取查询对象的示例。
+
+    字段: ~
+      • {disable_capture}  (`fun(self: TSQuery, capture_name: string)`)
+                           参见 |TSQuery:disable_capture()|。
+      • {disable_pattern}  (`fun(self: TSQuery, pattern_index: integer)`)
+                           参见 |TSQuery:disable_pattern()|。
+
+
+TSQuery:disable_capture({capture_name})            *TSQuery:disable_capture()*
+    禁用此查询中的特定捕获；一旦禁用则无法重新启用。{capture_name}
+    不应包含前导 "@"。
+
+    示例：禁用 vimdoc 高亮查询中的 `@variable.parameter` 捕获：>lua
+        local query = vim.treesitter.query.get('vimdoc', 'highlights')
+        query.query:disable_capture("variable.parameter")
+        vim.treesitter.get_parser():parse()
+<
+
+    参数: ~
+      • {capture_name}  (`string`)
+
+TSQuery:disable_pattern({pattern_index})           *TSQuery:disable_pattern()*
+    禁用此查询中的特定模式；一旦禁用则无法重新启用。可通过
+    |:Inspect!| 获取特定匹配的 {pattern_index}，或通过读取查询源
+    （即从 |vim.treesitter.query.get_files()|）获取。
+
+    示例：禁用 vimdoc 中的 `|` 链接但保持其他 `@markup.link` 高亮：>lua
+        local link_pattern = 9 -- from :Inspect!
+        local query = vim.treesitter.query.get('vimdoc', 'highlights')
+        query.query:disable_pattern(link_pattern)
+        local tree = vim.treesitter.get_parser():parse()[1]
+<
+
+    参数: ~
+      • {pattern_index}  (`integer`)
+
+
+ vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

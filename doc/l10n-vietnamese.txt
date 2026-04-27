@@ -1,0 +1,63 @@
+*l10n-vietnamese.txt*   Nvim
+
+
+		  VIM 参考手册	  able by Phạm Bình An
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 简介
+							*vietnamese-intro*
+Vim 通过以下方式支持越南语:
+
+- 内建的 |vietnamese-keymap|，允许你在 |Insert-mode| 和 |search-commands|
+  中使用美式键盘布局输入越南语字符。
+- 越南语本地化。参见 |vietnamese-l10n|
+
+==============================================================================
+2. 越南语键盘映射
+							*vietnamese-keymap*
+要在语言之间切换，你可以使用系统自带的键盘切换器，或使用 Vim 发行版中
+包含的越南语键盘映射之一，如下所示 >
+    :set keymap=vietnamese-telex_utf-8
+<
+更多信息参见 'keymap'。
+
+在后一种情况下，即使没有越南语输入法引擎 (IME) 或希望 Vim 独立于系统级
+键盘设置 (当 'imdisable' 设置时)，你也可以输入越南语。你也可以 |:map|
+一个键来切换键盘。
+
+Vim 附带以下越南语键盘映射:
+- *vietnamese-telex_utf-8*	Telex 输入法, |UTF-8| 编码。
+- *vietnamese-viqr_utf-8*	VIQR 输入法, |UTF-8| 编码。
+- *vietnamese-vni_utf-8*	VNI 输入法, |UTF-8| 编码。
+
+                                                   *vietnamese-ime_diff*
+由于这些键盘映射设计为极简的，它们不支持对应输入法的所有功能。差异
+描述如下:
+
+- 你只能逐个输入每个字符，先输入基础字母再输入变音符号。例如，使用
+  |vietnamese-vni_utf-8| 输入 `nến`，你必须输入 `ne61n`，而不是 `nen61`
+  或 `ne6n1`
+- 对于有多个变音符号的字符，你需要先输入元音标记再输入声调标记。例如，
+  使用 |vietnamese-telex_utf-8| 输入 `ồ`，你需要输入 `oof`，而不是 `ofo`。
+- 使用 |vietnamese-telex_utf-8| 时，你需要输入全大写字母来产生带变音符号
+  的大写字符。例如，`Ừ` 必须输入 `UWF`。
+- 使用 |vietnamese-telex_utf-8| 时，添加了 VNI 的转义字符 `\`，因此移除
+  了容易混淆的 `ooo` 输入来输入 `oo`，这可能导致歧义。例如，输入
+  `Đoòng` 需要输入 `DDo\ofng`。
+- 不支持简单 Telex (v1 和 v2)，包括 `w[]{}` 风格。
+- 不支持在 Telex 中使用 `z` 或在 VNI 和 VIQR 中使用 `0` 来移除变音符号。
+
+==============================================================================
+3. 本地化
+							*vietnamese-l10n*
+Vim |messages| 也提供越南语版本。如果你希望看到越南语消息，可以运行
+|:language| 命令并以越南语区域设置的名称作为参数。例如， >
+	:language vi_VN
+< 或 >
+	:language vi_VN.utf-8
+<
+注意越南语区域设置的名称可能因系统而异。详见 |mbyte-first|。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

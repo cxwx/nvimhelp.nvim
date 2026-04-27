@@ -1,0 +1,701 @@
+*vvars.txt*	Nvim
+
+
+                NVIM REFERENCE MANUAL
+
+
+预定义变量                                                       *vvars*
+
+大多数变量是只读的，当变量可以由用户设置时，会在下面的变量描述中提到。类型
+不能更改。
+
+                                       输入 |gO| 查看目录。
+
+						*v:argf* *argf-variable*
+v:argf
+		启动时给出的文件参数（展开为绝对路径）。
+
+		与 |v:argv| 不同，不包括选项参数如 `-u`、`--cmd` 或
+		`+cmd`。与 |argv()| 不同，不受后续 |:args|、|:argadd|
+		或插件修改的影响。
+
+		示例: >
+		  nvim file1.txt +ls -- file2.txt
+		  :echo v:argf
+		  " ['/path/to/cwd/file1.txt', '/path/to/cwd/file2.txt']
+<
+
+						*v:argv* *argv-variable*
+v:argv
+		Nvim 调用时的命令行参数（`-u`、`--cmd`、`+cmd`，...）。
+		第一项是 Nvim 命令本身。
+
+		参见 |v:progpath| 获取 Nvim 的完整路径。
+		参见 |v:argf| 只获取文件参数，不包含其他选项。
+
+						*v:char* *char-variable*
+v:char
+		求值 'formatexpr' 的参数，以及在缩写中使用 <expr> 时已输入
+		的字符 |:map-<expr>|。
+		它也被 |InsertCharPre|、|InsertEnter|、|CmdlineLeave| 和
+		|CmdlineLeavePre| 事件使用。
+
+			*v:charconvert_from* *charconvert_from-variable*
+v:charconvert_from
+		要转换的文件的字符编码名称。仅在求值 'charconvert' 选项时
+		有效。
+
+			*v:charconvert_to* *charconvert_to-variable*
+v:charconvert_to
+		转换后文件的字符编码名称。仅在求值 'charconvert' 选项时
+		有效。
+
+					*v:cmdarg* *cmdarg-variable*
+v:cmdarg
+		文件读写命令给出的额外参数（"++p"、"++enc="、"++ff="）。
+		这在触发文件读写命令的自动命令事件之前设置。前面有一个前导
+		空格使得可以直接将此变量附加到读写命令后面。注意："+cmd"
+		不包含在这里，因为它无论如何都会被执行。
+
+					*v:cmdbang* *cmdbang-variable*
+v:cmdbang
+		像 v:cmdarg 一样为文件读写命令设置。当使用了 "!" 时值
+		为 1，否则为 0。注意这只能在自动命令中使用。对于用户命令
+		可以使用 |<bang>|。
+
+					*v:collate* *collate-variable*
+v:collate
+		运行时环境的当前排序顺序区域设置。这允许 Vim 脚本了解
+		当前的区域编码。技术上说：它是 LC_COLLATE 的值。当不使用
+		区域设置时值为 "C"。
+		此变量不能直接设置，使用 |:language| 命令。
+		参见 |multi-lang|。
+
+			*v:completed_item* *completed_item-variable*
+v:completed_item
+		包含 |CompleteDone| 后最近完成的单词的 |complete-items| 的
+		字典。如果补全失败或离开并重新进入插入模式后为空。
+		注意：插件可以修改该值以模拟内置 |CompleteDone| 事件行为。
+
+					*v:count* *count-variable*
+v:count
+		最后一次普通模式命令给出的计数。可以用来获取映射前的计数。
+		只读。示例: >vim
+		  :map _x :<C-U>echo "the count is " .. v:count<CR>
+<
+		注意：需要 <C-U> 来移除在计数后输入 ':' 时得到的行范围。
+		当有两个计数时，如 "3d2w"，它们会像命令中一样相乘，该示例
+		为 "d6w"。
+		也用于求值 'formatexpr' 选项。
+
+					*v:count1* *count1-variable*
+v:count1
+		与 "v:count" 相同，但在没有使用计数时默认为 1。
+
+					*v:ctype* *ctype-variable*
+v:ctype
+		运行时环境的当前字符区域设置。这允许 Vim 脚本了解当前的
+		区域编码。技术上说：它是 LC_CTYPE 的值。当不使用区域设置时
+		值为 "C"。
+		此变量不能直接设置，使用 |:language| 命令。
+		参见 |multi-lang|。
+
+					*v:dying* *dying-variable*
+v:dying
+		通常为零。当捕获到致命信号时设为 1。当捕获多个信号时数字
+		增加。可以在自动命令中使用来检查 Vim 是否非正常终止。
+		示例: >vim
+		  :au VimLeave * if v:dying | echo "\nAAAAaaaarrrggghhhh!!!\n" | endif
+<
+		注意：如果在 v:dying 为 1 时又捕获到另一个致命信号，
+		VimLeave 自动命令将不会执行。
+
+				*v:echospace* *echospace-variable*
+v:echospace
+		在引起 |hit-enter| 提示（或使用 |ui2| 时的 "overflow"）之前，
+		最后一行屏幕可用于 `:echo` 消息的屏幕单元格数。
+
+		取决于 'showcmd'、'ruler' 和 'columns'。你需要检查
+		'cmdheight' 以确定是否有完整宽度的行可用在最后一行之上。
+
+					*v:errmsg* *errmsg-variable*
+v:errmsg
+		最后发生的错误消息（不一定显示过）。
+		可修改（可以设置）。
+		示例: >vim
+		  let v:errmsg = ""
+		  silent! next
+		  if v:errmsg != ""
+		    " ... 处理错误
+<
+
+			*v:errors* *errors-variable* *assert-return*
+v:errors
+		断言函数（如 |assert_true()|）发现的错误。
+		这是一个字符串列表。
+		断言函数在断言失败时追加一个条目。
+		返回值表明：如果向 v:errors 添加了条目则返回 1，否则返回 0。
+		要清除旧结果使其为空: >vim
+		  let v:errors = []
+<
+		如果 v:errors 被设置为列表以外的值，断言函数会将其变为
+		空列表。
+
+					*v:event* *event-variable*
+v:event
+		当前 |autocommand| 的事件数据字典。仅在事件生命周期内有效；
+		存储或传递 v:event 是无效的！应改为复制它: >vim
+		  au TextYankPost * let g:foo = deepcopy(v:event)
+<
+		键因事件而异；参见特定事件的文档，例如 |DirChanged| 或
+		|TextYankPost|。
+		  键              描述 ~
+		  abort            事件是否在中止条件下触发（例如
+		                   |CmdlineLeave| 的 |c_Esc| 或
+		                   |c_CTRL-C|）。
+		  chan             |channel-id|
+		  changed_window   在 |DirChanged| 上切换窗口（或标签页）时
+		                   触发事件则为 |v:true|。
+		  cmdlevel         命令行层级。
+		  cmdtype          命令行类型，|cmdline-char|。
+		  col              |CompleteChanged| 上弹出菜单的列数，相对
+		                   于屏幕。
+		  complete_type    参见 |complete_info_mode|
+		  complete_word    选中的单词，如果补全被放弃/丢弃则为空。
+		  completed_item   |CompleteChanged| 上当前选中的项目，如果
+		                   没有选中项目则为 `{}`。
+		  cwd              当前工作目录。
+		  height           |CompleteChanged| 上弹出菜单的高度
+		  inclusive        动作是 |inclusive| 的，否则为 exclusive。
+		  info             任意事件数据的字典。
+		  operator         当前 |operator|。也为 Ex 命令设置（与
+		                   |v:operator| 不同）。例如如果 |TextYankPost|
+		                   由 |:yank| Ex 命令触发，则
+		                   `v:event.operator` 为 "y"。
+		  reason           |CompleteDone| 原因。
+		  regcontents      寄存器中存储的文本，以 |readfile()| 风格
+		                   的行列表形式。
+		  regname          请求的寄存器（例如 "xyy 中的 "x"），或
+		                   未命名操作时为空字符串。
+		  regtype          |getregtype()| 返回的寄存器类型。
+		  row              |CompleteChanged| 上弹出菜单的行数，相对
+		                   于屏幕。
+		  scope            事件特定的作用域名称。
+		  scrollbar        弹出菜单有滚动条则为 |v:true|，否则为
+		                   |v:false|。
+		  size             |CompleteChanged| 上补全项目的总数。
+		  status           作业状态或退出码，-1 表示"未知"。|TermClose|
+		  visual           选择是可视的（相对于例如动作范围）。
+		  width            |CompleteChanged| 上弹出菜单的宽度
+		  windows          在 |WinResized| 上更改的窗口 ID 列表
+
+				*v:exception* *exception-variable*
+v:exception
+		最近捕获且尚未完成的异常值。另见 |v:stacktrace|、
+		|v:throwpoint| 和 |throw-variables|。
+		示例: >vim
+		  try
+		    throw "oops"
+		  catch /.*/
+		    echo "caught " .. v:exception
+		  endtry
+<
+		输出: "caught oops"。
+
+					*v:exiting* *exiting-variable*
+v:exiting
+		退出码，或在调用 |VimLeavePre| 和 |VimLeave| 自动命令之前
+		为 |v:null|。参见 |:q|、|:x| 和 |:cquit|。
+		示例: >vim
+		  :au VimLeave * echo "Exit value is " .. v:exiting
+<
+
+					*v:false* *false-variable*
+v:false
+		用于在 JSON 和 msgpack 中放入 "false" 的特殊值。参见
+		|json_encode()|。作为字符串使用时（例如在 |expr5| 中与字符串
+		连接运算符一起）转换为 "v:false"，作为数字使用时（例如在
+		|expr5| 或 |expr7| 中与数值运算符一起）转换为零。只读。
+
+				*v:fcs_choice* *fcs_choice-variable*
+v:fcs_choice
+		|FileChangedShell| 事件触发后应发生什么。可以在自动命令中
+		使用来告诉 Vim 如何处理受影响的缓冲区:
+		  reload  重新加载缓冲区（如果文件已删除则不起作用）。
+		  edit    重新加载缓冲区并检测选项值如
+		          'fileformat'、'fileencoding'、'binary'
+		          （如果文件已删除则不起作用）。
+		  ask     像没有自动命令一样询问用户该怎么做。但当
+		          只有时间戳改变时不会发生任何事情。
+		  <空>    什么都不做，自动命令应该完成所有需要做的
+		          事情。
+		默认为空。如果使用了其他（无效）值，Vim 的行为就像为空一样，
+		没有警告消息。
+
+				*v:fcs_reason* *fcs_reason-variable*
+v:fcs_reason
+		|FileChangedShell| 事件触发的原因。可以在自动命令中使用来
+		决定做什么和/或将 v:fcs_choice 设置为什么。可能的值:
+		  deleted   文件不再存在
+		  conflict  文件内容、模式或时间戳已更改且缓冲区已修改
+		  changed   文件内容已更改
+		  mode      文件模式已更改
+		  time      只有文件时间戳更改
+
+					*v:fname* *fname-variable*
+v:fname
+		求值 'includeexpr' 时：检测到的文件名。否则为空。
+
+				*v:fname_diff* *fname_diff-variable*
+v:fname_diff
+		diff（补丁）文件的名称。仅在求值 'patchexpr' 时有效。
+
+					*v:fname_in* *fname_in-variable*
+v:fname_in
+		输入文件的名称。在求值以下选项时有效:
+		  选项           用途 ~
+		  'charconvert'  要转换的文件
+		  'diffexpr'     原始文件
+		  'patchexpr'    原始文件
+		对于 |SwapExists| 设置为交换文件名。
+
+				*v:fname_new* *fname_new-variable*
+v:fname_new
+		文件新版本的名称。仅在求值 'diffexpr' 时有效。
+
+				*v:fname_out* *fname_out-variable*
+v:fname_out
+		输出文件的名称。仅在求值以下选项时有效:
+		  选项             用途 ~
+		  'charconvert'    转换后的文件 [1]
+		  'diffexpr'       diff 的输出
+		  'patchexpr'      打补丁后的文件
+		[1] 为写入命令（例如 ":w file"）做转换时，它等于
+		v:fname_in。为读取命令（例如 ":e file"）做转换时，它是
+		临时文件，与 v:fname_in 不同。
+
+				*v:folddashes* *folddashes-variable*
+v:folddashes
+		用于 'foldtext'：表示关闭折叠的 foldlevel 的破折号。
+		在 |sandbox| 中只读。|fold-foldtext|
+
+					*v:foldend* *foldend-variable*
+v:foldend
+		用于 'foldtext'：关闭折叠的最后一行。
+		在 |sandbox| 中只读。|fold-foldtext|
+
+				*v:foldlevel* *foldlevel-variable*
+v:foldlevel
+		用于 'foldtext'：关闭折叠的折叠级别。
+		在 |sandbox| 中只读。|fold-foldtext|
+
+				*v:foldstart* *foldstart-variable*
+v:foldstart
+		用于 'foldtext'：关闭折叠的第一行。
+		在 |sandbox| 中只读。|fold-foldtext|
+
+					*v:hlsearch* *hlsearch-variable*
+v:hlsearch
+		指示搜索高亮是否开启的变量。设置它仅在启用 'hlsearch' 时
+		有意义。将此变量设为零相当于 |:nohlsearch| 命令，设为
+		1 相当于 >vim
+		  let &hlsearch = &hlsearch
+<
+		注意从函数返回时值会被恢复。|function-search-undo|。
+
+				*v:insertmode* *insertmode-variable*
+v:insertmode
+		用于 |InsertEnter| 和 |InsertChange| 自动命令事件。值:
+		  i    插入模式
+		  r    替换模式
+		  v    虚拟替换模式
+
+						*v:key* *key-variable*
+v:key
+		当前 |Dictionary| 项目的键。仅在使用 |map()| 和 |filter()|
+		的表达式求值时有效。只读。
+
+						*v:lang* *lang-variable*
+v:lang
+		运行时环境的当前消息区域设置。这允许 Vim 脚本了解当前
+		语言。技术上说：它是 LC_MESSAGES 的值。值取决于系统。
+		此变量不能直接设置，使用 |:language| 命令。
+		当需要使用与字符编码不同的语言来显示消息时，它可以与
+		|v:ctype| 不同。参见 |multi-lang|。
+
+					*v:lc_time* *lc_time-variable*
+v:lc_time
+		运行时环境的当前时间消息区域设置。这允许 Vim 脚本了解
+		当前语言。技术上说：它是 LC_TIME 的值。
+		此变量不能直接设置，使用 |:language| 命令。参见
+		|multi-lang|。
+
+						*v:lnum* *lnum-variable*
+v:lnum
+		'foldexpr' |fold-expr|、'formatexpr'、'indentexpr' 和
+		'statuscolumn' 表达式的行号，'guitablabel' 和
+		'guitabtooltip' 的标签页编号。仅在求值这些表达式之一时
+		有效。在 |sandbox| 中只读。
+
+						*v:lua* *lua-variable*
+v:lua
+		从表达式中调用 Lua 函数的前缀。
+		更多信息参见 |v:lua-call|。
+
+					*v:maxcol* *maxcol-variable*
+v:maxcol
+		最大行长度。取决于使用场景，可以是屏幕列数、字符数或字节数。
+		当前在所有系统上值为 2147483647。
+
+				*v:mouse_col* *mouse_col-variable*
+v:mouse_col
+		通过 |getchar()| 获取的鼠标点击的列号。这是屏幕列号，如同
+		|virtcol()|。当没有鼠标按钮点击时值为零。
+
+				*v:mouse_lnum* *mouse_lnum-variable*
+v:mouse_lnum
+		通过 |getchar()| 获取的鼠标点击的行号。这是文本行号，不是
+		屏幕行号。当没有鼠标按钮点击时值为零。
+
+				*v:mouse_win* *mouse_win-variable*
+v:mouse_win
+		通过 |getchar()| 获取的鼠标点击的窗口号。第一个窗口编号
+		为 1，与 |winnr()| 相同。当没有鼠标按钮点击时值为零。
+
+				*v:mouse_winid* *mouse_winid-variable*
+v:mouse_winid
+		通过 |getchar()| 获取的鼠标点击的 |window-ID|。当没有鼠标
+		按钮点击时值为零。
+
+			*v:msgpack_types* *msgpack_types-variable*
+v:msgpack_types
+		包含 |msgpackparse()| 和 |msgpackdump()| 使用的 msgpack
+		类型的字典。字典中的所有类型都是固定的（不可编辑的）空列表。
+		要检查某个列表是否是 msgpack 类型之一，使用 |is| 运算符。
+
+						*v:null* *null-variable*
+v:null
+		用于在 JSON 中放入 "null" 和在 msgpack 中放入 NIL 的特殊值。
+		参见 |json_encode()|。作为字符串使用时（例如在 |expr5| 中
+		与字符串连接运算符一起）转换为 "v:null"，作为数字使用时
+		（例如在 |expr5| 或 |expr7| 中与数值运算符一起）转换为零。
+		只读。
+		在某些地方 `v:null` 可以用于未设置的 List、Dict 等。这与
+		空的 List、Dict 等略有不同。
+
+				*v:numbermax* *numbermax-variable*
+v:numbermax	数字的最大值。
+
+				*v:numbermin* *numbermin-variable*
+v:numbermin	数字的最小值（负数）。
+
+				*v:numbersize* *numbersize-variable*
+v:numbersize
+		Number 中的位数。通常为 64，但在某些系统上可能为 32。
+
+					*v:oldfiles* *oldfiles-variable*
+v:oldfiles
+		启动时从 |shada| 文件加载的文件名列表。这些是 Vim 记住标记
+		的文件。列表长度受 'shada' 选项的 ' 参数限制（默认为 100）。
+		当不使用 |shada| 文件时列表为空。
+		另见 |:oldfiles| 和 |c_#<|。
+		列表可以被修改，但这不会影响后续存储在 |shada| 文件中的
+		内容。如果使用字符串以外的值会导致问题。
+
+					*v:operator* *operator-variable*
+v:operator
+		普通模式中最后给出的操作符。这是单个字符，但以 <g> 或 <z>
+		开头的命令为两个字符。最好与 |v:prevcount| 和 |v:register|
+		一起使用。如果你想取消操作符待定模式然后使用该操作符很有用，
+		例如: >vim
+		  :omap O <Esc>:call MyMotion(v:operator)<CR>
+<
+		值会保持设置直到输入另一个操作符，因此不要期望它为空。
+		v:operator 不会为 |:delete|、|:yank| 或其他 Ex 命令设置。
+		只读。
+
+			*v:option_command* *option_command-variable*
+v:option_command
+		用于设置选项的命令。在执行 |OptionSet| 自动命令时有效。
+		  值           选项通过以下方式设置 ~
+		  "setlocal"   |:setlocal| 或 `:let l:xxx`
+		  "setglobal"  |:setglobal| 或 `:let g:xxx`
+		  "set"        |:set| 或 |:let|
+		  "modeline"   |modeline|
+
+				*v:option_new* *option_new-variable*
+v:option_new
+		选项的新值。在执行 |OptionSet| 自动命令时有效。
+
+				*v:option_old* *option_old-variable*
+v:option_old
+		选项的旧值。在执行 |OptionSet| 自动命令时有效。取决于
+		使用的设置命令和选项类型，这可能是局部旧值或全局旧值。
+
+			*v:option_oldglobal* *option_oldglobal-variable*
+v:option_oldglobal
+		选项的旧全局值。在执行 |OptionSet| 自动命令时有效。
+
+			*v:option_oldlocal* *option_oldlocal-variable*
+v:option_oldlocal
+		选项的旧局部值。在执行 |OptionSet| 自动命令时有效。
+
+				*v:option_type* *option_type-variable*
+v:option_type
+		设置命令的作用域。在执行 |OptionSet| 自动命令时有效。
+		可以是 "global" 或 "local"。
+
+				*v:prevcount* *prevcount-variable*
+v:prevcount
+		倒数第二个普通模式命令给出的计数。这是前一个命令的 v:count
+		值。如果你想取消可视模式或操作符待定模式然后使用该计数很
+		有用，例如: >vim
+		  :vmap % <Esc>:call MyFilter(v:prevcount)<CR>
+<
+		只读。
+
+				*v:profiling* *profiling-variable*
+v:profiling
+		通常为零。使用 ":profile start" 后设为 1。
+		参见 |profiling|。
+
+					*v:progname* *progname-variable*
+v:progname
+		调用 Nvim 时使用的名称（去除路径）。
+		只读。
+
+					*v:progpath* *progpath-variable*
+v:progpath
+		当前运行的 Nvim 的绝对路径。
+		只读。
+
+					*v:register* *register-variable*
+v:register
+		当前普通模式命令生效的寄存器名称（无论该命令是否实际使用了
+		寄存器）。或用于当前正在执行的普通模式映射（在接受寄存器的
+		自定义命令中使用）。
+		如果没有提供则为默认寄存器 '"'，除非 'clipboard' 包含
+		"unnamed" 或 "unnamedplus"，则为 "*" 或 '+'。
+		另见 |getreg()| 和 |setreg()|
+
+					*v:relnum* *relnum-variable*
+v:relnum
+		'statuscolumn' 表达式的相对行号。
+		只读。
+
+				*v:scrollstart* *scrollstart-variable*
+v:scrollstart
+		描述导致屏幕向上滚动的脚本或函数的字符串。仅在为空时设置，
+		因此记住的是第一个原因。对于手动输入的命令设为 "Unknown"。
+
+			*v:searchforward* *searchforward-variable*
+v:searchforward
+		搜索方向：向前搜索后为 1，向后搜索后为 0。直接设置最后搜索
+		模式时重置为向前，参见 |quote/|。
+		注意从函数返回时值会被恢复。|function-search-undo|。
+		可读写。
+
+				*v:servername* *servername-variable*
+v:servername
+		Nvim 的主监听地址，|serverlist()| 返回的第一项。通常是
+		Nvim 在 |startup| 时创建的命名管道，或通过 |--listen|（或
+		已弃用的 |$NVIM_LISTEN_ADDRESS| 环境变量）给出。
+
+		另见 |serverstart()| |serverstop()|。
+		只读。
+
+		                                                 *$NVIM*
+		$NVIM 由 |terminal| 和 |jobstart()| 设为 v:servername，
+		因此它是当前环境是 Nvim 的子进程（直接子进程）的提示。
+
+		示例：子 Nvim 进程可以检测并向其父 Nvim 发出请求: >lua
+
+		  if vim.env.NVIM then
+		    local ok, chan = pcall(vim.fn.sockconnect, 'pipe', vim.env.NVIM, {rpc=true})
+		    if ok and chan then
+		      local client = vim.api.nvim_get_chan_info(chan).client
+		      local rv = vim.rpcrequest(chan, 'nvim_exec_lua', [[return ... + 1]], { 41 })
+		      vim.print(('got "%s" from parent Nvim'):format(rv))
+		    end
+		  end
+<
+
+				*v:shell_error* *shell_error-variable*
+v:shell_error
+		最后一次 shell 命令的结果。非零时表示最后一次 shell 命令
+		出错。为零时表示没有问题。这仅在 shell 将错误码返回给 Vim
+		时有效。值 -1 通常用于命令无法执行时。只读。
+		示例: >vim
+		  !mv foo bar
+		  if v:shell_error
+		    echo 'could not rename "foo" to "bar"!'
+		  endif
+<
+
+				*v:stacktrace* *stacktrace-variable*
+v:stacktrace
+		最近捕获且尚未完成的异常的堆栈跟踪。参见 |getstacktrace()|
+		了解堆栈跟踪的结构。另见 |v:exception|、|v:throwpoint| 和
+		|throw-variables|。
+
+				*v:statusmsg* *statusmsg-variable*
+v:statusmsg
+		最后给出的状态消息。
+		可修改（可以设置）。
+
+					*v:stderr* *stderr-variable*
+v:stderr
+		对应 stderr 的 |channel-id|。值始终为 2；使用此变量使代码
+		更具描述性。与 stdin 和 stdout（参见 |stdioopen()|）不同，
+		stderr 始终打开可写。示例: >vim
+		:call chansend(v:stderr, "error: toaster empty\n")
+<
+
+				*v:swapchoice* *swapchoice-variable*
+v:swapchoice
+		|SwapExists| 自动命令可以设置此值来选择处理已存在交换文件
+		的方式:
+		  'o'    以只读方式打开
+		  'e'    仍然编辑
+		  'r'    恢复
+		  'd'    删除交换文件
+		  'q'    退出
+		  'a'    中止
+		值应该是单字符字符串。空值会导致询问用户，就像没有
+		SwapExists 自动命令时一样。默认为空。
+
+				*v:swapcommand* *swapcommand-variable*
+v:swapcommand
+		打开文件后要执行的普通模式命令。可以用于 |SwapExists|
+		自动命令，让另一个 Vim 打开文件并跳转到正确位置。例如，
+		跳转到标签时值为 ":tag tagname\r"。
+		对于 ":edit +cmd file" 值为 ":cmd\r"。
+
+					*v:swapname* *swapname-variable*
+v:swapname
+		找到的交换文件的名称。
+		仅在 |SwapExists| 事件期间有效。
+		只读。
+
+				*v:t_blob* *t_blob-variable* *v:t_TYPE*
+v:t_blob	|Blob| 类型的值。只读。参见: |type()|
+
+					*v:t_bool* *t_bool-variable*
+v:t_bool	|Boolean| 类型的值。只读。参见: |type()|
+
+					*v:t_dict* *t_dict-variable*
+v:t_dict	|Dictionary| 类型的值。只读。参见: |type()|
+
+					*v:t_float* *t_float-variable*
+v:t_float	|Float| 类型的值。只读。参见: |type()|
+
+					*v:t_func* *t_func-variable*
+v:t_func	|Funcref| 类型的值。只读。参见: |type()|
+
+					*v:t_list* *t_list-variable*
+v:t_list	|List| 类型的值。只读。参见: |type()|
+
+					*v:t_number* *t_number-variable*
+v:t_number	|Number| 类型的值。只读。参见: |type()|
+
+					*v:t_string* *t_string-variable*
+v:t_string	|String| 类型的值。只读。参见: |type()|
+
+				*v:termrequest* *termrequest-variable*
+v:termrequest
+		从嵌入式 |terminal| 中运行的进程发送的最近的 OSC、DCS 或
+		APC 控制序列的值。可以在 |TermRequest| 事件处理程序中读取
+		以响应嵌入式应用程序的查询。
+
+				*v:termresponse* *termresponse-variable*
+v:termresponse
+		Nvim 从终端接收到的最近的 OSC 或 DCS 控制序列的值。可以在
+		使用另一个转义序列查询终端后，在 |TermResponse| 事件处理
+		程序中读取。
+
+					*v:testing* *testing-variable*
+v:testing	在使用 `test_garbagecollect_now()` 之前必须设置。
+
+				*v:this_session* *this_session-variable*
+v:this_session
+		最后加载或保存的会话文件的完整文件名。当没有保存过会话文件
+		时为空。参见 |:mksession|。
+		可修改（可以设置）。
+
+				*v:throwpoint* *throwpoint-variable*
+v:throwpoint
+		最近捕获且尚未完成的异常被抛出的位置。输入命令时不设置。
+		另见 |v:exception|、|v:stacktrace| 和 |throw-variables|。
+		示例: >vim
+		  try
+		    throw "oops"
+		  catch /.*/
+		    echo "Exception from" v:throwpoint
+		  endtry
+<
+		输出: "Exception from test.vim, line 2"
+
+						*v:true* *true-variable*
+v:true
+		用于在 JSON 和 msgpack 中放入 "true" 的特殊值。参见
+		|json_encode()|。作为字符串使用时（例如在 |expr5| 中与字符串
+		连接运算符一起）转换为 "v:true"，作为数字使用时（例如在
+		|expr5| 或 |expr7| 中与数值运算符一起）转换为 1。只读。
+
+						*v:val* *val-variable*
+v:val
+		当前 |List| 或 |Dictionary| 项目的值。仅在使用 |map()| 和
+		|filter()| 的表达式求值时有效。只读。
+
+					*v:version* *version-variable*
+v:version
+		Vim 版本号：主版本号乘以 100 加上次版本号。Vim 5.0 是 500，
+		Vim 5.1 是 501。
+		只读。
+		使用 |has()| 检查 Nvim（不是 Vim）版本: >vim
+		  :if has("nvim-0.2.1")
+<
+
+				*v:versionlong* *versionlong-variable*
+v:versionlong
+		与 v:version 类似，但在最后四位数中包含补丁级别。版本 8.1
+		加补丁 123 的值为 8010123。可以这样使用: >
+		  if v:versionlong >= 8010123
+<
+		但是，如果包含的补丁列表有间隔，这将不能很好地工作。这可能
+		发生在将较新的补丁包含到旧版本中时，例如安全修复。使用
+		has() 函数来确保补丁实际上被包含了。
+
+			*v:vim_did_enter* *vim_did_enter-variable*
+v:vim_did_enter
+		启动期间为 0，在 |VimEnter| 之前为 1。
+		另见 |v:vim_did_init|，它更早设置。
+		只读。
+
+				*v:vim_did_init* *vim_did_init-variable*
+v:vim_did_init
+		初始化期间为 0，在加载用户 |vimrc| 后、|load-plugins|
+		之前为 1。
+		另见 |v:vim_did_enter|，它更晚设置。
+		只读。
+
+					*v:virtnum* *virtnum-variable*
+v:virtnum
+		'statuscolumn' 表达式的虚拟行号。绘制虚拟行的状态列时为
+		负数，绘制实际缓冲区行时为零，绘制缓冲区行的折行部分时为
+		正数。
+		只读。
+
+				*v:warningmsg* *warningmsg-variable*
+v:warningmsg
+		最后给出的警告消息。
+		可修改（可以设置）。
+
+					*v:windowid* *windowid-variable*
+v:windowid
+		应用程序特定的窗口 "句柄"，可以由任何连接的 UI 设置。
+		默认为零。
+		注意：对于 Nvim |windows| 使用 |winnr()| 或 |win_getid()|，
+		参见 |window-ID|。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

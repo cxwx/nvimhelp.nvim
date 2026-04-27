@@ -1,0 +1,256 @@
+*if_perl.txt*   Nvim
+
+
+		  VIM REFERENCE MANUAL	  able Jacques Germishuys
+
+Vim 的 perl 接口					*if_perl* *perl*
+
+更多信息请参阅 |provider-perl|。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 命令							*perl-commands*
+
+							*:perl*
+:[range]perl {stmt}
+			执行 perl 语句 {stmt}。当前包为 "main"。
+			检测 `:perl` 命令是否正常工作的简单方法: >
+				:perl print "Hello"
+
+:[range]perl << [trim] [{endmarker}]
+{script}
+{endmarker}
+			执行 perl 脚本 {script}。
+			{script} 后面的 {endmarker} 前面不能有任何空白
+			字符。
+
+			如果省略 [endmarker]，默认为点号 '.'，
+			与 |:append| 和 |:insert| 命令一样。
+
+			适用于在 Vim 脚本中包含 perl 代码。
+			需要 perl，参阅 |script-here|。
+
+示例: >
+	function! MyVimMethod()
+	perl << EOF
+	sub my_vim_method
+	{
+		print "Hello World!\n";
+	}
+	EOF
+	endfunction
+
+查看你使用的 perl 版本: >
+
+	:perl print $^V
+<
+							*:perldo*
+:[range]perldo {cmd}	对 [range] 内的每一行执行 perl 命令 {cmd}，
+			其中 $_ 会依次设为每行的文本，不含尾部的
+			<EOL>。除了 $_ 之外，$line 和 $linenr 也分别
+			设为行内容和行号。设置 $_ 会改变文本，但注意
+			不能通过此命令添加或删除行。
+			[range] 的默认值是整个文件: "1,$"。
+
+示例:
+>
+	:perldo $_ = reverse($_);
+	:perldo $_ = "".$linenr." => $line";
+
+可以将 `:perldo` 与 `:perl` 配合使用，通过 perl 过滤某个范围。
+例如: >
+
+	:perl << EOF
+	sub perl_vim_string_replace
+	{
+	    my $line = shift;
+	    my $needle = $vim->eval('@a');
+	    my $replacement = $vim->eval('@b');
+	    $line =~ s/$needle/$replacement/g;
+	    return $line;
+	}
+	EOF
+	:let @a='somevalue'
+	:let @b='newvalue'
+	:'<,'>perldo $_ = perl_vim_string_replace($_)
+<
+							*:perlfile*
+:[range]perlfile {file}
+			执行 {file} 中的 perl 脚本。整个参数被用作
+			单个文件名。
+
+这两个命令本质上做同样的事情——执行一段 perl 代码，并将"当前范围"
+设为给定的行范围。
+
+对于 :perl，要执行的代码在命令行中。
+对于 :perlfile，要执行的代码是给定文件的内容。
+
+perl 命令不能在 |sandbox| 中使用。
+
+要传递参数，需要显式设置 @ARGV。示例: >
+
+	:perl @ARGV = ("foo", "bar");
+	:perlfile myscript.pl
+
+这里有一些示例						*perl-examples*  >
+
+	:perl print "Hello"
+	:perl $current->line (uc ($current->line))
+	:perl my $str = $current->buffer->[42]; print "Set \$str to: $str"
+
+注意更改（如 "use" 语句）会从一个命令持续到下一个命令。
+
+==============================================================================
+2. VIM 模块						*perl-vim*
+
+Perl 代码通过 "VIM" 模块访问 Nvim 的所有功能。
+
+概览 >
+	print "Hello"				# 显示一条消息
+	VIM::Msg("Hello")			# 显示一条消息
+	VIM::SetOption("ai")			# 设置一个 vim 选项
+	$nbuf = VIM::Buffers()			# 返回缓冲区数量
+	@buflist = VIM::Buffers()		# 返回所有缓冲区的数组
+	$mybuf = (VIM::Buffers('a.c'))[0]	# 返回 'a.c' 的缓冲区对象
+	@winlist = VIM::Windows()		# 返回所有窗口的数组
+	$nwin = VIM::Windows()			# 返回窗口数量
+	($success, $v) = VIM::Eval('&path')	# $v: 选项 'path'，$success: 1
+	($success, $v) = VIM::Eval('&xyz')	# $v: '' 且 $success: 0
+	$v = VIM::Eval('expand("<cfile>")')	# 展开 <cfile>
+	$curwin->SetHeight(10)			# 设置窗口高度
+	@pos = $curwin->Cursor()		# 返回 (row, col) 数组
+	@pos = (10, 10)
+	$curwin->Cursor(@pos)			# 设置光标位置到 @pos
+	$curwin->Cursor(10,10)			# 设置光标到第 10 行第 10 列
+	$mybuf = $curwin->Buffer()		# 返回窗口的缓冲区对象
+	$curbuf->Name()				# 返回缓冲区名称
+	$curbuf->Number()			# 返回缓冲区编号
+	$curbuf->Count()			# 返回行数
+	$l = $curbuf->Get(10)			# 返回第 10 行
+	@l = $curbuf->Get(1 .. 5)		# 返回第 1 到 5 行
+	$curbuf->Delete(10)			# 删除第 10 行
+	$curbuf->Delete(10, 20)			# 删除第 10 到 20 行
+	$curbuf->Append(10, "Line")		# 追加一行
+	$curbuf->Append(10, "L1", "L2", "L3")	# 追加 3 行
+	@l = ("L1", "L2", "L3")
+	$curbuf->Append(10, @l)			# 追加 L1、L2 和 L3
+	$curbuf->Set(10, "Line")		# 替换第 10 行
+	$curbuf->Set(10, "Line1", "Line2")	# 替换第 10 和 11 行
+	$curbuf->Set(10, @l)			# 替换 3 行
+
+模块函数:
+
+							*perl-Msg*
+VIM::Msg({msg})
+			显示消息 {msg}。
+
+							*perl-SetOption*
+VIM::SetOption({arg})	设置一个 vim 选项。{arg} 可以是 ":set" 命令
+			接受的任何参数。注意这意味着参数中不允许
+			包含空格！参阅 |:set|。
+
+							*perl-Buffers*
+VIM::Buffers([{bn}...])	不带参数时，在数组上下文中返回所有缓冲区的
+			列表，在标量上下文中返回缓冲区的数量。
+			对于缓冲区名称或编号列表 {bn}，返回匹配
+			{bn} 的缓冲区列表，使用与 Vim 内部
+			|bufname()| 函数相同的规则。
+			警告: 使用 |:bwipe| 后此列表将变为无效。
+
+							*perl-Windows*
+VIM::Windows([{wn}...])	不带参数时，在数组上下文中返回所有窗口的
+			列表，在标量上下文中返回窗口的数量。
+			对于窗口编号列表 {wn}，返回具有这些编号
+			的窗口列表。
+			警告: 关闭窗口后此列表将变为无效。
+
+							*perl-DoCommand*
+VIM::DoCommand({cmd})	执行 Ex 命令 {cmd}。
+
+							*perl-Eval*
+VIM::Eval({expr})	对 {expr} 求值，在列表上下文中返回
+			(success, value)，在标量上下文中仅返回
+			value。success=1 表示 val 包含 {expr} 的
+			值；success=0 表示求值失败。'@x' 返回寄存
+			器 x 的内容，'&x' 返回选项 x 的值，'x' 返回
+			内部 |variables| x 的值，'$x' 等同于 perl 的
+			$ENV{x}。所有可从命令行访问的 |functions|
+			对 {expr} 都有效。
+			|List| 通过连接各项并插入换行符转换为字符串。
+
+							*perl-Blob*
+VIM::Blob({expr})	从标量值返回 Blob 字面量字符串 0zXXXX。
+
+==============================================================================
+3. VIM::Buffer 对象					*perl-buffer*
+
+方法:
+
+							*perl-Buffer-Name*
+Name()		返回缓冲区的文件名。
+
+							*perl-Buffer-Number*
+Number()	返回缓冲区的编号。
+
+							*perl-Buffer-Count*
+Count()		返回缓冲区中的行数。
+
+							*perl-Buffer-Get*
+Get({lnum}, {lnum}?, ...)
+			对于指定的每个 {lnum}，返回缓冲区中该行的
+			文本字符串。可以传递包含 {lnum} 列表的数组。
+
+							*perl-Buffer-Delete*
+Delete({lnum}, {lnum}?)
+			删除缓冲区中的第 {lnum} 行。如果指定了第二个
+			{lnum}，则删除从第一个 {lnum} 到第二个 {lnum}
+			的行范围。
+
+							*perl-Buffer-Append*
+Append({lnum}, {line}, {line}?, ...)
+			在缓冲区第 {lnum} 行之后追加每个 {line}
+			字符串。{line} 列表可以是一个数组。
+
+							*perl-Buffer-Set*
+Set({lnum}, {line}, {line}?, ...)
+			用指定的 {line} 替换一行或多行缓冲区行，
+			从缓冲区第 {lnum} 行开始。{line} 列表可以
+			是一个数组。如果参数无效，则不执行替换。
+
+==============================================================================
+4. VIM::Window 对象					*perl-window*
+
+方法:
+							*perl-Window-SetHeight*
+SetHeight({height})
+			将窗口高度设为 {height}，在屏幕限制范围内。
+
+							*perl-Window-GetCursor*
+Cursor({row}?, {col}?)
+			不带参数时，返回窗口中当前光标位置的
+			(row, col) 数组。带 {row} 和 {col} 参数时，
+			将窗口的光标位置设为 {row} 和 {col}。注意
+			{col} 从 0 开始编号（Perl 风格），因此比 Vim
+			标尺中的值小 1。
+
+Buffer()						*perl-Window-Buffer*
+			返回与给定窗口对应的缓冲区对象。
+
+==============================================================================
+5. 词法变量						*perl-globals*
+
+有多个词法变量。
+
+$curwin			当前窗口对象。
+$curbuf			当前缓冲区对象。
+$vim			一个 Neovim::Ext 对象。
+$nvim			与 $nvim 相同。
+$current		一个 Neovim::Ext::Current 对象。
+
+也可以通过 "main" 包访问这些变量:
+
+$main::curwin		当前窗口对象。
+$main::curbuf		当前缓冲区对象。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

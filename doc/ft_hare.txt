@@ -1,0 +1,64 @@
+*ft_hare.txt*	Support for the Hare programming language
+
+==============================================================================
+目录								*hare*
+
+1. 简介							  |hare-intro|
+2. 文件类型插件						 |hare-plugin|
+3. 设置						       |hare-settings|
+
+==============================================================================
+简介							  *hare-intro*
+
+此插件为 Hare 编程语言提供语法高亮、缩进及其他功能支持。同时也支持 Hare
+模块内的 README 文件，但需要设置 |g:filetype_haredoc| 来启用。
+
+==============================================================================
+文件类型插件							 *hare-plugin*
+
+此插件会自动将 'path' 设置为包含 HAREPATH 环境变量的内容，使得 |gf| 等命令可以
+直接打开标准库或第三方模块。如果 HAREPATH 未设置，默认使用大多数类 Unix 文件系统
+推荐的路径，即 /usr/src/hare/stdlib 和 /usr/src/hare/third-party。
+
+==============================================================================
+设置						       *hare-settings*
+
+此插件提供了少量变量，你可以在 vimrc 中定义以配置其行为。
+
+								  *g:filetype_haredoc*
+此插件能够自动检测 Hare 模块并为 README 文件设置 "haredoc" 文件类型。由于递归
+目录搜索作为启发式方法会有轻微的性能影响，此功能默认禁用，需要明确启用: >
+	let g:filetype_haredoc = 1
+<
+参见 |g:haredoc_search_depth| 以调整搜索行为。
+
+							    *g:hare_recommended_style*
+按照 Hare 官方风格指南，以下选项默认设置: >
+	setlocal noexpandtab
+	setlocal shiftwidth=0
+	setlocal softtabstop=0
+	setlocal tabstop=8
+	setlocal textwidth=80
+<
+要禁用此行为: >
+	let g:hare_recommended_style = 0
+<
+								  *g:hare_space_error*
+默认情况下，行尾空白和空格后跟制表符会被高亮为错误。在插入模式下此高亮会自动
+关闭。要完全禁用此高亮: >
+	let g:hare_space_error = 0
+<
+							      *g:haredoc_search_depth*
+默认情况下，当 |g:filetype_haredoc| 启用时，只搜索当前目录及其直接子目录中的
+Hare 文件。最大搜索深度可通过以下方式调整: >
+	let g:haredoc_search_depth = 2
+<
+	值		效果~
+	0		只搜索当前目录。
+	1		搜索当前目录及直接子目录。
+	2		搜索当前目录及两层子目录。
+
+最大搜索深度可以设置为任意整数，但不建议使用大于 2 的值，在大多数情况下这样做
+不会带来明显的好处。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,0 +1,41 @@
+*pi_tutor.txt* 交互式教程。
+*vim-tutor-mode*
+
+vim-tutor-mode 提供了一个系统来跟随和创建 vim 及第三方插件的交互式教程。
+它替代了历史悠久的 `vimtutor` 系统。
+
+Original Author: Felipe Morales <https://github.com/fmoralesc>
+
+==============================================================================
+1. 用法                                                      *vim-tutor-usage*
+
+vim-tutor-mode 教程是超文本文档，具有富文本格式并包含链接。为了与其余文本
+区分，链接带有下划线。你可以将光标放在链接上按 <Enter>，或双击链接来跟随
+它们。
+
+1.1 命令
+------------
+								      *:Tutor*
+:Tutor {tutorial}	打开一个教程。为 {tutorial} 提供了命令行补全，
+			候选项是在 'runtimepath' 的 'tutor/' 目录中找到的
+			'.tutor' 文件列表。以 'vim-' 为前缀的教程将始终
+			首先显示。
+
+			如果未提供 {tutorial}，此命令会启动 'vim-01-beginner'
+			教程，它等同于 Vim 的 `vimtutor`。
+
+=============================================================================
+2. 创建教程                                        *vim-tutor-create*
+
+编写 vim-tutor-mode 教程很简单。要了解所使用格式的概述，请查阅
+'tutor.tutor' 文件: >
+
+    :Tutor tutor
+<
+新教程必须放置在 'runtimepath' 的 'tutor/' 目录中，才能被 :Tutor 命令
+检测到。
+
+建议在编写教程时使用比常规文档更非正式的风格 (除非内容需要)。
+
+=============================================================================
+  vim:tw=78:ts=8:noet:ft=help:norl:

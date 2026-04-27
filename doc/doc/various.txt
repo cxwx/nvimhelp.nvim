@@ -1,0 +1,601 @@
+*various.txt*   Nvim
+
+
+		  VIM 参考手册	  able Bram Moolenaar
+
+
+各种命令					*various*
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 各种命令					*various-cmds*
+
+							*CTRL-L*
+CTRL-L			清除并重绘屏幕。重绘可能在处理完预输入后
+			才发生。
+			另见 |nvim__redraw()|。
+							*CTRL-L-default*
+			默认情况下，也清除搜索高亮
+			|:nohlsearch| 并更新差异 |:diffupdate|。
+			|default-mappings|
+
+							*:mod* *:mode*
+:mod[e]			清除并重绘屏幕。
+			另见 |nvim__redraw()|。
+
+							*:redr* *:redraw*
+:redr[aw][!]		立即重绘待处理的屏幕更新，如果包含 "!" 则
+			重绘整个屏幕。要清除屏幕，使用 |:mode| 或
+			|CTRL-L|。
+			可以在脚本或函数中使用它来重绘屏幕
+			（或在 'lazyredraw' 设置时的映射中）。
+			另见 |nvim__redraw()|。
+
+						*:redraws* *:redrawstatus*
+:redraws[tatus][!]	重绘当前窗口的状态行和窗口栏，如果包含 "!"
+			则重绘所有状态行和窗口栏。如果命令行包含
+			'ruler' 则重绘命令行。当 'statusline' 或
+			'winbar' 包含不会触发自动更新的项目时很有用。
+			另见 |nvim__redraw()|。
+
+						*:redrawt* *:redrawtabline*
+:redrawt[abline]	重绘标签行。当 'tabline' 包含不会触发自动
+			更新的项目时很有用。另见 |nvim__redraw()|。
+
+							*N<Del>*
+<Del>			输入数字时：删除最后一位数字。
+			注意：如果你想用 <BS> 来做这件事，添加此
+			映射到你的 vimrc： >
+				:map CTRL-V <BS>   CTRL-V <Del>
+<
+:as[cii]	或					*ga* *:as* *:ascii*
+ga			以十进制、十六进制和八进制打印光标下字符的
+			ascii 值。
+			助记：获取 Ascii 值。
+
+			例如，当光标在 'R' 上：
+				<R>  82,  Hex 52,  Octal 122 ~
+			当字符是非标准 ASCII 字符但根据 'isprint'
+			选项是可打印的时，也给出不可打印的版本。
+
+			当字符大于 127 时，也打印 <M-x> 形式。
+			例如：
+				<~A>  <M-^A>  129,  Hex 81,  Octal 201 ~
+				<p>  <|~>  <M-~>  254,  Hex fe,  Octal 376 ~
+			（其中 <p> 是特殊字符）
+
+			文件中的 <Nul> 字符在内部存储为 <NL>，
+			但会显示为：
+				<^@>  0,  Hex 00,  Octal 000 ~
+
+			如果字符有组合字符，它们也会显示。
+			'maxcombine' 的值无关紧要。
+
+			如果字符可以作为二合字母输入，也输出可以
+			用来创建该字符的两个字符：
+				<ö> 246, Hex 00f6, Oct 366, Digr o: ~
+			这说明你可以输入 CTRL-K o : 来插入 ö。
+
+							*g8*
+g8			以十六进制打印光标下字符使用的字节值，
+			假设它是 |UTF-8| 编码。这也显示组合字符。
+			'maxcombine' 的值无关紧要。
+			带两个组合字符的字符示例：
+				e0 b8 81 + e0 b8 b9 + e0 b9 89 ~
+
+							*8g8*
+8g8			在光标处或之后查找非法的 UTF-8 字节序列。
+			当编辑一个本应是 UTF-8 但因为包含非法字节
+			而被当作 8 位编码读取的文件时很有用。
+			不会绕到文件末尾。
+			注意当光标在非法字节上或光标在多字节字符
+			中间时，命令不会移动光标。
+
+							*gx*
+gx			使用系统默认处理程序打开当前文件路径、
+			URL（由 |<cfile>|、'isfname' 决定）或光标处
+			的 |LSP| "documentLink"。
+
+			在 |help| 文件中，gx 将帮助标签视为
+			https://neovim.io/doc/user/ URL。
+
+			映射到 |vim.ui.open()|。
+
+							*v_gx*
+{Visual}gx		使用系统默认处理程序打开选定的文本。
+			映射到 |vim.ui.open()|。
+
+						*:p* *:pr* *:print* *E749*
+:[range]p[rint] [flags]
+			打印 [range] 行（默认当前行）。由于 Vi 兼容性
+			也可以拼写为 `:[range]|`（见 |:bar|）。
+			在空缓冲区中会报错。
+			在 GUI 中你可以使用 文件.打印 菜单项。
+			[flags] 见 |ex-flags|。
+			|:filter| 命令可用于只显示匹配模式的行。
+
+:[range]p[rint] {count} [flags]
+			打印 {count} 行，从 [range] 开始（默认
+			当前行 |cmdline-ranges|）。
+			[flags] 见 |ex-flags|。
+
+							*:l* *:list*
+:[range]l[ist] [count] [flags]
+			与 :print 相同，但默认将制表符显示为 ">"，
+			尾随空格显示为 "-"，不可断空格字符显示为 "+"。
+			可通过 'listchars' 选项进一步更改。
+			[flags] 见 |ex-flags|。
+
+							*:nu* *:number*
+:[range]nu[mber] [count] [flags]
+			与 :print 相同，但在每行前加行号。
+			（另见 |hl-LineNr| 和 'numberwidth'）。
+			[flags] 见 |ex-flags|。
+
+							*:#*
+:[range]# [count] [flags]
+			:number 的同义词。
+
+							*:#!* *vim-shebang*
+:#!{anything}		被忽略，这样你可以用以下内容开始 Vim 脚本： >
+				#!vim -S
+				let mylogbook='$HOME/logbook.md'
+				exe $':e {mylogbook}'
+				$
+				put ='## ' .. strftime('%d. %b %Y')
+				norm! o
+<
+			使该脚本可执行并运行它来创建新的日记条目。
+
+							*:z* *E144*
+:[range]z[+-^.=][count]	显示指定 [range] 行周围或当前行（如果没有
+			[range]）周围的若干行文本。
+
+			如果有 [count]，那就是你会看到的行数；
+			如果没有 [count] 且只有一个窗口，则使用
+			'scroll' 选项值的两倍，否则使用当前窗口
+			高度减 3。这是下表中 "scr" 的值。
+
+			如果有 [count]，'window' 选项会被设置为
+			该值。
+
+			:z 可以单独使用或后跟若干标记之一。
+			这些标记有以下效果：
+
+			标记   第一行      最后一行     新光标行 ~
+			----   ----------    ---------      ------------
+			+      当前行      向前 1 scr   向前 1 scr
+			-      向后 1 scr  当前行       当前行
+			^      向后 2 scr  向后 1 scr   向后 1 scr
+			.      后退 1/2 scr 前进 1/2 scr 前进 1/2 scr
+			=      后退 1/2 scr 前进 1/2 scr 当前行
+
+			不指定标记与 "+" 相同。
+			如果标记是 "="，会在当前行周围打印一行
+			破折号。
+
+							*:z!*
+:[range]z![+-^.=][count]
+			类似 ":z"，但不指定 [count] 时，默认为
+			Vim 窗口高度减一。
+
+:[range]z[!]#[+-^.=][count]				*:z#*
+			类似 ":z" 或 ":z!"，但给行编号。
+
+							*:=*
+:= [args]		没有 [args]：打印最后一行号。
+			有 [args]：等同于 `:lua ={expr}`。见 |:lua|
+
+:{range}=		打印 {range} 中的最后一行号。例如，
+			这将打印当前行号： >
+				:.=
+
+:norm[al][!] {commands}					*:norm* *:normal*
+			执行普通模式命令 {commands}。这使得可以执行
+			在命令行上输入的普通模式命令。{commands}
+			像输入的那样执行。对于撤销，所有命令一起
+			撤销。遇到错误时停止执行。
+
+			如果给出 [!]，将不使用映射。
+			没有它时，当此命令从不可重映射的映射
+			(|:noremap|) 调用时，参数仍可以被映射。
+
+			{commands} 应该是完整的命令。如果 {commands}
+			没有完成一个命令，最后一个将被中止，就像
+			输入了 <Esc> 或 <C-C>。这意味着插入命令
+			必须完成（要开始插入模式，见 |:startinsert|）。
+			":" 命令也必须完成。你不能用 "gQ" 来启动
+			Ex 模式。
+
+			":normal" 忙碌时不更新显示。
+
+			{commands} 不能以空格开头。在前面放一个
+			计数 1，"1 " 就是一个空格。
+
+			此命令不能后跟另一个命令，因为任何 '|'
+			被视为命令的一部分。
+
+			此命令可以递归使用，但深度受
+			'maxmapdepth' 限制。
+
+			另一种方法是使用 |:execute|，它使用表达式
+			作为参数。这允许使用可打印字符来表示
+			特殊字符。
+
+			示例： >
+				:exe "normal \<c-w>\<c-w>"
+<
+
+:{range}norm[al][!] {commands}				*:normal-range*
+			对 {range} 中的每一行执行普通模式命令
+			{commands}。在执行 {commands} 之前，光标
+			定位在范围的每一行的第一列。否则与没有
+			范围的 ":normal" 命令相同。
+
+						  *:sh* *:shell* *E371* *E360*
+:sh[ell]		已移除。|vim-differences|
+
+						  *:terminal* *:te*
+:te[rminal][!] [cmd]	在新的 |terminal-emulator| 缓冲区中以非交互
+			'shell' 运行 [cmd]。没有 [cmd] 时，启动
+			交互式 'shell'。
+
+			默认使用当前窗口。要在分割窗口中打开，
+			使用 |:horizontal| 或 |:vertical|： >
+				:hor te
+				:vert te
+<
+			输入 |i| 进入 |Terminal-mode|，然后按键发送
+			到终端中运行的任务。输入 <C-\><C-N> 离开
+			终端模式。|CTRL-\_CTRL-N|。输入 <C-\><C-O>
+			执行单个普通模式命令 |t_CTRL-\_CTRL-O|
+
+			如果当前缓冲区已修改则失败，除非设置了
+			'hidden'。
+
+			如果省略了 [cmd] 且 'shell' 任务无错误退出，
+			缓冲区自动关闭 |default-autocmds|。
+
+			要自动进入 |Terminal-mode|： >
+				      autocmd TermOpen * startinsert
+<
+							*:!cmd* *:!*
+:!{cmd}			用 'shell' 执行 {cmd}。另见 |:terminal|。
+			过滤命令见 |:range!|。
+
+			命令在连接到管道（不是终端）的非交互式
+			shell 中运行。使用 |:terminal| 来运行
+			连接到终端的交互式 shell。
+
+			后台 ("&") 命令不能写入 stdout 或 stderr，
+			流会立即关闭。|E5677|
+			改用 |jobstart()|。 >
+				:call jobstart('foo', {'detach':1})
+<
+			对于 powershell，链接字符串化的可执行路径
+			需要使用调用运算符 (&)。 >
+				:!Write-Output "1`n2" | & "C:\Windows\System32\sort.exe" /r
+<
+			Vim 使用选项 'shell'、'shcf'、'sxq' 和
+			'shq' 按以下顺序构建命令行：
+			`&sh &shcf &sxq &shq {cmd} &shq &sxq`
+			所以同时设置 'sxq' 和 'shq' 是可能的，但
+			很少有用。`{cmd}` 内部的额外转义也可能
+			来自 'sxe' 选项。
+
+			另外，{cmd} 中的所有 |cmdline-special| 字符
+			在传递给 shell 之前由 Vim 替换。
+
+							*E34*
+			{cmd} 中的任何 "!" 都被替换为之前的外部
+			命令（另见 'cpoptions'），除非用反斜杠转义。
+			示例：":!ls" 后跟 ":!echo ! \! \\!" 执行
+			"echo ls ! \!"。
+
+			{cmd} 中的任何 "|" 都传递给 shell，你不能
+			用它来附加 Vim 命令。见 |:bar|。
+
+			{cmd} 中的任何 "%" 都扩展为当前文件名。
+			{cmd} 中的任何 "#" 都扩展为备用文件名。
+			特殊字符不被转义，使用引号或
+			|shellescape()|： >
+				:!ls "%"
+				:exe "!ls " .. shellescape(expand("%"))
+<
+			换行符结束 {cmd}，除非换行前有反斜杠。
+			之后的内容被解释为另一个 |:| 命令。
+
+			命令执行后，检查当前文件的时间戳和大小
+			|timestamp|。
+
+			如果命令产生太多输出，某些行可能被跳过
+			以使命令快速执行。不会丢失数据，这只影响
+			显示。最后几行总是显示（不会被跳过）。
+
+			要避免按回车提示，使用： >
+				:silent !{cmd}
+<
+							*:!!*
+:!!			重复上一个 ":!{cmd}"。
+
+							*:ve* *:ver* *:version*
+:ve[rsion]		打印编辑器版本和构建信息。
+			另见 |feature-compile|。
+
+							*:redi* *:redir*
+:redi[r][!] > {file}	将消息重定向到文件 {file}。作为命令输出的
+			消息写入该文件，直到重定向结束。消息仍然
+			显示在屏幕上。当包含 [!] 时，覆盖已有的
+			文件。当省略 [!] 且 {file} 存在时，此命令
+			失败。
+
+			一次只能有一个 ":redir" 处于活动状态。
+			调用 ":redir" 将在开始重定向到新目标之前
+			关闭任何活动的重定向。对于递归使用，
+			请查看 |execute()|。
+
+			要停止消息和命令回显到屏幕，将命令放在
+			函数中并用 ":silent call Function()" 调用。
+			其他方法是 'verbosefile' 选项或 |execute()|
+			函数，这些可以与 ":redir" 结合使用。
+
+:redi[r] >> {file}	将消息重定向到文件 {file}。如果 {file}
+			已存在则追加。
+
+:redi[r] @{a-zA-Z}
+:redi[r] @{a-zA-Z}>	将消息重定向到寄存器 {a-z}。如果名称是大写
+			{A-Z} 则追加到寄存器内容。寄存器名称后的
+			">" 是可选的。
+:redi[r] @{a-z}>>	将消息追加到寄存器 {a-z}。
+
+:redi[r] @*>
+:redi[r] @+>		将消息重定向到选择或剪贴板。为了向后兼容，
+			寄存器名称后的 ">" 可以省略。
+			见 |quotestar| 和 |quoteplus|。
+:redi[r] @*>>
+:redi[r] @+>>		将消息追加到选择或剪贴板。
+
+:redi[r] @">		将消息重定向到无名寄存器。为了向后兼容，
+			寄存器名称后的 ">" 可以省略。
+:redi[r] @">>		将消息追加到无名寄存器。
+
+:redi[r] => {var}	将消息重定向到变量。如果变量不存在，则
+			创建它。如果变量存在，则初始化为空字符串。
+			变量将保持为空直到重定向结束。只能使用
+			字符串变量。重定向开始后，如果变量被删除
+			或锁定或变量类型被更改，则后续命令输出
+			消息将导致错误。当使用局部变量（函数中的
+			l:var 或脚本中的 s:var）且另一个 `:redir`
+			导致当前的结束时，作用域可能不同，赋值
+			会失败。
+			要获取一个命令的输出，可以使用 |execute()|
+			函数代替重定向。
+
+:redi[r] =>> {var}	将消息追加到现有变量。只能使用字符串变量。
+
+:redi[r] END		结束重定向消息。
+
+							*:filt* *:filter*
+:filt[er][!] {pattern} {command}
+:filt[er][!] /{pattern}/ {command}
+			将 {command} 的输出限制为与 {pattern} 匹配
+			的行。例如，只列出 xml 文件： >
+				:filter /\.xml$/ oldfiles
+<			如果给出 [!]，将 {command} 的输出限制为
+			不匹配 {pattern} 的行。
+
+			{pattern} 是 Vim 搜索模式。除了用 / 括起来
+			外，可以使用任何非 ID 字符（见 'isident'），
+			只要它不出现在 {pattern} 中。
+			不使用括起字符时，模式不能包含竖线字符。
+			不使用 'ignorecase'。
+
+			模式与输出的相关部分匹配，不一定是整行。
+			只有部分命令支持过滤，试试看是否有效。
+			支持过滤的部分命令：
+			   |:#|          - 过滤整行
+			   |:clist|      - 按文件名或模块名过滤
+			   |:command|    - 按命令名过滤
+			   |:files|      - 按文件名过滤
+			   |:highlight|  - 按高亮组过滤
+			   |:history|    - 按历史命令过滤
+			   |:jumps|      - 按文件名过滤
+			   |:let|        - 按变量名过滤
+			   |:list|       - 过滤整行
+			   |:llist|      - 按文件名或模块名过滤
+			   |:marks|      - 按当前文件中的文本过滤，
+					   或其他文件的文件名
+			   |:oldfiles|   - 按文件名过滤
+			   |:registers|  - 按寄存器内容过滤
+					   （不适用于多行）
+			   |:set|        - 按选项名过滤
+
+			只过滤正常消息，不过滤错误消息。
+
+						*:sil* *:silent* *:silent!*
+:sil[ent][!] {command}	静默执行 {command}。正常消息不会显示也不会
+			添加到消息历史。
+			当添加 [!] 时，错误消息也被跳过，命令和
+			映射在检测到错误时不会被中止。|v:errmsg|
+			仍然会被设置。
+			不使用 [!] 时，错误消息将导致后续消息
+			正常显示。
+			以 |:redir| 开始的重定向将照常继续，
+			尽管可能有些小差异。
+			这允许在不在屏幕上看到的情况下重定向命令
+			输出。示例： >
+			    :redir >/tmp/foobar
+			    :silent g/Aap/p
+			    :redir END
+<			要静默执行普通模式命令，使用 |:normal| 命令。
+			例如，不显示消息地搜索字符串： >
+			    :silent exe "normal /path\<CR>"
+<			":silent!" 用于执行可能失败但应忽略失败的
+			命令。示例： >
+			    :let v:errmsg = ""
+			    :silent! /^begin
+			    :if v:errmsg != ""
+			    : ... 未找到模式
+<			":silent" 也跳过按回车提示。
+			提示用户输入的对话框（|confirm()|、
+			'swapfile'、...）永远不会被静默。
+
+						*:uns* *:unsilent*
+:uns[ilent] {command}	非静默执行 {command}。只有当使用 |:silent|
+			到达此命令时才有区别。
+			用于在使用 |:silent| 时仍然给出消息。
+			在此示例中 |:silent| 用于避免读取文件的消息，
+			|:unsilent| 用于能够列出每个文件的第一行。 >
+		:silent argdo unsilent echo expand('%') .. ": " .. getline(1)
+<
+
+						*:verb* *:verbose*
+:[count]verb[ose] {command}
+			执行 {command}，'verbose' 设置为 [count]。
+			如果省略 [count] 则使用一。":0verbose" 可以
+			用来将 'verbose' 设置为零。
+			额外使用 ":silent" 会使消息生成但不显示。
+			":silent" 和 ":verbose" 的组合可以用来生成
+			消息并用 |v:statusmsg| 等检查。例如： >
+				:let v:statusmsg = ""
+				:silent verbose runtime foobar.vim
+				:if v:statusmsg != ""
+				:  " 找不到 foobar.vim
+				:endif
+<			当连接另一个命令时，":verbose" 只适用于
+			第一个： >
+				:4verbose set verbose | set verbose
+<				  verbose=4 ~
+				  verbose=0 ~
+			要将详细消息记录到文件，使用
+			'verbosefile' 选项。
+
+							*:verbose-cmd*
+当 'verbose' 非零时，列出 Vim 选项的值或键映射或缩写或
+用户定义函数或命令或高亮组或自动命令时，也会显示最后定义
+的位置。如果它们是在 Lua 中定义的，只有设置了 'verbose'
+才会被定位。所以用 -V1 参数启动 nvim 来查看它们。如果是
+手动定义的则没有 "Last set" 消息。当在执行函数、用户命令
+或自动命令期间定义时，报告定义它的脚本。
+
+							*K*
+[count]K		运行 'keywordprg' 给出的程序来查找光标下或
+			右边的 |word|（由 'iskeyword' 定义）。
+			默认是 "man"。工作方式如下： >
+				:tabnew | terminal {program} {keyword}
+<			特殊情况：
+			- 如果 'keywordprg' 以 ":" 开头，它作为
+			  带 [count] 的 Vim 命令调用。
+			- 如果 'keywordprg' 为空，使用 |:help|。
+			- 当 'keywordprg' 等于 "man" 时，K 前面的
+			  [count] 插入在 "man" 命令之后和关键字
+			  之前。例如，在 "mkdir" 上使用 "2K"，
+			  结果是： >
+				!man 2 mkdir
+<			- 当 'keywordprg' 等于 "man -s" 时，K 前面
+			  的 [count] 插入在 "-s" 之后。如果没有
+			  计数，"-s" 被删除。
+							       *K-lsp-default*
+			- Nvim |LSP| 客户端设置 K 来显示 LSP "悬停"
+			  功能。|lsp-defaults|
+
+							*v_K*
+{Visual}K		类似 "K"，但使用可视高亮的文本作为关键字。
+			只有当高亮文本不超过一行时才有效。
+
+							*gO*
+gO			显示当前缓冲区的文件类型特定、可导航的
+			"大纲"。例如，在 |help| 缓冲区中这会显示
+			目录。
+
+			适用于 |help| 和 |:Man| 缓冲区，或任何有
+			活动 |LSP| 客户端的缓冲区（|lsp-defaults|）。
+
+[N]gs							*gs* *:sl* *:sleep*
+:[N]sl[eep] [N][m]	什么都不做 [N] 秒，如果给出了 [m] 则是
+			[N] 毫秒。"gs" 总是使用秒。
+			默认是一秒。 >
+			     :sleep	     "休眠一秒
+			     :5sleep	     "休眠五秒
+			     :sleep 100m     "休眠 100 毫秒
+			     10gs	     "休眠十秒
+<			可以用 CTRL-C 中断。
+			"gs" 代表 "goto sleep"（去睡觉）。
+			休眠时光标定位在文本中（如果在可见位置）。
+			休眠期间处理排队的消息。
+
+							*:sl!* *:sleep!*
+:[N]sl[eep]! [N][m]	与上面相同，但隐藏光标。
+
+							*g==*
+g==			执行当前代码块。
+
+			适用于 |help| 缓冲区。
+
+==============================================================================
+2. 像 less 或 more 一样使用 Vim				*less*
+
+如果你使用 less 或 more 程序来查看文件，你无法获得语法高亮。
+因此你可能想改用 Vim。你可以通过使用 shell 脚本
+"$VIMRUNTIME/scripts/less.sh" 来实现。
+
+此 shell 脚本使用 Vim 脚本 "$VIMRUNTIME/scripts/less.vim"。
+它设置映射来模拟 less 支持的命令。否则，你仍然可以使用
+Vim 命令。
+
+这不是完美的。例如，查看短文件时 Vim 仍会使用整个屏幕。
+但对于大多数使用场景来说已经足够好了，而且你还能获得语法高亮。
+
+"h" 键会给你一个可用命令的简短概览。
+
+如果你想在使用 less 时设置不同的选项，在你的 vimrc 中定义
+LessInitFunc，例如： >
+
+	func LessInitFunc()
+	  set nocursorcolumn nocursorline
+	endfunc
+<
+==============================================================================
+3. 注释							*commenting*
+
+Nvim 支持基于 'commentstring' 的行注释和取消注释。
+
+对单行操作的行为如下：
+- 如果该行匹配 'commentstring'，则删除注释标记（例如
+  `/*foo*/` 转换为 `foo`）。
+- 否则将注释标记添加到当前行（例如 `foo` 转换为
+  `/*foo*/`）。空白行被忽略。
+
+对多行操作的行为如下：
+- 如果每个受影响的非空白行都匹配 'commentstring'，则删除
+  所有注释标记。
+- 否则所有受影响的行都转换为注释；空白行转换为空注释
+  （例如 `/**/`）。注释标记对齐到最少缩进的行。
+
+匹配 'commentstring' 时不考虑注释标记中的空白。
+删除注释标记时首先尝试精确匹配，然后回退到使用修剪空白后
+的标记。
+
+如果缓冲区的文件类型与安装了 |treesitter| 解析器的语言相关联，
+则调用 |vim.filetype.get_option()| 来查找与光标位置对应的
+'commentstring' 值。（在 |treesitter-language-injections| 的
+情况下，这可能与缓冲区的 'commentstring' 不同。）
+
+定义了以下 |default-mappings|：
+
+							*gc* *gc-default*
+gc{motion}		注释或取消注释 {motion} 覆盖的行。
+
+							*gcc* *gcc-default*
+gcc			从光标开始注释或取消注释 [count] 行。
+
+							*v_gc* *v_gc-default*
+{Visual}gc		注释或取消注释选定的行。
+
+							*o_gc* *o_gc-default*
+gc			光标周围最大连续非空白已注释行块的文本对象
+			（例如 `gcgc` 取消注释一个注释块；`dgc` 删除它）。
+			仅在操作符等待模式下工作。
+
+ vim:noet:tw=78:ts=8:ft=help:norl:

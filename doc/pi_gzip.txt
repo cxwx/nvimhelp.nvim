@@ -1,0 +1,48 @@
+*pi_gzip.txt*   Nvim
+
+
+		  VIM 参考手册	  able by Bram Moolenaar
+
+
+用 Vim 编辑压缩文件		*gzip* *bzip2* *compress*
+
+1. 自动命令			|gzip-autocmd|
+
+此处提及的功能是一个 |standard-plugin|。
+此插件仅在 'compatible' 未设置时可用。
+你可以通过设置 "loaded_gzip" 变量来避免加载此插件: >
+	:let loaded_gzip = 1
+<
+							*g:gzip_exec*
+
+出于安全原因，可以阻止 Vim 在打开缓冲区时自动运行可执行文件。此选项
+(默认值: "1") 设置为 "0" 时可以阻止执行相关命令: >
+	:let g:gzip_exec = 0
+<
+
+==============================================================================
+1. 自动命令						*gzip-autocmd*
+
+此插件安装自动命令来拦截以下扩展名文件的读取和写入:
+
+	扩展名		压缩方式 >
+	*.bz2		bzip2
+	*.bz3		bzip3
+	*.gz		gzip
+	*.lz		lzip
+	*.lz4		lz4
+	*.lzma		lzma
+	*.xz		xz
+	*.Z		compress (Lempel-Ziv)
+	*.zst		zstd
+
+这实际上就是你需要知道的全部。没有其他选项。
+
+解压文件后，会重新检测文件类型。这样 "foo.c.gz" 这样的文件就会获得 "c"
+文件类型。
+
+如果你设置了 'patchmode'，它会被附加在压缩扩展名之后。因此编辑 patchmode
+文件不会给你自动解压。如果你需要此功能，你必须重命名文件。
+
+==============================================================================
+ vim:tw=78:ts=8:noet:ft=help:norl:

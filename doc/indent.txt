@@ -1,0 +1,1115 @@
+*indent.txt*    Nvim
+
+
+		  VIM REFERENCE MANUAL	  able Bram Moolenaar
+
+
+本文件介绍 C 程序和其他文件的缩进。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. C 风格程序缩进					*C-indenting*
+
+C 风格缩进的基础在用户手册的 |30.2| 节中有解释。
+
+Vim 有自动缩进 C 风格程序文件的选项。许多编程语言包括 Java 和 C++ 非常紧密地
+遵循 C 建立的格式约定。这些选项只影响缩进，不执行其他格式化。还有其他选项影响
+其他类型的格式化以及缩进，参见 |format-comments|、|fo-table|、|gq| 和
+|formatting| 了解主要选项。
+
+实际上有四种主要的缩进方法可用，每种都覆盖前一种（如果启用或对 'indentexpr'
+为非空）:
+'autoindent'	使用前一行的缩进。
+'smartindent'	类似 'autoindent' 但也能识别一些 C 语法来适当地增加/减少缩进。
+'cindent'	比其他两种更聪明，可以配置为不同的缩进风格。
+'indentexpr'	所有方法中最灵活的: 评估一个表达式来计算行的缩进。当非空时此
+		方法覆盖其他方法。参见 |indent-expression|。
+本节其余部分描述 'cindent' 选项。
+
+注意 'cindent' 缩进并不适用于所有代码场景。Vim 不是 C 编译器: 它不识别所有
+语法。一个要求是顶级函数的 "{" 在第一列。否则它们容易与声明混淆。
+
+这五个选项控制 C 程序缩进:
+'cindent'	启用 Vim 自动执行 C 程序缩进。
+'cinkeys'	指定在插入模式中哪些键触发重新缩进。
+'cinoptions'	设置你偏好的缩进风格。
+'cinwords'	定义在下一行开始额外缩进的关键字。
+'cinscopedecls'	定义被识别为 C++ 作用域声明的字符串。
+
+如果 'lisp' 未开启且 'equalprg' 为空，"=" 操作符使用 Vim 的内置算法缩进而不是
+调用外部程序。
+
+参见 |autocommand| 了解如何为 C 代码文件自动设置 'cindent' 选项并为其他文件
+重置。
+
+					*cinkeys-format* *indentkeys-format*
+'cinkeys' 选项是一个字符串，控制 Vim 对在某些上下文中输入某些字符或命令的缩进
+响应。注意这不仅仅触发 C 缩进。当 'indentexpr' 非空时使用 'indentkeys' 代替。
+'cinkeys' 和 'indentkeys' 的格式相同。
+
+默认是 "0{,0},0),0],:,0#,!^F,o,O,e"，指定缩进发生如下:
+
+	"0{"	如果你在行的第一个字符处输入 "{"
+	"0}"	如果你在行的第一个字符处输入 "}"
+	"0)"	如果你在行的第一个字符处输入 ")"
+	"0]"	如果你在行的第一个字符处输入 "]"
+	":"	如果你在标签或 case 语句后输入 ":"
+	"0#"	如果你在行的第一个字符处输入 "#"
+	"!^F"	如果你输入 CTRL-F（不插入）
+	"o"	如果你在任何位置输入 <CR> 或使用 "o" 命令（不在插入模式中!）
+	"O"	如果你使用 "O" 命令（不在插入模式中!）
+	"e"	如果你在行首输入 "else" 的第二个 'e'
+
+每个键前面可以有以下字符:				*i_CTRL-F*
+!	当 "!" 在键之前时，Vim 不会插入该键而是重新缩进当前行。这允许你定义
+	一个重新缩进当前行的命令键。CTRL-F 是默认的此键。小心如果你将 CTRL-I
+	定义为此用途，因为 CTRL-I 是 <Tab> 的 ASCII 码。
+*	当 "*" 在键之前时，Vim 将在插入键之前重新缩进该行。如果 'cinkeys'
+	包含 "*<Return>"，Vim 在打开新行之前重新缩进当前行。
+0	当零在键之前（但出现在 "!" 或 "*" 之后）时，Vim 只在该键是行中你输入
+	的第一个字符时重新缩进。当在 "=" 之前使用时，Vim 只在该词之前只有
+	空白时重新缩进。
+
+当 "!" 和 "*" 都不在键之前时，Vim 在你输入该键之后重新缩进该行。所以 ";"
+设置包含 ";" 的行的缩进。
+
+特殊键名:
+<>	尖括号表示拼写出的键名。例如: "<Up>"、"<Ins>"（参见 |key-notation|）。
+^	插入号前面的字母是控制字符。例如: "^F" 是 CTRL-F。
+o	当你使用 "o" 命令或 Vim 在当前行下方打开新行时重新缩进（例如当你在
+	插入模式中输入 <Enter> 时）。
+O	当你使用 "O" 命令时重新缩进。
+e	当你输入以 "else" 开头的行的第二个 'e' 时重新缩进。
+:	当输入 ':' 时重新缩进，该 ':' 在标签或 case 语句之后。不为 C++ 中
+	"class::method" 的 ":" 重新缩进。要为任何 ":"重新缩进，使用 "<:>"。
+=word	输入 "word" 的最后一个字符时重新缩进。"word" 实际上可能是另一个词的
+	一部分。因此 "=end" 会在输入 "endif" 或 "endwhile" 中的 "d" 时重新缩进。
+	但输入 "bend" 时不会。当补全产生以 "word" 开头的词时也会重新缩进。
+	"0=word" 仅在该词之前只有空白时重新缩进。
+=~word	类似 =word，但忽略大小写。
+
+如果你确实想在输入 'o'、'O'、'e'、'0'、'<'、'>'、"*"、':' 或 '!' 时重新缩进，
+分别使用 "<o>"、"<O>"、"<e>"、"<0>"、"<<>"、"<>>"、"<*>"、"<:>" 或 "<!>"。
+
+对于 emacs 风格的缩进模式，行不在每次按 <Enter> 时缩进而只在按 <Tab> 时缩进，
+我建议: >
+	:set cinkeys=0{,0},:,0#,!<Tab>,!^F
+你可能还想关闭 'autoindent'。
+
+注意: 如果你手动更改当前行的缩进，Vim 会忽略该行的 cindent 设置。这防止 vim
+在你通过输入 <BS>、<Tab> 或 <Space> 在缩进中或使用 CTRL-T 或 CTRL-D 更改
+缩进后重新缩进。
+
+						*cinoptions-values*
+'cinoptions' 选项设置 Vim 如何执行缩进。选项字符后的值可以是以下之一（N 是
+任意数字）:
+	N	缩进 N 个空格
+	-N	向左缩进 N 个空格
+	Ns	N 倍 'shiftwidth' 个空格
+	-Ns	向左 N 倍 'shiftwidth' 个空格
+
+在下面的列表中，
+"N" 表示你选择的数字（数字可以是负数）。当数字后面有 's' 时，Vim 将数字乘以
+'shiftwidth': "1s" 是 'shiftwidth'，"2s" 是两倍 'shiftwidth'，等等。你也可以
+使用小数点: "-0.5s" 是负的半个 'shiftwidth'。
+下面的示例假设 'shiftwidth' 为 4。
+							*cino->*
+	>N    "正常"缩进的添加量。用于应增加缩进的行之后（以 "if"、左大括号
+	      等开头的行）。（默认 'shiftwidth'）。
+
+		cino=		    cino=>2		cino=>2s >
+		  if (cond)	      if (cond)		  if (cond)
+		  {		      {			  {
+		      foo;		foo;			  foo;
+		  }		      }			  }
+<
+							*cino-e*
+	eN    在行尾的一组大括号内增加 N 的缩进（更精确地说: 不是行的第一个
+	      字符时的左大括号）。当 "{" 在行首和行尾时你想要不同的缩进时有用。
+	      （默认 0）。
+
+		cino=		    cino=e2		cino=e-2 >
+		  if (cond) {	      if (cond) {	  if (cond) {
+		      foo;		    foo;	    foo;
+		  }		      }			  }
+		  else		      else		  else
+		  {		      {			  {
+		      bar;		  bar;		      bar;
+		  }		      }			  }
+<
+							*cino-n*
+	nN    在 "if"、"while" 等之后的语句如果不在一组大括号内则增加 N 的缩进。
+	      当语句前没有 "{" 和有 "{" 时你想要不同的缩进时有用。（默认 0）。
+
+		cino=		    cino=n2		cino=n-2 >
+		  if (cond)	      if (cond)		  if (cond)
+		      foo;		    foo;	    foo;
+		  else		      else		  else
+		  {		      {			  {
+		      bar;		  bar;		      bar;
+		  }		      }			  }
+<
+							*cino-f*
+	fN    将函数或其他块的第一个左大括号放在第 N 列。这仅适用于不在其他
+	      大括号内且在行首的左大括号。大括号后面的内容相对于此大括号放置。
+	      （默认 0）。
+
+		cino=		    cino=f.5s		cino=f1s >
+		  func()	      func()		  func()
+		  {			{		      {
+		      int foo;		    int foo;		  int foo;
+<
+							*cino-{*
+	`{N`    将左大括号相对于当前缩进偏移 N 个字符。这仅适用于在其他大括号
+	      内的左大括号。（默认 0）。
+
+		cino=		    cino={.5s		cino={1s >
+		  if (cond)	      if (cond)		  if (cond)
+		  {			{		      {
+		      foo;		  foo;		      foo;
+<
+							*cino-}*
+	`}N`    将右大括号相对于匹配的左大括号偏移 N 个字符。（默认 0）。
+
+		cino=		    cino={2,}-0.5s	cino=}2 >
+		  if (cond)	      if (cond)		  if (cond)
+		  {			{		  {
+		      foo;		  foo;		      foo;
+		  }		      }			    }
+<
+							*cino-^*
+	^N    当左大括号在第 0 列时，在一组大括号内增加 N 的缩进。这可以为整个
+	      函数指定不同的缩进（有些人可能喜欢将其设为负数）。（默认 0）。
+
+		cino=		    cino=^-2		cino=^-s >
+		  func()	      func()		  func()
+		  {		      {			  {
+		      if (cond)		if (cond)	  if (cond)
+		      {			{		  {
+			  a = b;	    a = b;	      a = b;
+		      }			}		  }
+		  }		      }			  }
+<
+							*cino-L*
+	LN    控制跳转标签的放置。如果 N 为负，标签将放在第 1 列。如果 N 非负，
+	      标签的缩进将是当前缩进减去 N。（默认 -1）。
+
+		cino=               cino=L2             cino=Ls >
+		  func()              func()              func()
+		  {                   {                   {
+		      {                   {                   {
+		          stmt;               stmt;               stmt;
+		  LABEL:                    LABEL:            LABEL:
+		      }                   }                   }
+		  }                   }                   }
+<
+							*cino-:*
+	:N    将 case 标签相对于 switch() 的缩进偏移 N 个字符。
+	      （默认 'shiftwidth'）。
+
+		cino=		    cino=:0 >
+		  switch (x)	      switch(x)
+		  {		      {
+		      case 1:	      case 1:
+			  a = b;	  a = b;
+		      default:	      default:
+		  }		      }
+<
+							*cino-=*
+	=N    将 case 标签后出现的语句相对于标签缩进偏移 N 个字符。
+	      （默认 'shiftwidth'）。
+
+		cino=		    cino==10 >
+		   case 11:		case 11:  a = a + 1;
+		       a = a + 1;		  b = b + 1;
+<
+							*cino-l*
+	lN    如果 N != 0，Vim 将对齐 case 标签而不是同一行中标签后的语句。
+
+		cino=			    cino=l1 >
+		    switch (a) {	      switch (a) {
+			case 1: {		  case 1: {
+				    break;	      break;
+				}		  }
+<
+							*cino-b*
+	bN    如果 N != 0，Vim 将最后的 "break" 与 case 标签对齐，这样 case..break
+	      看起来像一种块。（默认: 0）。
+	      使用 1 时，考虑将 "0=break" 添加到 'cinkeys'。
+
+		cino=		    cino=b1 >
+		  switch (x)	      switch(x)
+		  {		      {
+		      case 1:		  case 1:
+			  a = b;	      a = b;
+			  break;	  break;
+
+		      default:		  default:
+			  a = 0;	      a = 0;
+			  break;	  break;
+		  }		      }
+<
+							*cino-g*
+	gN    将 C++ 作用域声明相对于它们所在块的缩进偏移 N 个字符。
+	      （默认 'shiftwidth'）。默认情况下，作用域声明是 "public:"、
+	      "protected:" 或 "private:"。可以用 'cinscopedecls' 选项调整。
+
+		cino=		    cino=g0 >
+		  {		      {
+		      public:	      public:
+			  a = b;	  a = b;
+		      private:	      private:
+		  }		      }
+<
+							*cino-h*
+	hN    将 C++ 作用域声明后出现的语句相对于标签缩进偏移 N 个字符。
+	      （默认 'shiftwidth'）。
+
+		cino=		    cino=h10 >
+		   public:		public:   a = a + 1;
+		       a = a + 1;		  b = b + 1;
+<
+							*cino-N*
+	NN    在 C++ 命名空间内额外缩进 N 个字符，相对于普通块。（默认 0）。
+
+		cino=			   cino=N-s >
+		  namespace {                namespace {
+		      void function();       void function();
+		  }                          }
+
+		  namespace my               namespace my
+		  {                          {
+		      void function();       void function();
+		  }                          }
+<
+							*cino-E*
+	EN    在 C++ 链接规范（extern "C" 或 extern "C++"）内额外缩进 N 个
+	      字符，相对于普通块。（默认 0）。
+
+		cino=			   cino=E-s >
+		  extern "C" {               extern "C" {
+		      void function();       void function();
+		  }                          }
+
+		  extern "C"                 extern "C"
+		  {                          {
+		      void function();       void function();
+		  }                          }
+<
+							*cino-p*
+	pN    K&R 风格函数声明的参数声明将从边距缩进 N 个字符。
+	      （默认 'shiftwidth'）。
+
+		cino=		    cino=p0		cino=p2s >
+		  func(a, b)	      func(a, b)	  func(a, b)
+		      int a;	      int a;			  int a;
+		      char b;	      char b;			  char b;
+<
+							*cino-t*
+	tN    将函数返回类型声明从边距缩进 N 个字符。（默认 'shiftwidth'）。
+
+		cino=		    cino=t0		cino=t7 >
+		      int	      int			 int
+		  func()	      func()		  func()
+<
+							*cino-i*
+	iN    缩进 C++ 基类声明和构造函数初始化，如果它们从新行开始（否则它们
+	      在 ':' 的右侧对齐）。（默认 'shiftwidth'）。
+
+		cino=			  cino=i0 >
+		  class MyClass :	    class MyClass :
+		      public BaseClass      public BaseClass
+		  {}			    {}
+		  MyClass::MyClass() :	    MyClass::MyClass() :
+		      BaseClass(3)	    BaseClass(3)
+		  {}			    {}
+<
+							*cino-+*
+	+N    在函数内部缩进续行（延续到下一行的行）额外 N 个字符。
+              （默认 'shiftwidth'）。
+              在函数外部，当前一行以反斜杠结尾时，使用 2 * N。
+
+		cino=			  cino=+10 >
+		  a = b + 9 *		    a = b + 9 *
+		      c;			      c;
+<
+							*cino-c*
+	cN    在注释开启符后缩进注释行，当没有其他文本可对齐时，从注释开启符
+	      偏移 N 个字符。（默认 3）。也参见 |format-comments|。
+
+		cino=			  cino=c5 >
+		  /*			    /*
+		     text.			 text.
+		   */			     */
+<
+							*cino-C*
+	CN    当 N 非零时，即使注释开启符后有其他文本，也按上面 c 标志指定的
+	      量缩进注释行。（默认 0）。
+
+		cino=c0			  cino=c0,C1 >
+		  /********		    /********
+		    text.		    text.
+		  ********/		    ********/
+<	      （示例使用 ":set comments& comments-=s1:/* comments^=s0:/*"）
+
+							*cino-/*
+	/N    额外缩进注释行 N 个字符。（默认 0）。
+		cino=			  cino=/4 >
+		  a = b;		    a = b;
+		  /* comment */			/* comment */
+		  c = d;		    c = d;
+<
+							*cino-(*
+	(N    在未闭合的括号内，从有未闭合括号的行缩进 N 个字符。每个额外的
+	      未闭合括号增加一个 'shiftwidth'。当 N 为 0 或未闭合括号是其行中
+	      第一个非空白字符时，与未闭合括号后的下一个非空白字符对齐。
+	      （默认 'shiftwidth' * 2）。
+
+		cino=			  cino=(0 >
+		  if (c1 && (c2 ||	    if (c1 && (c2 ||
+			      c3))		       c3))
+		      foo;			foo;
+		  if (c1 &&		    if (c1 &&
+			  (c2 || c3))		(c2 || c3))
+		     {			       {
+<
+							*cino-u*
+	uN    与 (N 相同，但用于更深一级的嵌套。（默认 'shiftwidth'）。
+
+		cino=			  cino=u2 >
+		  if (c123456789	    if (c123456789
+			  && (c22345		    && (c22345
+			      || c3))		      || c3))
+<
+							*cino-U*
+	UN    当 N 非零时，当未闭合括号是其行中第一个非空白字符时，不忽略 ( 或
+	      u 指定的缩进。（默认 0）。
+
+		cino= or cino=(s	  cino=(s,U1 >
+		  c = c1 &&		    c = c1 &&
+		      (				(
+		       c2 ||			    c2 ||
+		       c3			    c3
+		      ) && c4;			) && c4;
+<
+							*cino-w*
+	wN    在未闭合括号内且 N 非零且分别使用 "(0" 或 "u0"，或使用 "U0" 且
+	      未闭合括号是其行中第一个非空白字符时，与未闭合括号紧随其后的字符
+	      对齐，而不是第一个非空白字符。（默认 0）。
+
+		cino=(0			  cino=(0,w1 >
+		  if (   c1		    if (   c1
+			 && (   c2		&& (   c2
+				|| c3))		    || c3))
+		      foo;			foo;
+<
+							*cino-W*
+	WN    在未闭合括号内且 N 非零且分别使用 "(0" 或 "u0"，且未闭合括号是
+	      其行中最后一个非空白字符且不是右括号时，将下一行相对于外部上下文
+	      （即行的开头或下一个未闭合括号）缩进 N 个字符。（默认: 0）。
+
+		cino=(0			   cino=(0,W4 >
+		  a_long_line(		    a_long_line(
+			      argument,		argument,
+			      argument);	argument);
+		  a_short_line(argument,    a_short_line(argument,
+			       argument);		 argument);
+<
+							*cino-k*
+	kN    在未闭合括号内，跟在 "if"、"for" 或 "while" 之后且 N 非零时，
+	      覆盖 "(N" 定义的行为: 使缩进相对于外部上下文（即出现 "if"、"for"
+	      或 "while" 的行）为 N 个字符。对更深层级的嵌套无效。仅对 "if"、
+	      "for" 和 "while" 条件影响 "wN" 等标志。如果为 0，默认为 "(N"
+	      标志定义的行为。（默认: 0）。
+
+		cino=(0			   cino=(0,ks >
+		  if (condition1	    if (condition1
+		      && condition2)		    && condition2)
+		      action();			action();
+		  function(argument1	    function(argument1
+			   && argument2);	     && argument2);
+<
+							*cino-m*
+	mN    当 N 非零时，将以右括号开头的行与匹配的左括号所在行的第一个字符
+	      对齐。（默认 0）。
+
+		cino=(s			  cino=(s,m1 >
+		  c = c1 && (		    c = c1 && (
+		      c2 ||			c2 ||
+		      c3			c3
+		      ) && c4;		    ) && c4;
+		  if (			    if (
+		      c1 && c2			c1 && c2
+		     )			    )
+		      foo;			foo;
+<
+							*cino-M*
+	MN    当 N 非零时，将以右括号开头的行与前一行的第一个字符对齐。
+	      （默认 0）。
+
+		cino=			  cino=M1 >
+		  if (cond1 &&		    if (cond1 &&
+			 cond2			   cond2
+		     )				   )
+<
+				*java-cinoptions* *java-indenting* *cino-j*
+	jN    正确缩进 Java 匿名类。也适用于 Javascript。值 'N' 目前未使用但
+	      必须非零（例如 'j1'）。'j1' 将正确缩进以下代码片段: >
+
+		object.add(new ChangeListener() {
+		    public void stateChanged(ChangeEvent e) {
+			do_something();
+		    }
+		});
+<
+			*javascript-cinoptions* *javascript-indenting* *cino-J*
+	JN    正确缩进 JavaScript 对象声明，不将它们与标签混淆。值 'N' 目前
+	      未使用但必须非零（例如 'J1'）。如果启用此选项你可能也想设置
+	      |cino-j|。 >
+
+		var bar = {
+		    foo: {
+			that: this,
+			some: ok,
+		    },
+		    "bar":{
+			a : 2,
+			b: "123abc",
+			x: 4,
+			"y": 5
+		    }
+		}
+<
+								*cino-)*
+	)N    Vim 最多向后搜索 N 行以查找未闭合的括号。这限制了搜索括号所需
+	      的时间。（默认 20 行）。
+
+								*cino-star*
+	`*N`    Vim 最多向后搜索 N 行以查找未闭合的注释。这限制了搜索注释开头
+	      所需的时间。如果你的 `/* */` 注释在 N 行后停止缩进，这就是你需要
+	      更改的值。（默认 70 行）。
+
+								*cino-#*
+	#N    当 N 非零时，识别以 '#' 开头的 shell/Perl 注释，不识别预处理器
+	      行; 允许向右移动以 "#" 开头的行。
+	      当 N 为零（默认）时: 不识别 '#' 注释，识别预处理器行; 向右移动
+	      以 "#" 开头的行不起作用。
+
+								*cino-P*
+	PN    当 N 非零时，识别 C pragma 并像其他代码一样缩进; 不影响其他预
+	      处理器指令。当 N 为零（默认）时: 不识别 C pragma，将它们视为其他
+	      预处理器指令。
+
+
+默认值完整拼写出来是: >
+	cinoptions=>s,e0,n0,f0,{0,}0,^0,L-1,:s,=s,l0,b0,gs,hs,N0,E0,ps,ts,is,+s,
+			c3,C0,/0,(2s,us,U0,w0,W0,k0,m0,j0,J0,)20,*70,#0,P0
+
+Vim 在以下情况下将行放在第 1 列:
+- 以 '#' 开头（预处理器指令），如果 'cinkeys' 包含 '#0'。
+- 以标签开头（关键字后跟 ':'，"case" 和 "default" 除外）且 'cinoptions'
+  不包含正值的 'L' 条目。
+- 任何缩进组合导致行的缩进小于 0。
+
+==============================================================================
+2. 按表达式缩进					*indent-expression*
+
+使用灵活缩进的基础在用户手册的 |30.3| 节中有解释。
+
+如果你想编写自己的缩进文件，它必须设置 'indentexpr' 选项。设置 'indentkeys'
+选项通常也很有用。参见 $VIMRUNTIME/indent/README.txt 文件了解提示。
+参见 $VIMRUNTIME/indent 目录了解示例。
+
+
+关于特定缩进文件的说明 ~
+
+
+CLOJURE					*ft-clojure-indent* *clojure-indent*
+
+Clojure 缩进与传统 Lisp 有所不同，部分原因是使用了方括号和花括号，另外也因为
+社区惯例。这些惯例并不是被普遍遵循的，所以 Clojure 缩进脚本提供了一些配置选项。
+
+							*g:clojure_maxlines*
+
+设置 `searchpairpos()` 的最大扫描距离。较大的值以性能换取处理很长形式时的
+正确性。值为 0 将不限扫描。默认为 300。
+
+						*g:clojure_fuzzy_indent*
+					*g:clojure_fuzzy_indent_patterns*
+					*g:clojure_fuzzy_indent_blacklist*
+
+'lispwords' 选项是一个逗号分隔的单词列表，标记子表单应以两个空格缩进的特殊形式。
+
+例如:
+>
+	(defn bad []
+	      "Incorrect indentation")
+
+	(defn good []
+	  "Correct indentation")
+<
+如果你想用 |pattern| 指定 'lispwords'，可以使用模糊缩进功能:
+>
+	" Default
+	let g:clojure_fuzzy_indent = 1
+	let g:clojure_fuzzy_indent_patterns = ['^with', '^def', '^let']
+	let g:clojure_fuzzy_indent_blacklist =
+		\ ['-fn$', '\v^with-%(meta|out-str|loading-context)$']
+<
+|g:clojure_fuzzy_indent_patterns| 和 |g:clojure_fuzzy_indent_blacklist| 是模式
+列表，将与列表头部的非限定符号匹配。这意味着像 `"^foo"` 这样的模式将匹配所有
+这些候选: `foobar`、`my.ns/foobar` 和 `#'foobar`。
+
+每个候选词按以下顺序测试是否需要特殊处理:
+
+	1. 如果词字面在 'lispwords' 中则返回 true
+	2. 如果词匹配 |g:clojure_fuzzy_indent_blacklist| 中的模式则返回 false
+	3. 如果词匹配 |g:clojure_fuzzy_indent_patterns| 中的模式则返回 true
+	4. 否则返回 false 并正常缩进
+
+					*g:clojure_special_indent_words*
+
+Clojure 中某些形式的缩进方式是每个子表单只缩进两个空格，而不管 'lispwords'。
+如果你有自定义构造应该以这种特殊方式缩进，可以将你的符号添加到以下默认列表中。
+>
+	" Default
+	let g:clojure_special_indent_words =
+	   \ 'deftype,defrecord,reify,proxy,extend-type,extend-protocol,letfn'
+<
+
+					*g:clojure_align_multiline_strings*
+
+将多行字符串中的后续行对齐到开引号后面的列，而不是同一列。
+
+例如:
+>
+	(def default
+	  "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do
+	  eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
+	  enim ad minim veniam, quis nostrud exercitation ullamco laboris
+	  nisi ut aliquip ex ea commodo consequat.")
+
+	(def aligned
+	  "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do
+	   eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
+	   enim ad minim veniam, quis nostrud exercitation ullamco laboris
+	   nisi ut aliquip ex ea commodo consequat.")
+<
+
+						*g:clojure_align_subforms*
+
+默认情况下，看起来像函数调用且头部子表单在自己一行上的括号化复合形式，其后续
+子表单相对于左括号缩进两个空格:
+>
+	(foo
+	  bar
+	  baz)
+<
+将此选项设为 `1` 会更改此行为，使所有子表单对齐到同一列，模拟 clojure-mode.el
+的默认行为:
+>
+	(foo
+	 bar
+	 baz)
+<
+
+FORTRAN							*ft-fortran-indent*
+
+Block if、select case、select type、select rank、where、forall、type、
+interface、associate、block、enum、critical 和 change team 构造都会被缩进。
+子程序、函数、模块和程序块的缩进是可选的。在自由源格式中缩进注释、带标签的
+语句和续行，而在固定源格式中不缩进，因为有左边距要求。因此在使用固定源格式时，
+带标签的语句和续行需要手动修正缩进。关于用于检测源格式的方法的进一步讨论参见
+|ft-fortran-syntax|。
+
+Do 循环 ~
+所有 do 循环默认不缩进。Fortran 中的 do 循环可以是非结构化的，（可能多个）
+循环以几乎任意类型的带标签可执行语句结束。正确的缩进需要编译器级别的解析。
+带有以任意类型标签语句结束的旧代码可以用 Tidy 等复杂程序缩进。结构化的
+do/continue 循环也不缩进，因为 continue 语句也用于结束 do 循环以外的目的。
+Tidy 等程序可以将结构化的 do/continue 循环转换为 do/enddo 形式。do/enddo
+形式的循环可以被缩进。如果你只使用 do/enddo 形式的结构化循环，你应该在 vimrc
+中声明如下 >
+
+   let fortran_do_enddo=1
+
+在这种情况下 do 循环将被缩进。如果你的所有循环仅在例如 .f90 文件中是 do/enddo
+类型，则应使用自动命令设置缓冲区标志如 >
+
+  au! BufRead,BufNewFile *.f90 let b:fortran_do_enddo=1
+
+以在 .f90 文件中缩进 do 循环，而在其他扩展名如 .for 的 Fortran 文件中不缩进。
+
+程序单元 ~
+通过设置变量 fortran_indent_more 可以增加程序单元（子程序、函数、模块和程序块）
+的缩进，通过设置变量 fortran_indent_less 可以减少。可以在 vimrc 中为所有
+fortran 文件设置这些变量如下 >
+
+  let fortran_indent_less=1
+
+可以通过设置相应的缓冲区局部变量实现更细粒度的控制如下 >
+
+  let b:fortran_indent_less=1
+
+
+HTML				*ft-html-indent* *html-indent* *html-indenting*
+
+这是关于你可以在 vimrc 中设置的变量来自定义 HTML 缩进。
+
+你可以设置 <script> 和 <style> "块标签" 后第一行的缩进（默认 "zero"）: >
+
+      :let g:html_indent_script1 = "inc"
+      :let g:html_indent_style1 = "inc"
+<
+      VALUE	MEANING ~
+      "zero"	零缩进
+      "auto"	自动缩进（与块标签相同的缩进）
+      "inc"	自动缩进 + 一个缩进步长
+
+你可以设置开放 <tag 行后属性的缩进: >
+
+      :let g:html_indent_attribute = 1
+<
+      VALUE	MEANING ~
+      1		自动缩进，比 <tag 多一个缩进步长
+      2		自动缩进，两个缩进步长（默认）
+      > 2	自动缩进，更多缩进步长
+
+许多标签默认增加后续内容的缩进（参见脚本中的 "Add Indent Tags"）。你可以
+用以下方式添加更多标签: >
+
+      :let g:html_indent_inctags = "html,body,head,tbody"
+
+你也可以用以下方式移除这些标签: >
+
+      :let g:html_indent_autotags = "th,td,tr,tfoot,thead"
+
+两个变量的默认值都为空。注意: 初始的 "inctags" 每个 Vim 会话只定义一次。
+
+用户变量只在脚本加载时读取。要在会话期间启用更改而不重新加载 HTML 文件，
+你可以手动执行: >
+
+      :call HtmlIndent_CheckUserSettings()
+
+详细信息:
+  "块标签"内带有"外来"内容的缩进计算:
+      BLOCKTAG   INDENT EXPR	    WHEN APPLICABLE ~
+      <script> : {customizable}	    如果是块的第一行
+	       : cindent(v:lnum)    如果属性为空或包含 "java"
+	       : -1		    否则 (vbscript, tcl, ...)
+      <style>  : {customizable}	    如果是块的第一行
+	       : GetCSSIndent()	    否则
+      <!-- --> : -1
+
+IDRIS2							*ft-idris2-indent*
+
+Idris 2 缩进可以用几个控制不同语言构造缩进级别的变量来配置:
+
+"g:idris2_indent_if" 变量控制 `if` 语句后 `then` 和 `else` 块的缩进。默认为 3。
+
+"g:idris2_indent_case" 变量控制 `case` 表达式中模式的缩进。默认为 5。
+
+"g:idris2_indent_let" 变量控制 `let` 绑定后的缩进。默认为 4。
+
+"g:idris2_indent_rewrite" 变量控制 `rewrite` 表达式后的缩进。默认为 8。
+
+"g:idris2_indent_where" 变量控制 `where` 块的缩进。默认为 6。
+
+"g:idris2_indent_do" 变量控制 `do` 块中的缩进。默认为 3。
+
+配置示例: >
+
+	let g:idris2_indent_if = 2
+	let g:idris2_indent_case = 4
+	let g:idris2_indent_let = 4
+	let g:idris2_indent_rewrite = 8
+	let g:idris2_indent_where = 6
+	let g:idris2_indent_do = 3
+<
+
+MATLAB			*ft-matlab-indent* *matlab-indent* *matlab-indenting*
+
+MATLAB 编辑器/调试器语言首选项中的函数缩进格式设置对应于: >
+    :let g:MATLAB_function_indent = {0, 1 or 2 (default)}
+
+其中 0 为经典，1 为缩进嵌套函数，2 为缩进所有函数。
+
+
+PHP				*ft-php-indent* *php-indent* *php-indenting*
+
+注意:	只有在 PHP |syntax| 活动时，PHP 文件才会被正确缩进。
+
+如果你在 Unix 'fileformat' 中编辑文件且换行前存在 '\r' 字符，缩进将无法正确
+进行; 你必须先用以下命令删除这些无用字符: >
+
+    :%s /\r$//g
+
+或者，你可以简单地 |:let| 变量 PHP_removeCRwhenUnix 为 1，脚本将在 Vim 加载
+PHP 文件时静默删除它们（在每次 |BufRead| 时）。
+
+选项: ~
+
+PHP 缩进可以通过修改一些全局变量的值来进行多种方式的更改:
+
+					*php-comment* *PHP_autoformatcomment*
+要默认不启用注释的自动格式化（如果你想使用自己的 'formatoptions'）: >
+    :let g:PHP_autoformatcomment = 0
+
+否则，'t' 将从 'formatoptions' 字符串中移除，并添加 "qrowcb"，参见 |fo-table|
+了解更多信息。
+
+							*PHP_outdentSLComments*
+要为单行注释添加额外缩进: >
+    :let g:PHP_outdentSLComments = N
+
+N 是要添加的 'shiftwidth' 数。
+
+仅影响以下单行注释: >
+    # Comment
+    // Comment
+    /* Comment */
+<
+
+							*PHP_default_indenting*
+要为每个 PHP 行添加额外缩进，N 是要添加的 'shiftwidth' 数: >
+    :let g:PHP_default_indenting = N
+
+例如，当 N = 1 时，将产生:
+>
+    <?php
+	if (!isset($History_lst_sel))
+	    if (!isset($History_lst_sel))
+		if (!isset($History_lst_sel)) {
+		    $History_lst_sel=0;
+		} else
+		    $foo="bar";
+
+	$command_hist = TRUE;
+    ?>
+（注意 PHP 容器标记和代码之间的额外缩进）
+
+							*PHP_outdentphpescape*
+要将 PHP 转义标签缩进为与周围非 PHP 代码相同（仅影响 PHP 转义标签）: >
+    :let g:PHP_outdentphpescape = 0
+<
+
+							*PHP_removeCRwhenUnix*
+要在 'fileformat' 设为 Unix 时自动删除 '\r' 字符: >
+    :let g:PHP_removeCRwhenUnix = 1
+<
+
+							*PHP_BracesAtCodeLevel*
+要将大括号缩进到与其包含的代码相同的级别: >
+    :let g:PHP_BracesAtCodeLevel = 1
+
+这将产生以下结果: >
+    if ($foo)
+	{
+	foo();
+	}
+而不是: >
+    if ($foo)
+    {
+	foo();
+    }
+
+注意:	如果使用此选项，缩进会稍慢，因为一些优化将不可用。
+
+					*PHP_vintage_case_default_indent*
+要缩进 switch() 块中的 'case:' 和 'default:' 语句: >
+    :let g:PHP_vintage_case_default_indent = 1
+
+在 PHP 中 'case/default' 块内不需要大括号，因此 'case:' 和 'default:' 与
+'switch()' 缩进在同一级别以避免无意义的缩进。你可以使用上述选项恢复传统方式。
+
+							*PHP_noArrowMatching*
+默认情况下缩进脚本将通过匹配 '->' 的位置来缩进多行链式调用: >
+
+    $user_name_very_long->name()
+                        ->age()
+                        ->info();
+<
+你可以通过将此选项设为 1 恢复经典缩进方式: >
+    :let g:PHP_noArrowMatching = 1
+<
+你将得到以下结果: >
+
+    $user_name_very_long->name()
+        ->age()
+        ->info();
+<
+
+					*PHP_IndentFunctionCallParameters*
+为多行函数调用中的参数添加额外缩进级别。 >
+    let g:PHP_IndentFunctionCallParameters = 1
+
+函数调用参数将额外缩进 1 级。对于两空格缩进: >
+
+    function call_the_thing(
+      $with_this,
+      $and_that
+    ) {
+      $this->do_the_thing(
+          $with_this,
+          $and_that
+      );
+    }
+<
+
+				*PHP_IndentFunctionDeclarationParameters*
+为多行函数定义中的参数添加额外缩进级别。 >
+    let g:PHP_IndentFunctionDeclarationParameters = 1
+<
+函数声明中的参数将额外缩进 1 级。对于两空格缩进: >
+
+    function call_the_thing(
+        $with_this,
+        $and_that
+    ) {
+      $this->do_the_thing(
+        $with_this,
+        $and_that
+      );
+    }
+<
+
+PYTHON							*ft-python-indent*
+
+缩进量可以用 `g:python_indent` |Dictionary| 设置，需要在添加项目之前创建: >
+	let g:python_indent = {}
+给出的示例是默认值。注意字典值设置为表达式，这样你可以在之后更改 'shiftwidth'
+的值而无需更新这些值。
+
+开括号后的缩进: >
+	let g:python_indent.open_paren = 'shiftwidth() * 2'
+嵌套括号后的缩进: >
+	let g:python_indent.nested_paren = 'shiftwidth()'
+续行的缩进: >
+	let g:python_indent.continue = 'shiftwidth() * 2'
+
+默认情况下，多行构造上的右括号对齐到前一行的第一个非空白字符。
+如果你希望它对齐到开始多行构造的行的第一个字符，重置此键: >
+	let g:python_indent.closed_paren_align_last_line = v:false
+
+该方法使用 |searchpair()| 向后查找未闭合的括号。这有时可能很慢，因此在 150
+毫秒后超时。如果你注意到缩进不正确，可以设置更大的超时（毫秒）: >
+	let g:python_indent.searchpair_timeout = 500
+
+如果向后查找未闭合括号仍然太慢，特别是在复制粘贴操作期间，或者如果你不需要
+多行括号内的缩进，可以完全禁用此功能: >
+	let g:python_indent.disable_parentheses_indenting = 1
+
+为了向后兼容，也支持以下变量: >
+	g:pyindent_open_paren
+	g:pyindent_nested_paren
+	g:pyindent_continue
+	g:pyindent_searchpair_timeout
+	g:pyindent_disable_parentheses_indenting
+
+
+R								*ft-r-indent*
+
+如果函数参数跨越多行则会对齐。如果你不希望函数参数对齐，在 |vimrc| 中放入:
+>
+   let r_indent_align_args = 0
+<
+所有以注释字符 # 开头的行与普通 R 代码获得相同的缩进级别。Emacs/ESS 用户
+可能习惯于单个 # 在第 40 列缩进，## 作为 R 代码缩进，### 不缩进。如果你
+希望以注释字符开头的行像 Emacs/ESS 那样对齐，在 |vimrc| 中放入:
+>
+   let r_indent_ess_comments = 1
+<
+如果你希望以单个 # 开头的行对齐到第 40 列以外的列，应该为变量
+r_indent_comment_column 设置新值，如以下示例:
+>
+   let r_indent_comment_column = 30
+<
+以 "<-" 结尾的行后面的任何代码都会被缩进。Emacs/ESS 不缩进顶级函数。如果你
+希望在这方面有类似 Emacs/ESS 的行为，在 |vimrc| 中放入:
+>
+   let r_indent_ess_compatible = 1
+<
+以下是启用和未启用此选项时的缩进示例:
+>
+   ### r_indent_ess_compatible = 1           ### r_indent_ess_compatible = 0
+   foo <-                                    foo <-
+       function(x)                               function(x)
+   {                                             {
+       paste(x)                                      paste(x)
+   }                                             }
+<
+匹配模式 `'\(&\||\|+\|-\|\*\|/\|=\|\~\|%\|->\)\s*$'` 的行后面的代码将被
+缩进。如果你想在匹配不同模式的行后缩进，应该在 |vimrc| 中设置
+`r_indent_op_pattern` 的适当值。
+
+
+SHELL							*ft-sh-indent*
+
+shell 文件中各种情况下应用的缩进量可以通过设置 |Dictionary|
+b:sh_indent_defaults 中的以下键来配置，可以设为特定数值或引用返回所需数值的
+函数的 |Funcref|:
+
+b:sh_indent_options["default"]	默认缩进量。
+
+b:sh_indent_options["continuation-line"]
+				续行的缩进量。
+
+b:sh_indent_options["case-labels"]
+				case 标签的缩进量。（实际上未实现）
+
+b:sh_indent_options["case-statements"]
+				case 语句的缩进量。
+
+b:sh_indent_options["case-breaks"]
+				case break 的缩进量（更可能是减少量）。
+
+VERILOG							*ft-verilog-indent*
+
+一般块语句如 if、for、case、always、initial、function、specify 和 begin 等
+都会被缩进。模块块语句（第一级块）默认不缩进。你可以通过在 vimrc 中设置变量
+来开启缩进: >
+
+  let b:verilog_indent_modules = 1
+
+然后模块块将被缩进。要停止此功能，删除该变量: >
+
+  :unlet b:verilog_indent_modules
+
+要仅对 Verilog 文件设置该变量，可以使用以下语句: >
+
+  au BufReadPost * if exists("b:current_syntax")
+  au BufReadPost *   if b:current_syntax == "verilog"
+  au BufReadPost *     let b:verilog_indent_modules = 1
+  au BufReadPost *   endif
+  au BufReadPost * endif
+
+此外，设置变量 b:verilog_indent_width 来更改缩进宽度（默认是 'shiftwidth'）: >
+
+  let b:verilog_indent_width = 4
+  let b:verilog_indent_width = shiftwidth() * 2
+
+另外，你可以开启详细模式用于调试: >
+
+  let b:verilog_indent_verbose = 1
+
+确保先执行 ":set cmdheight=2" 以允许显示消息。
+
+
+VHDL							*ft-vhdl-indent*
+
+默认执行 generic/port 映射语句的对齐。这导致以下对齐示例: >
+
+  ENTITY sync IS
+  PORT (
+         clk        : IN  STD_LOGIC;
+         reset_n    : IN  STD_LOGIC;
+         data_input : IN  STD_LOGIC;
+         data_out   : OUT STD_LOGIC
+       );
+  END ENTITY sync;
+
+要关闭此功能，添加 >
+
+  let g:vhdl_indent_genportmap = 0
+
+到 vimrc 文件，这使前面的对齐示例变为: >
+
+  ENTITY sync IS
+  PORT (
+    clk        : IN  STD_LOGIC;
+    reset_n    : IN  STD_LOGIC;
+    data_input : IN  STD_LOGIC;
+    data_out   : OUT STD_LOGIC
+  );
+  END ENTITY sync;
+
+
+默认执行右侧赋值 "<=" 语句的对齐。这导致以下对齐示例: >
+
+  sig_out <= (bus_a(1) AND
+             (sig_b OR sig_c)) OR
+             (bus_a(0) AND sig_d);
+
+要关闭此功能，添加 >
+
+  let g:vhdl_indent_rhsassign = 0
+
+到 vimrc 文件，这使前面的对齐示例变为: >
+
+  sig_out <= (bus_a(1) AND
+    (sig_b OR sig_c)) OR
+    (bus_a(0) AND sig_d);
+
+
+整行注释（以 "--" 开头的行）缩进为与前一行的注释对齐，前提是 "--" 后面跟着
+空白。
+
+例如: >
+
+  sig_a <= sig_b; -- start of a comment
+                  -- continuation of the comment
+                  -- more of the same comment
+
+在插入模式下，输入 "-- "（注意空格 " "）后，按 CTRL-F 将当前的 "-- " 与
+前一行的 "--" 对齐。
+
+如果前一行不包含 "--"，则整行注释将与下一个不是整行注释的非空行的开头对齐。
+
+缩进以下代码: >
+
+  sig_c <= sig_d; -- comment 0
+         -- comment 1
+               -- comment 2
+    --debug_code:
+    --PROCESS(debug_in)
+         --BEGIN
+            --  FOR i IN 15 DOWNTO 0 LOOP
+             --    debug_out(8*i+7 DOWNTO 8*i) <= debug_in(15-i);
+            --  END LOOP;
+     --END PROCESS debug_code;
+
+      -- comment 3
+  sig_e <= sig_f; -- comment 4
+           -- comment 5
+
+结果为: >
+
+  sig_c <= sig_d; -- comment 0
+                  -- comment 1
+                  -- comment 2
+  --debug_code:
+  --PROCESS(debug_in)
+  --BEGIN
+  --  FOR i IN 15 DOWNTO 0 LOOP
+  --    debug_out(8*i+7 DOWNTO 8*i) <= debug_in(15-i);
+  --  END LOOP;
+  --END PROCESS debug_code;
+
+  -- comment 3
+  sig_e <= sig_f; -- comment 4
+                  -- comment 5
+
+注意 "--debug_code:" 不与 "-- comment 2" 对齐，因为 "--debug_code:" 中
+"--" 后面没有空白。
+
+鉴于注释缩进的动态特性，缩进应该执行两次。第一遍，代码将被缩进。第二遍，
+整行注释将根据正确缩进的代码进行缩进。
+
+
+VIM							*ft-vim-indent*
+							*g:vim_indent_cont*
+对于缩进 Vim 脚本，有一个变量指定续行（以反斜杠开头的行）的缩进量: >
+
+	:let g:vim_indent_cont = shiftwidth() * 3
+
+三倍 shiftwidth 是默认值。
+
+YAML							*ft-yaml-indent*
+
+默认情况下 yaml 缩进脚本不尝试检测多行标量。如果你想启用此功能，设置以下
+变量: >
+
+  let g:yaml_indent_multiline_scalar = 1
+<
+ vim:tw=78:ts=8:noet:ft=help:norl:

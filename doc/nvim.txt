@@ -1,0 +1,100 @@
+*nvim.txt*	Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+Nvim                                              *nvim* *neovim* *nvim-intro*
+
+Nvim 基于 Bram Moolenaar 开发的 Vim。Nvim 着重强调它是 Vim 的分支（fork），
+而不是克隆：在可能的情况下保持与 Vim 的兼容性（特别是编辑器和 Vimscript 功
+能，|Vim9script| 除外）。完整参考请参阅 |vim-differences|。
+
+- 如果你已经使用 Vim，请参阅 |nvim-from-vim| 快速入门。
+- 如果你从未使用过 Vim 或 Nvim，请参阅下文。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+接下来做什么？                                           *nvim-quickstart*
+
+要在 30 分钟内学会如何使用 Vim，请试试教程： >vim
+
+    :Tutor<Enter>
+<
+或观看这个 10 分钟的视频：https://youtu.be/TQn2hJeHQbM 。
+
+                                               *config-example* *example-init*
+要自定义 Nvim，你需要一个配置文件。通过复制 "example_init.lua" 文件来创建你
+的 |init.lua|： >vim
+
+    :exe 'edit' stdpath('config') .. '/init.lua'
+    :read $VIMRUNTIME/example_init.lua
+<
+使用 Lua 配置 Nvim 的实用说明请参阅 |lua-guide|。
+
+Nvim 的 "IDE" 功能由 |LSP| 提供。
+
+如果你只是想试用 Nvim 几分钟，想看看它能做到什么极致，可以尝试以下流行的
+"扩展包" 或 "发行版"（注意：Nvim 与这些项目无关，也不提供支持）：
+
+- *lazyvim* https://www.lazyvim.org/
+- *nvchad* https://nvchad.com/
+- *kickstart* https://github.com/nvim-lua/kickstart.nvim
+  - 不推荐；请改用 |example-init|。
+
+不过，我们建议你（最终）花时间从 Nvim 的默认配置开始学习，在发现需求时逐步
+设置选项和添加插件到你的 |config| 中。
+
+==============================================================================
+从 Vim 过渡                                                *nvim-from-vim*
+
+1. 要开始过渡，创建你的 |init.vim|（用户配置）文件： >vim
+
+    :exe 'edit '.stdpath('config').'/init.vim'
+    :write ++p
+
+2. 将以下内容添加到文件中： >vim
+
+    set runtimepath^=~/.vim runtimepath+=~/.vim/after
+    let &packpath = &runtimepath
+    source ~/.vimrc
+
+3. 重启 Nvim，你现有的 Vim 配置将被加载。 >vim
+
+    :restart
+
+有关使用某些功能可能需要的额外软件，请参阅 |provider-python| 和
+|provider-clipboard|。
+
+你的 Vim 配置可能不完全兼容 Nvim（参阅 |vim-differences|）。例如，
+'ttymouse' 选项已从 Nvim 中移除，因为鼠标支持在可能的情况下总是启用的。如果
+你同时为 Vim 和 Nvim 使用相同的 |vimrc|，可以在配置中这样保护 'ttymouse'：
+>vim
+    if !has('nvim')
+      set ttymouse=xterm2
+    endif
+
+对于 Nvim 特有的配置，你可以这样做：
+>vim
+    if has('nvim')
+      tnoremap <Esc> <C-\><C-n>
+    endif
+
+更细粒度的方法可以使用 |exists()|：
+>vim
+    if exists(':tnoremap')
+      tnoremap <Esc> <C-\><C-n>
+    endif
+
+现在你应该可以更舒适地探索 Nvim 了。请参阅 |nvim-features| 获取更多信息。
+
+                                                        *portable-config*
+因为 Nvim 遵循 XDG |base-directories| 标准，Windows 上的配置存储在
+~/AppData 而不是 ~/.config。但你仍然可以在所有机器上共享相同的 Nvim 配置，
+只需创建 ~/AppData/Local/nvim/init.vim 并包含这一行即可： >vim
+    source ~/.config/nvim/init.vim
+<
+
+==============================================================================
+ vim:tw=78:ts=8:et:ft=help:norl:

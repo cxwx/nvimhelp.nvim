@@ -1,0 +1,387 @@
+*insert.txt*    Nvim
+
+
+		  VIM 参考手册	  able Bram Moolenaar
+
+
+						*Insert* *Insert-mode*
+插入和替换文本					*mode-ins-repl*
+
+本文件的大部分内容是关于插入和替换模式的。末尾有一些以其他方式插入文本的命令。
+
+最常用命令的概述可以在用户手册的第 24 章中找到 |usr_24.txt|。
+
+另参见 'virtualedit'，用于将光标移到没有字符的位置。对编辑表格很有用。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 特殊键					*ins-special-keys*
+
+在插入和替换模式下，以下字符有特殊含义；其他字符直接插入。要将这些特殊字符
+之一插入到缓冲区中，在它前面加 CTRL-V。要插入 <Nul> 字符使用 "CTRL-V CTRL-@"
+或 "CTRL-V 000"。在某些系统上你可能需要用 "CTRL-V 003" 来插入 CTRL-C。
+注意：当 CTRL-V 被映射时，通常可以用 CTRL-Q 代替 |i_CTRL-Q|。
+
+如果你在插入文本时使用特殊语言模式，参见 'langmap' 选项了解如何避免一直
+切换此模式。
+
+char		操作	~
+-----------------------------------------------------------------------
+						*i_CTRL-[* *i_<Esc>*
+<Esc> 或 CTRL-[	结束插入或替换模式，回到普通模式。完成缩写。
+		注意：如果 <Esc> 键难以按到，试试 CTRL-[。
+						*i_META* *i_ALT*
+		如果组合键未映射，ALT (|META|) 可能像 <Esc> 一样起作用。
+						*i_CTRL-C*
+CTRL-C		退出插入模式，回到普通模式。不检查缩写。不触发
+		|InsertLeave| 自动命令事件。
+
+						*i_CTRL-@*
+CTRL-@		插入之前插入的文本并停止插入。
+
+						*i_CTRL-A*
+CTRL-A		插入之前插入的文本。
+
+						*i_CTRL-H* *i_<BS>* *i_BS*
+<BS> 或 CTRL-H	删除光标前的字符（关于合并行参见 |i_backspacing|）。
+						*i_<Del>* *i_DEL*
+<Del>		删除光标下的字符。如果光标在行尾且 'backspace' 选项
+		包含 "eol"（默认），删除 <EOL>；下一行追加到当前行后。
+						*i_CTRL-W*
+CTRL-W		删除光标前的单词（关于合并行参见 |i_backspacing|）。
+						*i_CTRL-W-default*
+		默认在删除前设置新的撤销点。|default-mappings|
+						*i_CTRL-U*
+CTRL-U		删除当前行中在开始插入模式后且光标之前输入的所有字符。
+						*i_CTRL-U-default*
+		默认在删除前设置新的撤销点。|default-mappings|
+						*i_CTRL-I* *i_<Tab>* *i_Tab*
+<Tab> 或 CTRL-I	插入制表符。如果 'expandtab' 选项开启，插入等量空格。
+						*i_CTRL-J* *i_<NL>*
+<NL> 或 CTRL-J	开始新行。
+						*i_CTRL-M* *i_<CR>*
+<CR> 或 CTRL-M	开始新行。
+						*i_CTRL-K*
+CTRL-K {char1} [char2]
+		输入二合字母（参见 |digraphs|）。
+
+CTRL-N		查找下一个关键字（参见 |i_CTRL-N|）。
+CTRL-P		查找上一个关键字（参见 |i_CTRL-P|）。
+
+CTRL-R {register}				*i_CTRL-R*
+		插入寄存器的内容。参见 |registers| 了解寄存器。
+							*i_CTRL-R_=*
+		'='	表达式寄存器：提示你输入表达式
+
+CTRL-R CTRL-R {register}			*i_CTRL-R_CTRL-R*
+		插入寄存器内容。类似单个 CTRL-R，但文本按字面插入。
+
+CTRL-R CTRL-O {register}			*i_CTRL-R_CTRL-O*
+		按字面插入寄存器内容且不自动缩进。
+
+CTRL-R CTRL-P {register}			*i_CTRL-R_CTRL-P*
+		按字面插入寄存器内容并修正缩进。
+
+						*i_CTRL-T*
+CTRL-T		在当前行开头插入一个 shiftwidth 的缩进。
+						*i_CTRL-D*
+CTRL-D		在当前行开头删除一个 shiftwidth 的缩进。
+
+						*i_0_CTRL-D*
+0 CTRL-D	删除当前行中的所有缩进。
+
+						*i_^_CTRL-D*
+^ CTRL-D	删除当前行中的所有缩进。缩进在下一行恢复。
+
+						*i_CTRL-V*
+CTRL-V		按字面插入下一个非数字字符。也可以输入字符的十进制、
+		八进制或十六进制值 |i_CTRL-V_digit|。
+
+						*i_CTRL-Q*
+CTRL-Q		与 CTRL-V 相同。
+
+CTRL-SHIFT-V				*i_CTRL-SHIFT-V* *i_CTRL-SHIFT-Q*
+CTRL-SHIFT-Q	类似 CTRL-V，但不尝试将 CTRL 修饰符包含在键中。
+
+CTRL-X		进入 CTRL-X 模式。这是一个子模式，可以给出命令来补全
+		单词或滚动窗口。参见 |i_CTRL-X| 和 |ins-completion|。
+
+						*i_CTRL-E*
+CTRL-E		插入光标下方的字符。
+						*i_CTRL-Y*
+CTRL-Y		插入光标上方的字符。
+
+						*i_CTRL-_*
+CTRL-_		切换插入方向，切换 'revins'。
+
+						*i_CTRL-^*
+CTRL-^		切换输入语言字符的使用。
+
+						*i_CTRL-]*
+CTRL-]		触发缩写，不插入字符。
+
+						*i_<Insert>*
+<Insert>	在插入和替换模式之间切换。
+
+-----------------------------------------------------------------------
+						*i_backspacing*
+<BS>、CTRL-W 和 CTRL-U 的效果取决于 'backspace' 选项（除非 'revins' 设置）。
+
+						*i_CTRL-V_digit*
+用 CTRL-V 可以直接输入字符的十进制、八进制或十六进制值。
+
+						*i_CTRL-X* *insert_expand*
+CTRL-X 进入一个子模式，可以使用多个命令。大多数命令进行关键字补全；
+参见 |ins-completion|。
+
+						*i_CTRL-X_CTRL-E*
+CTRL-X CTRL-E		向上滚动窗口一行。
+						*i_CTRL-X_CTRL-Y*
+CTRL-X CTRL-Y		向下滚动窗口一行。
+
+==============================================================================
+2. 特殊的特殊键			*ins-special-special*
+
+以下键是特殊的。它们停止当前插入，执行某些操作，然后重新开始插入。
+
+char		操作	~
+-----------------------------------------------------------------------
+<Up>		光标上移一行				     *i_<Up>*
+<Down>		光标下移一行				     *i_<Down>*
+<Left>		光标左移一个字符			     *i_<Left>*
+<Right>		光标右移一个字符			     *i_<Right>*
+<S-Left>	光标后退一个单词			     *i_<S-Left>*
+<S-Right>	光标前进一个单词			     *i_<S-Right>*
+<Home>		光标到行首				     *i_<Home>*
+<End>		光标到行尾				     *i_<End>*
+<PageUp>	窗口上翻一页				     *i_<PageUp>*
+<PageDown>	窗口下翻一页				     *i_<PageDown>*
+CTRL-O		执行一个命令，返回插入模式		     *i_CTRL-O*
+CTRL-\ CTRL-O	类似 CTRL-O 但不移光标			     *i_CTRL-\_CTRL-O*
+CTRL-G u	关闭撤销序列，开始新更改		     *i_CTRL-G_u*
+CTRL-G U	下次左/右光标移动时不开始新的撤销块	     *i_CTRL-G_U*
+
+==============================================================================
+3. 'textwidth' 和 'wrapmargin' 选项		*ins-textwidth*
+
+'textwidth' 选项可用于在行变得太长之前自动断行。将 'textwidth' 选项设为所需
+的最大行长度。如果你输入更多字符（非空格或制表符），最后一个单词将被放到
+新行上（除非它是行上唯一的单词）。设为 0 时禁用此功能。
+
+'wrapmargin' 选项几乎相同。区别是 'textwidth' 有固定宽度而 'wrapmargin'
+取决于屏幕宽度。
+
+==============================================================================
+4. 'expandtab'、'softtabstop' 和 'smarttab' 选项	*ins-expandtab*
+
+如果 'expandtab' 选项开启，空格将用来填充制表符的空白量。
+
+							*ins-softtabstop*
+当 'softtabstop' 选项非零时，<Tab> 插入 'softtabstop' 个位置。
+
+							*ins-smarttab*
+当 'smarttab' 选项开启时，<Tab> 键在前导空白中按 'shiftwidth' 缩进。
+
+==============================================================================
+5. 替换模式			*Replace* *Replace-mode* *mode-replace*
+
+用普通模式的 "R" 命令进入替换模式。
+
+在替换模式下，每输入一个字符就删除行中的一个字符。如果没有字符可删除
+（在行尾），输入的字符会追加（如同插入模式）。
+
+==============================================================================
+6. 虚拟替换模式		*vreplace-mode* *Virtual-Replace-mode*
+
+用普通模式的 "gR" 命令进入虚拟替换模式。
+
+虚拟替换模式类似替换模式，但你替换的不是实际的文件字符，而是屏幕空间。
+
+==============================================================================
+7. 插入模式补全				*ins-completion*
+
+在插入和替换模式下，有多个命令可以补全已输入的部分关键字或行。
+
+补全可以针对：
+
+1. 整行						|i_CTRL-X_CTRL-L|
+2. 当前文件中的关键字				|i_CTRL-X_CTRL-N|
+3. 'dictionary' 中的关键字			|i_CTRL-X_CTRL-K|
+4. 'thesaurus' 中的关键字			|i_CTRL-X_CTRL-T|
+5. 当前和包含文件中的关键字			|i_CTRL-X_CTRL-I|
+6. 标签						|i_CTRL-X_CTRL-]|
+7. 文件名					|i_CTRL-X_CTRL-F|
+8. 定义或宏					|i_CTRL-X_CTRL-D|
+9. Vim 命令行					|i_CTRL-X_CTRL-V|
+10. 用户定义补全				|i_CTRL-X_CTRL-U|
+11. 全能补全					|i_CTRL-X_CTRL-O|
+12. 拼写建议					|i_CTRL-X_s|
+13. 'complete' 的补全				|i_CTRL-N| |i_CTRL-P|
+14. 寄存器内容					|i_CTRL-X_CTRL-R|
+
+此外，|i_CTRL-X_CTRL-Z| 停止补全但不改变文本。
+
+							*complete_CTRL-E*
+补全激活时可以用 CTRL-E 停止并回到原始输入的文本。
+
+							*complete_CTRL-Y*
+当弹出菜单显示时，CTRL-Y 停止补全并接受当前选中条目。
+
+							*i_CTRL-N*
+CTRL-N			使用 'complete' 选项中指定的来源查找下一个匹配。
+
+							*i_CTRL-P*
+CTRL-P			与 CTRL-N 相同，但查找上一个匹配。
+
+自动补全					*ins-autocompletion*
+
+Vim 可以在你输入时显示补全菜单，类似 |i_CTRL-N| 但自动触发。参见
+'autocomplete'。菜单项按 'complete' 选项中列出的来源顺序收集。
+
+						*ins-autocompletion-example*
+示例设置 ~
+带弹出菜单的自动补全的典型配置： >
+	set autocomplete
+	set complete=.^5,w^5,b^5,u^5
+	set completeopt=popup
+
+	inoremap <silent><expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
+	inoremap <silent><expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+<
+
+补全函数					*complete-functions*
+
+这适用于 'completefunc'、'thesaurusfunc' 和 'omnifunc'。
+
+函数以两种方式被调用：
+- 首先调用函数以查找要补全文本的开始位置。
+- 之后调用函数以实际查找匹配。
+
+						*complete-items*
+列表中的每个项目可以是字符串或字典。当是字典时可包含这些项：
+	word		将被插入的文本，必需
+	abbr		"word" 的缩写
+	menu		弹出菜单的额外文本
+	info		关于项目的更多信息
+	kind		表示补全类型的单个字母
+	icase		非零时比较项目是否相等时忽略大小写
+
+插入补全弹出菜单			*ins-completion-menu*
+							*popupmenu-completion*
+Vim 可以在简单的弹出菜单中显示匹配。
+
+菜单在以下情况使用：
+- 'completeopt' 选项包含 "menu" 或 "menuone"。
+- 终端至少支持 8 种颜色。
+- 至少有两个匹配。使用 "menuone" 时一个就够。
+
+菜单的颜色可以通过这些高亮组更改：
+Pmenu		普通项 |hl-Pmenu|
+PmenuSel	选中项 |hl-PmenuSel|
+PmenuSbar	滚动条 |hl-PmenuSbar|
+PmenuThumb	滚动条滑块 |hl-PmenuThumb|
+
+==============================================================================
+8. 插入模式命令				*inserting*
+
+以下命令可用于在缓冲区中插入新文本。它们都可以被撤销并用 "." 命令重复。
+
+							*a*
+a			在光标后追加文本 [count] 次。
+
+							*A*
+A			在行尾追加文本 [count] 次。
+
+<insert>	或				*i* *insert* *<Insert>*
+i			在光标前插入文本 [count] 次。
+
+							*I*
+I			在行的第一个非空白字符前插入文本 [count] 次。
+
+							*gI*
+gI			在第 1 列插入文本 [count] 次。
+
+							*gi*
+gi			在上次停止插入模式的同一位置插入文本。
+
+							*o*
+o			在光标下方开始新行并插入文本，重复 [count] 次。
+
+							*O*
+O			在光标上方开始新行并插入文本，重复 [count] 次。
+
+这些命令用于开始插入文本。你可以用 <Esc> 结束插入模式。
+
+以下 |default-mappings| 在普通模式下插入文本：
+
+							*]<Space>*
+]<Space>		在光标下方插入空行，不离开普通模式。
+
+							*[<Space>*
+[<Space>		在光标上方插入空行，不离开普通模式。
+
+==============================================================================
+9. Ex 插入命令				*inserting-ex*
+
+							*:a* *:append*
+:{range}a[ppend][!]	在指定行下方插入多行文本。输入只含 "." 的行以停止。
+
+							*:i* *:in* *:insert*
+:{range}i[nsert][!]	在指定行上方插入多行文本。输入只含 "." 的行以停止。
+
+							*:start* *:startinsert*
+:star[tinsert][!]	在执行此命令后立即开始插入模式。
+
+							*:stopi* *:stopinsert*
+:stopi[nsert]		尽快停止插入模式。
+
+					*replacing-ex* *:startreplace*
+:startr[eplace][!]	在执行此命令后立即开始替换模式。
+
+							*:startgreplace*
+:startg[replace][!]	像 |:startreplace|，但使用虚拟替换模式。
+
+==============================================================================
+10. 插入文件					*inserting-file*
+
+							*:r* *:re* *:read*
+:r[ead] [++opt] [name]
+			在光标下方插入文件 [name]（默认：当前文件）。
+
+:{range}r[ead] [++opt] [name]
+			在指定行下方插入文件 [name]。
+
+							*:r!* *:read!*
+:[range]r[ead] [++opt] !{cmd}
+			执行 {cmd} 并在光标下方或指定行下方插入其标准输出。
+
+这些命令将文件内容或命令输出插入到缓冲区中。它们可被撤销。不能用 "." 重复。
+它们以行为单位工作，插入从光标所在行的下方开始。要在第一行上方插入使用
+":0r {name}"。
+
+							*file-read*
+'fileformat' 选项设置文件的 <EOL> 风格：
+'fileformat'    字符		   名称				~
+  "dos"		<CR><NL> 或 <NL>   DOS 格式
+  "unix"	<NL>		   Unix 格式
+  "mac"		<CR>		   Mac 格式
+
+							*read-messages*
+读取文件时 Vim 会显示关于已读文件的信息消息。
+
+	long		short		含义 ~
+	[readonly]	{RO}		文件有写保护
+	[fifo/socket]			使用流
+	[CR missing]			用 "dos" 'fileformat' 读取时
+					发现无前导 CR 的 NL。
+	[NL found]			用 "mac" 'fileformat' 读取时发现 NL
+	[long lines split]		至少一行被分为两行
+	[NOT converted]			希望从 'fileencoding' 转换到
+					'encoding' 但无法完成
+	[converted]			从 'fileencoding' 到 'encoding' 的
+					转换已完成
+	[READ ERRORS]			无法读取文件的全部内容
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

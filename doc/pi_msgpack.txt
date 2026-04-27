@@ -1,0 +1,105 @@
+*pi_msgpack.txt*   msgpack 工具
+
+Author:  Nikolay Pavlov <kp-pav@yandex.ru>
+Copyright: (c) 2015 by Nikolay Pavlov
+
+The Apache license applies to the files in this package, including
+runtime/autoload/msgpack.vim, runtime/doc/pi_msgpack.txt and
+test/functional/plugin/msgpack_spec.lua.  Like anything else that's free,
+msgpack.vim and its associated files are provided as is and comes with no
+warranty of any kind, either expressed or implied.  No guarantees of
+merchantability.  No guarantees of suitability for any purpose.  By using this
+plugin, you agree that in no event will the copyright holder be liable for any
+damages resulting from the use of this software. Use at your own risk!
+
+                                       输入 |gO| 查看目录。
+
+==============================================================================
+Msgpack.vim 简介			*msgpack.vim-intro*
+
+此插件包含与 |msgpackdump()| 和 |msgpackparse()| 函数配合使用的工具函数。
+
+==============================================================================
+Msgpack.vim 手册			*msgpack.vim-manual*
+
+函数参数				*msgpack.vim-arguments*
+
+以下是参数的消歧义说明。注意: 如果某个函数列为接受 |{msgpack-integer}|
+(或其他类型)，这意味着该函数不检查参数是否匹配其描述。
+
+*{msgpack-value}*	|msgpack-special-dict| 或常规值，但不是函数引用。
+*{msgpack-integer}*	|msgpack#type()| 返回 "integer" 的任何值。
+*{msgpack-special-int}*	表示整数的 |msgpack-special-dict|。
+
+msgpack#is_int({msgpack-value})				*msgpack#is_int()*
+	如果给定的 {msgpack-value} 是整数值则返回 1，否则返回 0。
+
+msgpack#is_uint({msgpack-value})			*msgpack#is_uint()*
+	如果给定的 {msgpack-value} 是大于或等于零的整数值则返回 1，否则返回 0。
+
+							*msgpack#strftime*
+msgpack#strftime({format}, {msgpack-integer})		*msgpack#strftime()*
+	与 |strftime()| 相同，但第二个参数可以是 |msgpack-special-dict|。
+	需要 |Python| 才能真正处理 |msgpack-special-dict|。
+
+							*msgpack#strptime*
+msgpack#strptime({format}, {time})			*msgpack#strptime()*
+	|msgpack#strftime()| 的逆操作: 对于任何 time 和 format，
+	|msgpack#equal|( |msgpack#strptime|(format, |msgpack#strftime|(format,
+	time)), time) 为真。需要 |Python|，没有它只支持非 |msgpack-special-dict|
+	的非负时间和等于 `%Y-%m-%dT%H:%M:%S` 的格式。
+
+msgpack#int_dict_to_str({msgpack-special-int})	*msgpack#int_dict_to_str()*
+	将 |msgpack-special-dict| 整数值转换为十六进制值的函数，如
+	0x1234567890ABCDEF (始终返回恰好 16 个十六进制数字)。
+
+msgpack#special_type({msgpack-value})		*msgpack#special_type()*
+	如果 {msgpack-value} 不是 |msgpack-special-dict| 则返回零。如果是，
+	则返回 |v:msgpack_types| 中代表 {msgpack-value} 类型的键名。
+
+msgpack#type({msgpack-value})				*msgpack#type()*
+	返回 |v:msgpack_types| 中代表 {msgpack-value} 类型的键名。永远不返回
+	零: 此函数返回 |msgpackdump()| 在接收包含单个 {msgpack-value} 的列表
+	作为输入时将要转储的 msgpack 类型。
+
+msgpack#deepcopy({msgpack-value})			*msgpack#deepcopy()*
+	类似 |deepcopy()|，但能正确处理 |msgpack-special-dict| 值。普通的
+	|deepcopy()| 会破坏 |msgpack-special-dict| 值中的所有类型，因为它会
+	复制 _TYPE 键值，而这些值应该被保留。
+
+msgpack#string({msgpack-value})				*msgpack#string()*
+	类似 |string()|，但保存 msgpack 类型信息。由 msgpack#string 转储的值
+	可以通过 |msgpack#eval()| 读回。返回值如下:
+
+	- 字典被转储为 "{key1: value1, key2: value2}"。注意: msgpack 允许
+	  键中使用任何值，因此某些 |msgpack-special-dict| 值的
+	  |msgpack#string()| 可能产生 "{{1: 2}: 3, [4]: 5}"。
+	- 列表被转储为 "[value1, value2]"。
+	- 字符串被转储为
+	  1. `"abc"`: 二进制字符串。
+	  2. `="abc"`: 字符串。
+	  3. `+(10)"ext"`: 扩展字符串 (10 可以替换为任何 8 位有符号整数)。
+	  字符串内可能存在以下转义序列: "\0" (代表 NUL 字节)、"\n" (代表
+	  换行) 和 "\"" (代表双引号)。
+	- 浮点和整数值使用 |string()| 或 |msgpack#int_dict_to_str()| 转储。
+	- 布尔值被转储为 "TRUE" 或 "FALSE"。
+	- Nil 值被转储为 "NIL"。
+
+msgpack#eval({string}, {dict})				*msgpack#eval()*
+	将 |msgpack#string()| 创建的字符串转换为适用于 |msgpackdump()| 的值。
+	第二个参数允许添加以头字符 (|/\h|) 开头且只包含单词字符 (|/\w|) 的
+	特殊值。内建特殊值有 "TRUE"、"FALSE"、"NIL"、"nan" 和 "inf"，它们
+	不能被覆盖。映射值始终被计算为 |msgpack-special-dict| 值，十六进制
+	数字也是如此。计算映射时保留键的顺序。
+
+	注意，除了可通过 |msgpack#string()| 获得的常规整数表示外，msgpack#eval()
+	还支持 C 风格的 "字符" 整数常量，如 `'/'` (等同于 `char2nr('/')`:
+	`47`)。这也允许 `'\0'` (数字是十进制的)。
+
+							*msgpack#equal*
+msgpack#equal({msgpack-value}, {msgpack-value})		*msgpack#equal()*
+	如果给定的值相等则返回 1，否则返回 0。比较 msgpack 映射值时忽略键的
+	顺序。将 |msgpack-special-dict| 与等价的非 special-dict 值比较时
+	结果为 1。
+
+ vim:tw=78:ts=8:ft=help:fdm=marker

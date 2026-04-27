@@ -1,0 +1,185 @@
+*channel.txt*    Nvim
+
+
+		 NVIM REFERENCE MANUAL    by Thiago de Arruda
+
+
+Nvim 异步 IO					*channel*
+
+				      Type |gO| to see the table of contents.
+
+==============================================================================
+1. 简介						    *channel-intro*
+
+通道是 Nvim 与外部进程通信的方式。
+
+有几种方式可以打开通道：
+
+1. 当 `nvim` 以 `--headless` 启动时，通过 stdin/stdout，启动脚本或 `--cmd`
+   命令使用 |stdioopen()| 打开 stdio 通道。
+2. 通过 |jobstart()| 启动的进程的 stdin、stdout 和 stderr。
+3. 通过 `jobstart(..., {'pty': v:true})` 打开的 PTY 主端。
+4. 通过 |sockconnect()| 连接到 TCP/IP 套接字或命名管道。
+5. 由另一个进程连接到 Nvim 监听的套接字。这只支持 RPC 通道，
+   参见 |rpc-connecting|。
+
+通道支持多种模式或协议。在最基本的操作模式中，原始字节被读写到通道。
+|RPC| 协议基于 msgpack-rpc 标准，使 nvim 和另一端的进程能够互相发送远程调用
+和事件。内置的 |terminal-emulator| 也是基于 PTY 通道实现的。
+
+通道 Id						*channel-id*
+
+每个通道由一个整数 id 标识，在当前 Nvim 会话的生命周期内唯一。|stdioopen()|
+等函数返回通道 id；|chansend()| 等函数使用通道 id。
+
+==============================================================================
+2. 读写原始字节			      *channel-bytes*
+
+由 Vimscript 函数打开的通道默认使用原始字节操作。对于使用 RPC 的作业通道，
+仍然可以通过其 stderr 读取字节。类似地，只有字节可以写入 Nvim 自身的 stderr。
+
+						*channel-callback*
+- on_stdout({chan-id}, {data}, {name})		*on_stdout*
+- on_stderr({chan-id}, {data}, {name})		*on_stderr*
+- on_stdin({chan-id}, {data}, {name})		*on_stdin*
+- on_data({chan-id}, {data}, {name})		*on_data*
+
+    脚本可以通过分配给 `on_stdout`、`on_stderr`、`on_stdin` 或 `on_data` 选项
+    键的回调函数来响应通道活动（接收的数据）。回调应该快速：避免可能慢速/
+    昂贵的工作。
+
+    Parameters: ~
+      - {chan-id}   通道句柄。|channel-id|
+      - {data}	    从通道读取的原始数据（|readfile()| 风格的字符串列表）。
+		    EOF 是单项列表：`['']`。第一项和最后一项可能是不完整的行！
+		    |channel-lines|
+      - {name}	    流名称（字符串），如 "stdout"，这样同一个函数可以处理
+		    多个流。事件名称取决于通道的打开方式和模式/协议。
+
+						*channel-buffered*
+    回调在数据可用时立即被调用，其中单项列表 `['']` 表示 EOF（流关闭）。
+    或者，设置 `stdout_buffered`、`stderr_buffered`、`stdin_buffered` 或
+    `data_buffered` 选项键，仅在所有输出收集完毕且流关闭后才调用回调。
+						*E5210*
+    如果使用了缓冲模式但没有回调，数据将保存在选项字典的流 {name} 键中。
+    如果该键已存在则会报错。
+
+							      *channel-lines*
+    流事件处理器在数据从操作系统可用时接收数据，因此 {data} 列表中的第一项和
+    最后一项可能是不完整的行。空字符串完成前一个不完整的行。示例（不包括
+    EOF 时发出的最终 `['']`）：
+      - `foobar` 可能以 `['fo'], ['obar']` 的形式到达
+      - `foo\nbar` 可能以
+	- `['foo','bar']`
+	- 或 `['foo',''], ['bar']`
+	- 或 `['foo'], ['','bar']`
+	- 或 `['fo'], ['o','bar']` 的形式到达
+
+    有两种处理方式：
+    - 1. 要等待完整输出，使用 |channel-buffered| 模式。
+    - 2. 要逐行读取，使用以下代码：>vim
+	let s:lines = ['']
+	func! s:on_event(job_id, data, event) dict
+	  let eof = (a:data == [''])
+	  " Complete the previous line.
+	  let s:lines[-1] .= a:data[0]
+	  " Append (last item may be a partial line, until EOF).
+	  call extend(s:lines, a:data[1:])
+	endf
+<
+
+如果回调函数是 |Dictionary-function|，|self| 指向包含回调的选项字典。
+|Partial| 也可以用作回调。
+
+可以使用 |chansend()| 函数向通道发送数据。以下是一个简单的示例，通过
+cat 进程回显一些数据：
+>vim
+    function! s:OnEvent(id, data, event) dict
+      let str = join(a:data, "\n")
+      echomsg str
+    endfunction
+    let id = jobstart(['cat'], {'on_stdout': function('s:OnEvent') } )
+    call chansend(id, "hello!")
+<
+
+以下是将缓冲区设置为 grep 结果的示例，但仅在所有数据处理完毕后：
+>vim
+    function! s:OnEvent(id, data, event) dict
+      call nvim_buf_set_lines(2, 0, -1, v:true, a:data)
+    endfunction
+    let id = jobstart(['grep', '^[0-9]'], { 'on_stdout': function('s:OnEvent'),
+					  \ 'stdout_buffered':v:true } )
+
+    call chansend(id, "stuff\n10 PRINT \"NVIM\"\nxx")
+    " no output is received, buffer is empty
+
+    call chansend(id, "xx\n20 GOTO 10\nzz\n")
+    call chanclose(id, 'stdin')
+    " now buffer has result
+<
+关于作业的更多示例，参见 |job-control|。
+
+							      *channel-pty*
+特殊情况：使用 `jobstart(..., {'pty': v:true})` 打开的 PTY 通道不会预处理
+ANSI 转义序列，这些将原样发送到回调。但是，可以使用 |jobresize()| 向从端
+发送 PTY 大小变化信号。另见 |terminal-emulator|。
+
+|:terminal| 和 PTY 通道的终端特性（termios）从宿主 TTY 复制，或者如果 Nvim
+是 |--headless| 的则使用默认值：>vim
+    :echo system('nvim --headless +"te stty -a" +"sleep 1" +"1,/^$/print" +q')
+
+==============================================================================
+3. 使用 msgpack RPC 通信			      *channel-rpc*
+
+当通道以 `rpc` 选项设置为 true 打开时，该通道可用于双向的远程方法调用，
+参见 |msgpack-rpc|。注意 rpc 通道是隐式信任的，另一端的进程可以调用任何
+|API| 函数！
+
+==============================================================================
+4. 标准 IO 通道				    *channel-stdio*
+
+Nvim 使用 stdin/stdout 通过终端界面（TUI）与用户交互。如果 Nvim 是
+|--headless| 的，则不启动 TUI，stdin/stdout 可以用作通道。另见 |--embed|。
+
+在 |startup| 期间调用 |stdioopen()| 以将 stdio 通道打开为 |channel-id| 1。
+Nvim 的 stderr 始终可用为 |v:stderr|，这是一个只写的字节通道。
+
+示例：>vim
+    func! OnEvent(id, data, event)
+      if a:data == [""]
+        quit
+      end
+      call chansend(a:id, map(a:data, {i,v -> toupper(v)}))
+    endfunc
+    call stdioopen({'on_stdin': 'OnEvent'})
+<
+将此放入 `uppercase.vim` 并运行：>bash
+    nvim --headless --cmd "source uppercase.vim"
+
+==============================================================================
+5. 使用提示缓冲区				*prompt-buffer*
+
+提示缓冲区提供了一个"提示"界面：它们类似于普通缓冲区，但只有缓冲区的最后
+部分可编辑，用户可以通过按 Enter 来"提交"提示。适用于实现：
+
+- 聊天 UI
+- REPL 或 shell 插件
+- 高级"选择器"插件
+
+提示缓冲区通过将 'buftype' 设置为 "prompt" 来创建。通常只在新的空缓冲区中
+这样做：>vim
+
+    :set buftype=prompt
+
+提示缓冲区不会在用户输入或其他更改时隐式设置 'modified'。但用户或插件可以
+显式设置 'modified'，以防止缓冲区被轻易关闭。
+
+用户可以在缓冲区末尾编辑和输入文本。在输入部分按 Enter 会调用
+|prompt_setcallback()| 回调，通常期望该回调处理提示并通过追加到缓冲区来显示
+结果。要输入多行文本，使用 *Shift-<Enter>* 添加新行而不提交提示，或者直接
+|put| 或 |paste| 多行文本。
+
+只有从标记 |':| 开始的缓冲区部分（提示之后）是可编辑的。缓冲区的其余部分
+在普通模式命令中不可修改。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

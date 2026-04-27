@@ -1,0 +1,187 @@
+*if_ruby.txt*          Nvim
+
+
+		  VIM REFERENCE MANUAL	  able Shugo Maeda
+
+Vim 的 Ruby 接口					*if_ruby* *ruby* *Ruby*
+
+更多信息请参阅 |provider-ruby|。
+
+			*E266* *E267* *E268* *E269* *E270* *E271* *E272* *E273*
+
+Ruby 的主页是 https://www.ruby-lang.org/。你可以在那里找到 Ruby 的
+下载链接。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 命令							*ruby-commands*
+
+							*:ruby* *:rub*
+:rub[y] {cmd}		执行 Ruby 命令 {cmd}。试一下: >
+				:ruby print "Hello"
+
+:rub[y] << [trim] [{endmarker}]
+{script}
+{endmarker}
+			执行 Ruby 脚本 {script}。
+
+			如果省略 [endmarker]，默认为点号 '.'，
+			与 |:append| 和 |:insert| 命令一样。参阅
+			|:let-heredoc| 获取更多信息。
+
+
+			这种形式的 |:ruby| 命令主要用于在 vim 脚本中
+			包含 ruby 代码。
+
+Vim 脚本示例: >
+
+	function! RedGem()
+	ruby << EOF
+	class Garnet
+		def initialize(s)
+			@buffer = VIM::Buffer.current
+			vimputs(s)
+		end
+		def vimputs(s)
+			@buffer.append(@buffer.count,s)
+		end
+	end
+	gem = Garnet.new("pretty")
+	EOF
+	endfunction
+<
+查看你使用的 Ruby 版本: >
+	:ruby print RUBY_VERSION
+<
+
+						*:rubydo* *:rubyd* *E265*
+:[range]rubyd[o] {cmd}	对 [range] 内的每一行执行 Ruby 命令 {cmd}，
+			其中 $_ 会依次设为每行的文本，不含尾部的
+			<EOL>。设置 $_ 会改变文本，但注意不能通过
+			此命令添加或删除行。
+			[range] 的默认值是整个文件: "1,$"。
+
+							*:rubyfile* *:rubyf*
+:rubyf[ile] {file}	执行 {file} 中的 Ruby 脚本。等同于
+			`:ruby load 'file'`，但允许文件名补全。
+
+在 |sandbox| 中不能执行 Ruby 命令。
+
+==============================================================================
+2. VIM 模块						*ruby-vim*
+
+Ruby 代码通过 "VIM" 模块访问 vim 的所有功能。
+
+概览 >
+	print "Hello"			      # 显示一条消息
+	VIM.command(cmd)		      # 执行一个 Ex 命令
+	num = VIM::Window.count		      # 获取窗口数量
+	w = VIM::Window[n]		      # 获取窗口 "n"
+	cw = VIM::Window.current	      # 获取当前窗口
+	num = VIM::Buffer.count		      # 获取缓冲区数量
+	b = VIM::Buffer[n]		      # 获取缓冲区 "n"
+	cb = VIM::Buffer.current	      # 获取当前缓冲区
+	w.height = lines		      # 设置窗口高度
+	w.cursor = [row, col]		      # 设置窗口光标位置
+	pos = w.cursor			      # 获取 [row, col] 数组
+	name = b.name			      # 获取缓冲区文件名
+	line = b[n]			      # 从缓冲区获取一行
+	num = b.count			      # 获取行数
+	b[n] = str			      # 设置缓冲区中的一行
+	b.delete(n)			      # 删除一行
+	b.append(n, str)		      # 在第 n 行后追加一行
+	line = VIM::Buffer.current.line       # 获取当前行
+	num = VIM::Buffer.current.line_number # 获取当前行号
+	VIM::Buffer.current.line = "test"     # 设置当前行
+<
+
+模块函数:
+
+							*ruby-message*
+VIM::message({msg})
+	显示消息 {msg}。
+
+							*ruby-set_option*
+VIM::set_option({arg})
+	设置一个 vim 选项。{arg} 可以是 ":set" 命令接受的任何参数。
+	注意这意味着参数中不允许包含空格！参阅 |:set|。
+
+							*ruby-command*
+VIM::command({cmd})
+	执行 Ex 命令 {cmd}。
+
+							*ruby-evaluate*
+VIM::evaluate({expr})
+	使用 vim 内部表达式求值器对 {expr} 求值（参阅 |expression|）。
+	以字符串形式返回表达式结果。
+	|List| 通过连接各项并插入换行符转换为字符串。
+
+==============================================================================
+3. VIM::Buffer 对象					*ruby-buffer*
+
+VIM::Buffer 对象代表 vim 缓冲区。
+
+类方法:
+
+current		返回当前缓冲区对象。
+count		返回缓冲区的数量。
+self[{n}]	返回编号为 {n} 的缓冲区对象。第一个编号是 0。
+
+方法:
+
+name		返回缓冲区的完整名称。
+number		返回缓冲区的编号。
+count		返回行数。
+length		返回行数。
+self[{n}]	返回缓冲区中的一行。{n} 是行号。
+self[{n}] = {str}
+		设置缓冲区中的一行。{n} 是行号。
+delete({n})	删除缓冲区中的一行。{n} 是行号。
+append({n}, {str})
+		在第 {n} 行之后追加一行。
+line		如果缓冲区处于活动状态，返回缓冲区的当前行。
+line = {str}    如果缓冲区处于活动状态，设置缓冲区的当前行。
+line_number     如果缓冲区处于活动状态，返回当前行的行号。
+
+==============================================================================
+4. VIM::Window 对象					*ruby-window*
+
+VIM::Window 对象代表 vim 窗口。
+
+类方法:
+
+current		返回当前窗口对象。
+count		返回窗口的数量。
+self[{n}]	返回编号为 {n} 的窗口对象。第一个编号是 0。
+
+方法:
+
+buffer		返回窗口中显示的缓冲区。
+height		返回窗口的高度。
+height = {n}	将窗口高度设为 {n}。
+width		返回窗口的宽度。
+width = {n}	将窗口宽度设为 {n}。
+cursor		返回光标位置的 [row, col] 数组。
+		第一行编号为 1，第一列编号为 0。
+cursor = [{row}, {col}]
+		将光标位置设为 {row} 和 {col}。
+
+==============================================================================
+5. 全局变量						*ruby-globals*
+
+有两个全局变量。
+
+$curwin		当前窗口对象。
+$curbuf		当前缓冲区对象。
+
+==============================================================================
+6. rubyeval() Vim 函数					*ruby-rubyeval*
+
+为了实现双向接口，你可以使用 |rubyeval()| 函数来对 Ruby 表达式
+求值并将其值传递给 Vim 脚本。
+
+Ruby 值 "true"、"false" 和 "nil" 分别被转换为 v:true、v:false
+和 v:null。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

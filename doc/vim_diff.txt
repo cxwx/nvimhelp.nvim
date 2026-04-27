@@ -1,0 +1,884 @@
+*vim_diff.txt*    Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+Nvim 和 Vim 之间的差异                                        *vim-differences*
+
+Nvim 在许多方面与 Vim 不同，尽管编辑器和 Vimscript（非 Vim9script）功能
+大体相同。本文档是差异的完整集中参考。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+配置                                                        *nvim-config*
+
+用户配置和数据文件位于标准 |base-directories| 中（另见 |$NVIM_APPNAME|）。
+特别注意：
+
+- 使用 `$XDG_CONFIG_HOME/nvim/init.vim` 代替 `.vimrc` 作为你的 |config|。
+- 使用 `$XDG_CONFIG_HOME/nvim` 代替 `.vim` 存储配置文件。
+- 使用 `$XDG_STATE_HOME/nvim/shada/main.shada` 代替 `.viminfo` 存储持久
+  会话信息。|shada|
+
+==============================================================================
+默认值                                          *defaults* *nvim-defaults*
+
+- 文件类型检测默认启用。可以通过在 |init.vim| 中添加 ":filetype off" 来禁用。
+- 语法高亮默认启用。可以通过在 |init.vim| 中添加 ":syntax off" 来禁用。
+- 默认配色方案已更新。这可能导致颜色方案看起来不同，因为它们依赖于默认定义
+  的高亮组。在 |init.vim| 中添加 ":colorscheme vim" 或在你的颜色方案文件中
+  添加 ":source $VIMRUNTIME/colors/vim.lua" 以恢复旧的默认链接和颜色。
+  参见 |:highlight| 了解颜色方案应设置的高亮组列表。
+
+- 'autoindent' 已启用
+- 'autoread' 已启用（在所有 UI 中工作，包括终端）
+- 'background' 默认为 "dark"（除非由终端/UI 自动设置）
+- 'backupdir' 默认为 .,~/.local/state/nvim/backup//（|xdg|），自动创建
+- 'belloff' 默认为 "all"
+- 'comments' 包含 "fb:•"
+- 'commentstring' 默认为 ""
+- 'compatible' 始终禁用
+- 'complete' 排除 "i"
+- 'completeopt' 默认为 "menu,popup"
+- 'define' 默认为 ""。C ftplugin 将其设置为 "^\\s*#\\s*define"
+- 'diffopt' 包含 "linematch:40"
+- 'directory' 默认为 ~/.local/state/nvim/swap//（|xdg|），自动创建
+- 'display' 默认为 "lastline"
+- 'encoding' 为 UTF-8（参见 'fileencoding' 了解文件内容编码）
+- 'fillchars' 默认（实际效果）为 "vert:│,fold:·,foldsep:│"
+- 'formatoptions' 默认为 "tcqj"
+- 'grepprg' 对普通 grep 使用 -H 和 -I 标志，如果可用则默认使用 ripgrep
+- 'hidden' 已启用
+- 'history' 默认为 10000（最大值）
+- 'hlsearch' 已启用
+- 'include' 默认为 ""。C ftplugin 将其设置为 "^\\s*#\\s*include"
+- 'incsearch' 已启用
+- 'isfname' 不包含 ":"（在 Windows 上）。驱动器号在没有它的情况下也能
+  正确处理。（使用 |gF| 处理后缀为 ":line:col" 的文件路径）。
+- 'joinspaces' 已禁用
+- 'jumpoptions' 默认为 "clean"
+- 'langnoremap' 已启用
+- 'langremap' 已禁用
+- 'laststatus' 默认为 2（状态行始终显示）
+- 'listchars' 默认为 "tab:> ,trail:-,nbsp:+"
+- 'maxsearchcount' 默认为 999
+- 'mouse' 默认为 "nvi"，详见 |default-mouse|
+- 'mousemodel' 默认为 "popup_setpos"
+- 'nrformats' 默认为 "bin,hex"
+- 'path' 默认为 ".,,".  C ftplugin 添加 "/usr/include"（如果存在）。
+- 'sessionoptions' 包含 "unix,slash"，排除 "options"
+- 'shelltemp' 已禁用
+- 'shortmess' 包含 "CF"，排除 "S"
+- 'sidescroll' 默认为 1
+- 'smarttab' 已启用
+- 'spellfile' 默认为 `stdpath("data").."/site/spell/"`
+- 'startofline' 已禁用
+- 'switchbuf' 默认为 "uselast"
+- 'tabpagemax' 默认为 50
+- 'tags' 默认为 "./tags;,tags"
+- 'termguicolors' 如果 Nvim 能从宿主终端检测到支持则默认启用
+- 'ttimeout' 已启用
+- 'ttimeoutlen' 默认为 50
+- 'ttyfast' 始终设置
+- 'undodir' 默认为 ~/.local/state/nvim/undo//（|xdg|），自动创建
+- 'viewoptions' 包含 "unix,slash"，排除 "options"
+- 'viminfo' 包含 "!"
+- 'wildoptions' 默认为 "pum,tagfile"
+
+- |editorconfig| 插件已启用，.editorconfig 设置被应用。
+- |man.lua| 插件已启用，因此 |:Man| 默认可用。
+- |matchit| 插件已启用。要在配置中禁用它： >vim
+    :let loaded_matchit = 1
+- |package-spellfile| 插件已启用，拼写文件在缺失时默认安装。
+
+- |g:vimsyn_embed| 默认为 "l" 以启用 Lua 高亮
+
+默认鼠标设置
+                                                *default-mouse* *disable-mouse*
+默认启用鼠标。这意味着 |scroll-mouse-wheel| 将滚动窗口而非移动光标；
+<LeftMouse> 点击放置光标；<RightMouse> 点击打开带有标准操作的默认
+|popup-menu|。
+
+鼠标在 |Cmdline-mode| 或 |more-prompt| 中不启用，因此你可以通过输入 ":"
+来临时禁用它。或者如果你想部分或完全禁用鼠标或弹出菜单，执行以下任一操作：
+
+- 通过取消设置 'mouse' 选项完全禁用鼠标： >vim
+  set mouse=
+- 更改 'mousemodel'，使 <RightMouse> 扩展选择而非显示弹出菜单： >vim
+  set mousemodel=extend
+- 映射 <A-LeftMouse> 使其临时禁用鼠标直到光标移动： >vim
+  nnoremap <A-LeftMouse> <Cmd>
+    \ set mouse=<Bar>
+    \ echo 'mouse OFF until next cursor-move'<Bar>
+    \ autocmd CursorMoved * ++once set mouse&<Bar>
+    \ echo 'mouse ON'<CR>
+<
+要移除默认弹出菜单但不禁用鼠标： >vim
+  aunmenu PopUp
+  autocmd! nvim.popupmenu
+
+要仅移除 "How-to disable mouse" 菜单项（及其分隔符）： >vim
+  aunmenu PopUp.How-to\ disable\ mouse
+  aunmenu PopUp.-2-
+
+默认映射
+                                                        *default-mappings*
+Nvim 在 |startup| 时创建以下默认映射。你可以在配置中通过简单地移除映射来
+禁用任何一个，例如 ":unmap Y"。如果你不想要任何默认映射，在配置的早期调用
+|:mapclear|。
+
+- Y |Y-default|
+- <C-U> |i_CTRL-U-default|
+- <C-W> |i_CTRL-W-default|
+- <C-L> |CTRL-L-default|
+- & |&-default|
+- Q |v_Q-default|
+- @ |v_@-default|
+- # |v_#-default|
+- * |v_star-default|
+- gc |gc-default| |v_gc-default| |o_gc-default|
+- gcc |gcc-default|
+- |gO|
+- ]d |]d-default|
+- [d |[d-default|
+- [D |[D-default|
+- ]D |]D-default|
+- <C-W>d |CTRL-W_d-default|
+- |[q| |]q| |[Q| |]Q| |[_CTRL-Q| |]_CTRL-Q|
+- |[l| |]l| |[L| |]L| |[_CTRL-L| |]_CTRL-L|
+- |[t| |]t| |[T| |]T| |[_CTRL-T| |]_CTRL-T|
+- |[a| |]a| |[A| |]A|
+- |[b| |]b| |[B| |]B|
+- |[<Space>| |]<Space>|
+- LSP 默认设置 |lsp-defaults|
+  - K |K-lsp-default|
+  - gr 前缀 |gr-default|
+    - |gra| |gri| |grn| |grr| |grt|
+  - <C-S> |i_CTRL-S|
+- Treesitter 默认设置 |treesitter-defaults|
+  - |v_an| |v_in|
+  - |v_]n| |v_[n|
+
+默认自动命令
+                                                        *default-autocmds*
+默认自动命令存在于以下组中。使用 ":autocmd! {group}" 移除它们，
+使用 ":autocmd {group}" 查看它们的定义。
+
+nvim.terminal:
+- BufReadCmd：将 "term://" 缓冲区视为 |terminal| 缓冲区。|terminal-start|
+- TermClose：以无参数启动（因此使用 'shell'）且无错误退出的 |terminal|
+  缓冲区会自动关闭。
+- TermClose：显示 "[Process exited]" 虚拟文本。
+- TermRequest：终端模拟器响应 OSC 背景和前景请求，当 Nvim 选项
+  'background' 为 "dark" 时指示 (1) 黑色背景和白色前景，当 'background'
+  为 "light" 时指示 (2) 白色背景和黑色前景。虽然这可能不反映实际的前景/
+  背景颜色，但它允许在终端模拟器中运行的嵌套 Nvim 实例保留 'background'。
+- TermRequest：Nvim 将为使用 OSC 133 转义序列标注提示的 shell 创建
+  extmark，使用户能够使用 |[[| 和 |]]| 在提示之间快速导航。
+- TermOpen：为 |terminal| 缓冲区设置默认选项和映射：
+    - 'nomodifiable'
+    - 'undolevels' 设置为 -1
+    - 'textwidth' 设置为 0
+    - 'nowrap'
+    - 'nolist'
+    - 'nonumber'
+    - 'norelativenumber'
+    - 'signcolumn' 设置为 "no"
+    - 'foldcolumn' 设置为 "0"
+    - 'winhighlight' 使用 |hl-StatusLineTerm| 和 |hl-StatusLineTermNC|
+      代替 |hl-StatusLine| 和 |hl-StatusLineNC|
+    - |[[| 和 |]]| 在 shell 提示之间导航
+
+nvim.cmdwin:
+- |CmdwinEnter|：在 |cmdwin| 中限制语法同步为 maxlines=1。
+
+nvim.swapfile:
+- |SwapExists|：当交换文件属于运行中的 Nvim 进程时跳过交换文件提示
+  （将 |v:swapchoice| 设置为 "e"）。显示 |W325| "忽略交换文件..." 消息。
+
+nvim.exrc:
+- |VimEnter|：扩展 'exrc' 以在所有父目录中搜索项目本地配置文件。
+
+nvim.progress:
+- |Progress|：使用 OSC 9;4 转义序列在 TUI 中显示原生进度条。
+
+==============================================================================
+新功能                                                         *nvim-features*
+
+主要组件
+
+- API                             |API|
+- 作业控制                        |job-control|
+- LSP 框架                        |lsp|
+- Lua 脚本                        |lua|
+- 解析引擎                        |treesitter|
+- 插件管理器                      |vim.pack|
+- 提供者
+  - 剪贴板                        |provider-clipboard|
+  - Node.js 插件                  |provider-nodejs|
+  - Python 插件                   |provider-python|
+  - Ruby 插件                     |provider-ruby|
+- 远程插件                        |remote-plugin|
+- 共享数据                        |shada|
+- 终端模拟器                      |terminal|
+- UI                              |ui| |--listen| |--server|
+- Vimscript 解析器                |nvim_parse_expression()|
+- XDG 基础目录                    |xdg|
+
+用户体验
+
+直观且一致地工作是 Nvim 的主要目标。
+
+                                                        *feature-compile*
+- Nvim 始终包含所有功能，与 Vim（附带各种 100 多个可选功能的组合）不同。
+  |feature-compile| 可以将其视为 Vim "HUGE" 构建的精简版本。这减少了 bug
+  的表面积，并消除了用户常见的困惑和摩擦来源。
+
+- Nvim 避免无法在所有平台上提供的功能；相反将其委托给外部插件/扩展。
+  例如 `-X` 平台特定选项在 Vim 中"有时"可用（可能带来意外：
+  https://stackoverflow.com/q/14635295）。
+
+- Vim 的内部测试函数（test_autochdir()、test_settime() 等）不会被暴露
+  （也不会实现）；相反 Nvim 有一个健壮的 API。
+
+- 如果行为、选项、文档花费用户的时间多于节省的时间，则会被移除。
+
+在收益大于向后兼容性成本的地方改进了可用性细节。一些示例：
+
+- 'directory' 和 'undodir' 的目录会自动创建。
+- 终端功能如 'guicursor' 在可能的情况下启用。
+- 各种 "nvim" |cli-arguments| 已重新设计。
+
+一些原本需要外部插件的功能已内置：
+
+- 高亮复制区域，参见 |vim.hl|。
+
+架构
+
+Nvim UI 与核心编辑器"解耦"：所有 UI，包括内置的 |TUI| 都只是连接到 Nvim
+服务器的插件（通过 |--server| 或 |--embed|）。多个 Nvim UI 客户端可以连接
+到同一个 Nvim 编辑器服务器。
+
+外部插件在独立进程中运行。|remote-plugin| 这提高了稳定性，并允许这些插件
+在不阻塞编辑器的情况下工作。即使是使用旧 Vim 接口（|if_pyth|、|if_ruby|）
+的"旧版" Python 和 Ruby 插件也在进程外运行，因此它们不会导致 Nvim 崩溃。
+
+平台和 I/O 设施建立在 libuv 之上。Nvim 受益于 libuv 的功能和 bug 修复，
+其他项目也受益于 Nvim 开发者对 libuv 的改进。
+
+功能
+
+命令行：
+- 表达式提示（|@=|、|c_CTRL-R_=|、|i_CTRL-R_=|）使用内置的 Vimscript
+  表达式解析器进行高亮。|expr-highlight|
+- *E5408* *E5409* |input()|、|inputdialog()| 支持自定义高亮。
+  |input()-highlight|
+- （实验性）*g:Nvim_color_cmdline* 命令行（|:|）由 `g:Nvim_color_cmdline`
+  中定义的回调着色（此回调仅用于测试，将来会被移除）。
+
+命令：
+- |:checkhealth|
+- |:connect|
+- |:detach|
+- |:drop| 始终可用
+- |:EditQuery|
+- |:Inspect|
+- |:InspectTree|
+- |:lsp|
+- |:Man| 默认可用，具有许多改进，如补全
+- |:match| 可以在定义高亮组之前调用
+- |:restart|
+- |:source| 支持 Lua
+- |:trust|
+- 用户命令可以支持 |:command-preview| 在你输入时显示结果
+- |:write| 使用 "++p" 标志创建父目录。
+- |:update| 命令即使未修改也会写入新文件缓冲区。
+
+编辑器：
+- |prompt-buffer| 支持多行输入/粘贴、撤消/重做和 o/O 普通命令。
+- |i_CTRL-R| 按字面插入命名/剪贴板寄存器（A-Z,a-z,0-9+），类似于粘贴而非
+  用户输入。提高性能，避免格式损坏。要获得旧行为可以使用 `<C-R>=@x`。
+
+事件（自动命令）：
+- 修复了嵌套自动命令执行中的不一致行为 #23368
+- |BufModifiedSet|
+- |Progress|
+- |RecordingEnter|
+- |RecordingLeave|
+- |SearchWrapped|
+- |Signal|
+- |TabNewEntered|
+- |TermClose|
+- |TermOpen|
+- |TermRequest|
+- |TermResponse| 对从终端接收的 DCS、OSC 和 APC 序列触发，
+  除了主设备属性响应外。|v:termresponse|
+- |UIEnter|
+- |UILeave|
+
+函数：
+- |dictwatcheradd()| 在 |Dict| 被修改时通知回调
+- |dictwatcherdel()|
+- |menu_get()|
+- |msgpackdump()|、|msgpackparse()| 提供 msgpack 序列化/反序列化
+- |stdpath()|
+- |system()|、|systemlist()| 可以直接运行 {cmd}（不通过 'shell'）
+- |matchadd()| 可以在定义高亮组之前调用
+- |tempname()| 在 Nvim |tempdir| 消失时尝试恢复。
+- |writefile()| 使用 "p" 标志创建父目录。
+- |prompt_getinput()|
+- |prompt_appendbuf()|
+
+高亮组：
+- |highlight-blend| 控制高亮组的混合级别
+- |expr-highlight| 高亮组（以 "Nvim" 为前缀）
+- |hl-NormalFloat| 高亮浮动窗口
+- |hl-FloatBorder| 高亮浮动窗口边框
+- |hl-FloatTitle| 高亮浮动窗口标题
+- |hl-FloatFooter| 高亮浮动窗口页脚
+- |hl-NormalNC| 高亮非当前窗口
+- |hl-MsgArea| 高亮消息/命令行区域
+- |hl-MsgSeparator| 高亮滚动消息的分隔符
+- |hl-OkMsg|
+- |hl-StderrMsg|
+- |hl-StdoutMsg|
+- |hl-Substitute|
+- |hl-TermCursor|
+- |hl-WinSeparator| 高亮窗口分隔符
+- |hl-Whitespace| 高亮 'listchars' 空白字符
+- |hl-WinBar| 高亮 'winbar'
+- |hl-WinBarNC| 高亮非当前窗口的 'winbar'
+
+输入/映射：
+- ALT（|META|）组合键始终有效（即使在 |TUI| 中）。用任何键映射 |<M-|：
+  <M-1>、<M-BS>、<M-Del>、<M-Ins>、<M-/>、<M-\>、<M-Space>、<M-Enter> 等。
+  - 区分大小写：<M-a> 和 <M-A> 是两个不同的键码。
+- 如果未映射，ALT 可能表现得像 <Esc>。|i_ALT| |v_ALT| |c_ALT|
+
+普通命令：
+- |gO| 显示当前缓冲区的文件类型定义的"大纲"。
+- |Q| 重放最后录制的宏，而非切换到 Ex 模式（|gQ|）。
+
+选项：
+
+- `:set {option}<` 移除所有 |global-local| 选项的本地值。
+- `:setlocal {option}<` 将全局值复制到所有选项的本地值。
+- 'ambiwidth'   不能设置为空。
+- 'autoread'    在终端中有效（如果支持"焦点"事件）
+- 'background'  不能设置为空。
+- 'cpoptions'   标志：|cpo-_|
+- 'eadirection' 不能设置为空。
+- 'exrc'        搜索 ".nvim.lua"、".nvimrc" 或 ".exrc" 文件。
+                用户会被提示是否信任该文件。
+- 'fileformat'  不能设置为空。
+- 'fillchars'   标志："msgsep"、"horiz"、"horizup"、"horizdown"、
+                "vertleft"、"vertright"、"verthoriz"
+- 'foldcolumn'  支持最多 9 个动态/固定列
+- 'guicursor'   在终端（TUI）中有效
+- 'inccommand'  为 |:substitute| 类命令和 |:command-preview| 命令
+                显示交互式结果
+- 'jumpoptions'
+    - "view" 在跳转列表中移动时尝试恢复 |mark-view|。
+    - "clean" 从跳转列表中移除已卸载的缓冲区。
+- |jumplist|、|changelist|、|alternate-file| 或使用 |mark-motions|。
+- 'laststatus'  全局状态行支持
+- 'mousemodel'  不能设置为空。
+- 'mousescroll' 使用鼠标滚动时的滚动量
+- 'pumblend'    半透明弹出菜单
+- 'scrollback'
+- 'shortmess'
+    - "F" 标志不影响自动命令的输出。
+    - "q" 标志完全隐藏宏录制消息。
+- 'showcmdloc'  不能设置为空。
+- 'signcolumn'  可以显示多个标记（动态或固定列）
+- 'statuscolumn' 使用 'statusline' 格式完全控制列
+- 'statusline' 默认值作为状态行表达式暴露。
+- 'splitkeep'   不能设置为空。
+- 'tabline'     中键点击标签页标签关闭标签页，
+                %@Func@foo%X 可以在鼠标点击时调用任何函数
+- 'termpastefilter'
+- 'ttimeout'、'ttimeoutlen' 行为已简化
+- 'winblend'    浮动窗口中的伪透明 |api-floatwin|
+- 'winhighlight' 窗口本地高亮
+- 'busy' 缓冲区的忙碌状态
+- 'messagesopt' 添加 progress:c 以控制进度消息是否在命令行显示
+
+性能：
+- 标记使用 Nvim 的内部 "marktree"（B 树）结构实现。
+- 折叠在插入模式期间不更新。
+
+提供者：
+- 如果 Python 解释器在你的 `$PATH` 中可用，|:python| 和 |:python3|
+  始终可用。参见 |provider-python|。
+
+Shell：
+- Shell 输出（|:!|、|:make| 等）始终通过 UI 路由，因此它不会"搞乱"
+  屏幕。（如果你想搞乱屏幕，仍然可以使用 "chansend(v:stderr,...)" :)
+- Nvim 节流（跳过）来自 shell 命令（|:!|、|:grep|、|:make|）的消息，
+  如果输出太多。不会丢失数据，这只影响显示并提高性能。|:terminal| 输出
+  从不节流。
+- |:!| 不支持"交互式"命令。请使用 |:terminal|。
+  （GUI Vim 有类似的限制，参见 Vim 中的 ":help gui-pty"。）
+- :!start 在 Windows 上不是特殊情况。
+- |system()| 不支持写入/读取"后台"命令。|E5677|
+
+标记：
+- 'signcolumn' 可以显示多个标记。
+- 如果关联的行被删除，标记会被移除。
+- 使用相同标识符在同一组中放置两次的标记会被移动。
+
+启动：
+- |-e| 和 |-es| 调用与 -E 和 -Es 相同的"改进的 Ex 模式"。
+- |-E| 和 |-Es| 将 stdin 读取为文本（读入缓冲区 1）。
+- |-es| 和 |-Es| 具有改进的行为：
+    - 自动退出，不需要 "-c qa!"。
+    - 跳过交换文件对话框。
+    - 针对非交互式脚本优化：禁用交换文件、shada。
+- |-l| 非交互式执行 Lua 脚本。
+- |-s| 如果脚本名为 "-" 则从 stdin 读取普通命令。
+- 从 stdin 读取文本（而非命令）|--|：
+    - 默认有效："-" 文件是可选的
+    - 在更多情况下有效：|-Es|、文件参数
+
+TUI：
+                        *:set-termcap*
+- 以 'verbose' 级别 3 启动 Nvim 以显示终端能力： >
+        nvim -V3
+<
+                        *'term'* *E529* *E530* *E531*
+- 'term' 反映从 |$TERM| 和其他环境检查推导出的终端类型。使用 `:echo &term`
+  获取其值。仅用于调试；启动期间不可靠。
+  - 注意：如果你想检测 Nvim 是否在终端中运行，使用 `has('gui_running')`
+    |has()| 或参见 |nvim_list_uis()| 了解如何检查 UI 通道的示例。
+- Nvim 可能可选地使用 unibilium 编译，在这种情况下将使用 terminfo 数据库。
+  否则，或者如果在数据库中未找到终端，将使用内置终端定义表。
+- Nvim 将在 Linux 虚拟终端上使用 256 色能力。Vim 在 Linux VT 上仅使用
+  8 种颜色加上亮色前景。
+- Vim 将其 |builtin-terms| 中的内容与从 terminfo 读取的内容组合，并有
+  'ttybuiltin' 设置来控制该组合方式。Nvim 使用其中一个，不尝试合并两者。
+
+UI/显示：
+- |Visual| 选择高亮光标处的字符。|visual-use|
+- 消息：当显示长于 'cmdheight' 的消息时，只滚动消息行，而非整个屏幕。
+  分隔行由 |hl-MsgSeparator| 和 'fillchars' 的 "msgsep" 标志装饰。*msgsep*
+
+变量：
+- |v:progpath| 始终是绝对路径（"full"）
+- |v:windowid| 始终可用（供外部 UI 使用）
+- |OptionSet| 自动命令参数 |v:option_new|、|v:option_old|、
+- |v:option_oldlocal|、|v:option_oldglobal| 具有选项的类型而非始终是字符串。
+  |v:option_old| 现在是所有全局-本地选项的旧全局值，而不仅仅是字符串类型的
+  全局-本地选项。
+
+Vimscript：
+- |:redir| 嵌套在 |execute()| 中有效。
+
+==============================================================================
+上游化的功能                                             *nvim-upstreamed*
+
+这些 Nvim 功能后来被集成到 Vim 中。
+
+- 'diffopt' "linematch" 功能
+- 'fillchars' 标志："eob"
+- 'jumpoptions' "stack" 行为
+- 'wildoptions' 标志："pum" 为通配模式补全启用弹出菜单
+- |<Cmd>|
+- |WinClosed|
+- |WinScrolled|
+- |:sign-define| "numhl" 参数
+- |:source| 支持匿名（无文件）脚本
+- 'statusline' 支持无限对齐区段
+- |vim-tutor-mode|
+- Lua：`require()` 也在 'runtimepath' 中搜索模块。
+- Lua：vim.g、vim.w、vim.b、vim.t、vim.v、vim.fn、vim.call()
+
+==============================================================================
+其他更改                                                 *nvim-changed*
+
+本节记录各种底层行为更改。
+
+|mkdir()| 行为更改：
+- 1. 假设 /tmp/foo 不存在且 /tmp 可写
+     mkdir('/tmp/foo/bar', 'p', 0700) 将以 0700 权限创建 /tmp/foo 和
+     /tmp/foo/bar。Vim 的 mkdir 将以 0755 创建 /tmp/foo。
+- 2. 如果你尝试使用 `'p'` 创建已存在的目录（例如 mkdir('/', 'p')），
+     mkdir() 将静默退出。在 Vim 中这是一个错误。
+- 3. mkdir() 错误消息现在在 mkdir 失败时包含 strerror() 文本。
+
+|string()| 和 |:echo| 行为更改：
+- 1. 对嵌套容器结构不应用最大递归深度限制。
+- 2. |string()| 在遇到嵌套容器时立即失败，而非在超过递归限制时。
+- 3. 当 |:echo| 遇到重复容器时，如 >vim
+       let l = []
+       echo [l, l]
+<     它不使用 "[...]"（原来是："[[], [...]]"，现在是："[[], []]"）。
+     "..." 仅用于递归容器。
+- 4. |:echo| 打印嵌套容器时在 "..." 后添加 "@level" 表示递归容器
+     被打印的级别：|:echo-self-refer|。同样适用于 |string()|（虽然它
+     使用类似 "{E724@level}" 的构造），但这不可靠，因为 |string()|
+     继续报错。
+- 5. 字符串化的无穷和 NaN 值现在使用 |str2float()| 并且可以被 eval 回来。
+- 6. （内部）在 Vim 中尝试打印或字符串化 VAR_UNKNOWN 不会产生任何结果，
+     E908，在 Nvim 中是内部错误。
+
+|json_decode()| 行为更改：
+- 1. 它可能输出 |msgpack-special-dict|。
+- 2. 在键重复的情况下也发出 |msgpack-special-dict|，而 Vim 会报错。
+- 3. 它只接受有效的 JSON。不接受尾随逗号。
+
+|json_encode()| 行为略有更改：现在接受 |msgpack-special-dict| 值，
+但不接受 |v:none|。
+
+Viminfo 文本文件已被二进制（messagepack）|shada| 文件替代。
+其他差异：
+
+- |shada-c| 无效。
+- |shada-s| 现在限制每个项目的大小，而不仅仅是寄存器。
+- 'viminfo' 选项已重命名为 'shada'。旧选项作为兼容性别名保留。
+- |:wviminfo| 已重命名为 |:wshada|，|:rviminfo| 已重命名为 |:rshada|。
+  旧命令仍然保留。
+- ShaDa 文件格式在设计时考虑了前向和后向兼容性。|shada-compatibility|
+- 某些错误使 ShaDa 代码将临时文件保留在原位让用户决定如何处理。
+  Vim 在这些情况下删除临时文件。|shada-error-handling|
+- ShaDa 文件保留搜索方向（|v:searchforward|），viminfo 不保留。
+
+|printf()| 使用 `%p` 参数时返回有意义的内容：在 Vim 中它过去返回字符串的
+无用地址（字符串在各处被复制到新分配的内存中）并在无法强制转换为字符串的
+类型上失败。详见 |id()|，目前内部使用 `printf("%p", {expr})`。
+
+|c_CTRL-R| 将非特殊寄存器粘贴到 |cmdline| 时省略最后的 <CR>。
+
+|CursorMoved| 在窗口之间移动时触发。
+
+Lua 接口（|lua.txt|）：
+- `:lua print("a\0b")` 将打印 `a^@b`，类似于 `:echomsg "a\nb"`。在 Vim
+  中打印 `a` 和 `b` 在不同行，完全类似于 `:lua print("a\nb")`。
+- `:lua error('TEST')` 发出错误： >
+  E5108: Lua: [string "<Vimscript compiled string>"]:1: TEST
+<  而 Vim 仅发出 "TEST"。
+- Lua 通过 `vim.api` 直接访问 Nvim |API|。
+
+命令：
+- |:doautocmd| 不对"没有匹配的自动命令"发出警告。
+- |:wincmd| 接受计数。
+- `:write!` 如果文件在外部被更新，不显示提示。
+- |:=| 不接受 |ex-flags|。带参数时等价于 |:lua=|
+
+命令行：
+- 方向键的含义不会根据 'wildoptions' 而改变。
+
+函数：
+- |input()| 和 |inputdialog()| 通过字典参数（如果使用则替换所有其他参数）
+  相互支持对方的功能（取消时的返回值和补全），"cancelreturn" 如果在字典中
+  传递可以是任何类型。
+- |input()| 和 |inputdialog()| 支持用户定义的命令行高亮。
+
+高亮组：
+- |hl-ColorColumn|、|hl-CursorColumn| 优先级低于大多数其他组
+- |hl-CursorLine| 是低优先级的，除非设置了前景色
+- |hl-VertSplit| 被 |hl-WinSeparator| 取代
+- 高亮组名称允许包含 `@` 字符。
+  - 定义名称不匹配正则表达式 `[a-zA-Z0-9_.@-]*` 的高亮组是一个错误
+    （参见 |group-name|）。
+- |hl-StatusLineTerm| |hl-StatusLineTermNC| 作为 'winhighlight' 窗口本地
+  高亮实现，由默认的 |TermOpen| 处理程序设置。
+- |ins-completion-menu| 具有级联高亮样式。|hl-PmenuSel| 和 |hl-PmenuMatch|
+  都继承自 |hl-Pmenu|，|hl-PmenuMatchSel| 继承自 |hl-PmenuSel| 和
+  |hl-PmenuMatch|。
+
+宏（|recording|）行为：
+- 在使用 :lmap 期间录制的宏回放产生与录制时相同的操作。在 Vim 中，
+  如果使用 :lmap 映射的键录制宏，录制和回放期间的行为不同。
+- 'keymap' 通过 :lmap 而非 :lnoremap 实现，以便你可以同时使用宏和
+  'keymap'。这也意味着你可以对 'keymap' 的键结果使用 |:imap|。
+
+映射：
+- 为可简化键（例如 <C-I>）创建映射不会替换其简化形式（例如 <Tab>）
+  的现有映射。
+- "#" 后跟数字在映射左侧开头不代表功能键。
+
+移动：
+- |jumplist| 避免无用/幻影跳转。
+
+语法高亮：
+- syncolor.vim 已被移除。Nvim 现在自动为亮色和暗色背景设置默认高亮组，
+  无论是否启用了语法高亮。这意味着 |:syntax-on| 和 |:syntax-enable|
+  现在完全相同。之前使用 after/syntax/syncolor.vim 文件的用户应将该文件
+  转换为颜色方案。|:colorscheme|
+
+Vimscript 兼容性：
+- `count` 不是 |v:count| 的别名
+- `errmsg` 不是 |v:errmsg| 的别名
+- `shell_error` 不是 |v:shell_error| 的别名
+- `this_session` 不是 |v:this_session| 的别名
+
+工作目录（Vim 在 Nvim 之后实现了其中一些）：
+- |DirChanged| 和 |DirChangedPre| 可以在切换到另一个窗口或标签页时触发。
+- |getcwd()| 和 |haslocaldir()| 如果找不到标签页或窗口可能抛出错误。
+  *E5000* *E5001* *E5002*
+- |haslocaldir()| 当且仅当传递 -1 作为窗口号时检查标签页本地目录，
+  其唯一可能的返回值是 0 和 1。
+- `getcwd(-1)` 等价于 `getcwd(-1, 0)` 而非返回全局工作目录。
+  使用 `getcwd(-1, -1)` 获取全局工作目录。
+
+选项：
+- 'titlestring' 使用 printf 风格的 '%' 项目（参见 'statusline'）实现默认
+  行为。实现等同于将 'titlestring' 设置为
+  `%t%(\ %M%)%(\ \(%{expand(\"%:~:h\")}\)%)%a\ -\ Nvim`。
+
+|packages|：
+- "start" 包不在 'runtimepath' 中显式报告（虽然仍然在其中搜索运行时文件）。
+  参见 |runtime-search-path|
+
+==============================================================================
+缺失的功能                                               *nvim-missing*
+
+这些旧版 Vim 功能尚未实现：
+
+- *:gui*
+- *:gvim*
+- *'browsedir'* *'bsdir'*
+- *'completepopup'*
+- *'guioptions'* *'go'*
+- *'guitablabel'* *'gtl'*
+- *'guitabtooltip'* *'gtt'*
+- *'mouseshape'* *'mouses'*
+- *'previewpopup'*
+
+==============================================================================
+已移除的旧功能                                           *nvim-removed*
+
+这些 Vim 功能已从 Nvim 中有意移除。
+
+别名：
+- ex        （"nvim -e" 的别名）
+- exim      （"nvim -E" 的别名）
+- gex       （GUI）
+- gview     （GUI）
+- gvim      （GUI）
+- gvimdiff  （GUI）
+- rgview    （GUI）
+- rgvim     （GUI）
+- rview
+- rvim
+- view      （"nvim -R" 的别名）
+- vimdiff   （"nvim -d" |diff-mode| 的别名）
+
+命令：
+- :behave
+- :fixdel
+- *hardcopy* `:hardcopy` 已移除。请使用 `:TOhtml` 并使用网页浏览器或
+  其他 HTML 查看器打印生成的 HTML。
+- :helpfind
+- :mode（不再接受参数）
+- :open
+- :Print
+- :promptfind
+- :promptrepl
+- :scriptversion（始终为版本 1）
+- :shell
+- :smile
+- :tearoff
+- :cstag
+- :cscope
+- :lcscope
+- :scscope
+- :Vimuntar
+- `:TOhtml` 已被 Lua 版本替代（有各种差异）
+
+编译时功能：
+- Emacs 标签支持
+- X11 集成（参见 |x11-selection|）
+
+编辑器：
+- *cscope* 支持已被移除，建议使用基于插件的解决方案，如：
+  https://github.com/dhananjaylatkar/cscope_maps.nvim
+- *popup-window*：请使用 |floating-windows|。
+- *spellfile.vim*：已被 |package-spellfile| 替代。
+- *textprop*：请使用 |extmarks|。
+
+Eval：
+- *Vim9script*（Vim 9+ 风格的 Vimscript）不受支持。
+- *cscope_connection()*
+- *err_teapot()*
+- *js_encode()*
+- *js_decode()*
+- *listener_add()* 等：请使用 |api-buffer-updates-lua|。
+- *redraw_listener_add()* 等：请使用 |nvim_set_decoration_provider()|。
+- *v:none*（Vim 用于表示 JavaScript "undefined"）；请使用 |v:null|。
+- *v:sizeofint*
+- *v:sizeoflong*
+- *v:sizeofpointer*
+
+事件：
+- *SafeStateAgain*
+- *SigUSR1* 请使用 |Signal| 检测 `SIGUSR1` 信号。
+
+选项：
+- *'aleph'* *'al'*
+- antialias
+- 'backspace' 不再支持数字值。替代方案：
+    - 对于 `backspace=0` 设置 `backspace=`（空）
+    - 对于 `backspace=1` 设置 `backspace=indent,eol`
+    - 对于 `backspace=2` 设置 `backspace=indent,eol,start`（Nvim 中的默认行为）
+    - 对于 `backspace=3` 设置 `backspace=indent,eol,nostop`
+- *'balloondelay'* *'bdlay'*
+- *'ballooneval'* *'beval'* *'noballooneval'* *'nobeval'*
+- *'balloonexpr'* *'bexpr'*
+- bioskey（MS-DOS）
+- conskey（MS-DOS）
+- *'cp'* *'nocompatible'* *'nocp'* *'compatible'*（Nvim 始终为 "nocompatible"。）
+- 'cpoptions'（gjpkHw<*- 和所有 POSIX 标志已移除）
+- *'cryptmethod'* *'cm'* *'key'*（Vim 加密实现）
+- cscopepathcomp
+- cscopeprg
+- cscopequickfix
+- cscoperelative
+- cscopetag
+- cscopetagorder
+- cscopeverbose
+- *'ed'* *'edcompatible'* *'noed'* *'noedcompatible'*
+- 'encoding'（始终使用 "utf-8"）
+- esckeys
+- 'guioptions' "t" 标志已移除
+- *'guifontset'* *'gfs'*（请使用 'guifont'。）
+- *'guipty'*（Nvim 在所有平台上一致使用管道和 PTY。）
+- 'highlight'（内置 |highlight-groups| 的名称不能更改。）
+- *'hkmap'* *'hk'* 请使用 `set keymap=hebrew`。
+- *'hkmapp'* *'hkp'* 请使用 `set keymap=hebrewp`。
+- keyprotocol
+- *'pastetoggle'* *'pt'* 直接粘贴即可。|paste| 在你使用终端或 GUI 的粘贴
+  功能（CTRL-SHIFT-v、CMD-v（macOS）、中键点击等）粘贴文本时自动处理。
+- *'imactivatefunc'* *'imaf'*
+- *'imactivatekey'* *'imak'*
+- *'imcmdline'* *'imc'* *'noimcmdline'* *'noimc'*
+- *'imdisable'* *'imd'* *'noimdisable'* *'noimd'*
+- *'imstatusfunc'* *'imsf'*
+- *'insertmode'* *'im'* 使用以下脚本模拟 'insertmode'： >vim
+    autocmd BufWinEnter * startinsert
+    inoremap <Esc> <C-X><C-Z><C-]>
+    inoremap <C-C> <C-X><C-Z>
+    inoremap <C-L> <C-X><C-Z><C-]><Esc>
+    inoremap <C-Z> <C-X><C-Z><Cmd>suspend<CR>
+    noremap <C-C> <Esc>
+    snoremap <C-C> <Esc>
+    noremap <C-\><C-G> <C-\><C-N><Cmd>startinsert<CR>
+    cnoremap <C-\><C-G> <C-\><C-N><Cmd>startinsert<CR>
+    inoremap <C-\><C-G> <C-X><C-Z>
+    autocmd CmdwinEnter * noremap <buffer> <C-C> <C-C>
+    autocmd CmdwinEnter * inoremap <buffer> <C-C> <C-C>
+
+    lua << EOF
+      vim.on_key(function(c)
+        if c == '\27' then
+          local mode = vim.api.nvim_get_mode().mode
+          if mode:find('^[nvV\22sS\19]') and vim.fn.getcmdtype() == '' then
+            vim.schedule(function()
+              vim.cmd('startinsert')
+            end)
+          end
+        end
+      end)
+    EOF
+- *'macatsui'*
+- *'maxcombine'* *'mco'*：Nvim 以字节计算最大字符大小，而非码位。
+  这保证足够大以始终正确显示 Vim 中 'maxcombine' 设置为 6 时的所有字符。
+  - 你仍然可以编辑包含大于屏幕缓冲区容量的字符的文本，只是无法看到它们。
+    使用 |g8| 或 |ga|。参见 |mbyte-combining|。
+  - 注意：正则表达式引擎仍然有硬编码的限制，只考虑 6 个组合字符。
+- *'maxmem'* Nvim 将内存管理委托给操作系统。
+- *'maxmemtot'* Nvim 将内存管理委托给操作系统。
+- *'opendevice'* *'odev'* *'noopendevice'* *'noodev'*
+- printoptions
+- *'printdevice'*
+- *'printencoding'*
+- *'printexpr'*
+- *'printfont'*
+- *'printheader'*
+- *'printmbcharset'*
+- *'prompt'* *'noprompt'*
+- *'remap'* *'noremap'*
+- *'restorescreen'* *'rs'* *'norestorescreen'* *'nors'*
+- *'secure'*：'exrc' 文件中允许所有操作，因为它们必须被明确标记为"受信任"。
+- *'shelltype'*
+- 'shortmess' 标志：*shm-f* *shm-n* *shm-x* *shm-i*（行为如同始终开启）
+- *'shortname'* *'sn'* *'noshortname'* *'nosn'*
+- *'swapsync'* *'sws'*
+- *'termencoding'* *'tenc'*（Vim 7.4.852 也在 Windows 上移除了此项）
+- *'terse'* *'noterse'*（请在 'shortmess' 中添加 "s"）
+- textauto
+- textmode
+- *'toolbar'* *'tb'*
+- *'toolbariconsize'* *'tbis'*
+- *'ttybuiltin'* *'tbi'* *'nottybuiltin'* *'notbi'*
+- *'ttyfast'* *'tf'* *'nottyfast'* *'notf'*
+- *'ttymouse'* *'ttym'*
+- *'ttyscroll'* *'tsl'*
+- *'ttytype'* *'tty'*
+- weirdinvert
+
+插件：
+- logiPat
+- rrhelper
+- *vimball*
+- shellmenu
+- macmap.vim
+- tools/check_colors.vim
+- macros/{justify,matchit,swapmous}.vim：请直接使用 `packadd! justify` 等
+- HelpToc：请使用 |gO|。
+
+提供者：
+- *if_lua*：Nvim |Lua| API 与 Vim 的 "if_lua" 不兼容。
+- *if_mzscheme*
+- |if_pyth|：不支持 *python-bindeval* *python-Function*。
+- *if_tcl*
+
+启动：
+- `--literal`：文件参数始终是字面的；要在 Windows 上展开通配符，
+  使用 |:n|，例如 `nvim +"n *"`
+- 简易模式：eview、evim、nvim -y
+- 受限模式：rview、rvim、nvim -Z
+- Vi 模式：nvim -v
+
+测试函数：
+- test_alloc_fail()
+- test_autochdir()
+- test_feedinput()
+- test_garbagecollect_soon()
+- test_getvalue()
+- test_ignore_error()
+- test_null_blob()
+- test_null_channel()
+- test_null_dict()
+- test_null_function()
+- test_null_job()
+- test_null_list()
+- test_null_partial()
+- test_null_string()
+- test_option_not_set()
+- test_override()
+- test_refcount()
+- test_scrollbar()
+- test_setmouse()
+- test_settime()
+- test_srand_seed()
+- test_unknown()
+- test_void()
+
+TUI：
+                          *t_xx* *termcap-options* *t_AB* *t_Sb* *t_vb* *t_SI*
+- Nvim 没有特殊的 `t_XX` 选项或 <t_XX> 键码来配置终端能力。相反 Nvim
+  将终端视为任何其他 UI，例如 'guicursor' 在可能的情况下设置终端光标样式。
+
+                          *termcap*
+- Nvim 从不使用 termcap 数据库，只使用 |terminfo| 和 |builtin-terms|。
+
+                          *xterm-8bit* *xterm-8-bit*
+- Xterm 可以在使用真正 8 位 CSI 的模式下运行。支持这一点需要自动检测终端
+  是否处于 UTF-8 模式或非 UTF-8 模式，因为 8 位 CSI 字符在每种情况下的
+  写法不同。Vim 在启动时向终端发出"请求版本"序列，并查看终端如何发送 CSI。
+  Nvim 不发出此类序列，始终使用 7 位控制序列。
+
+ vim:tw=78:ts=8:sw=2:et:ft=help:norl:

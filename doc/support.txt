@@ -1,0 +1,56 @@
+*support.txt*			    Nvim
+
+
+                            NVIM 参考手册
+
+
+支持                                                              *support*
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+支持的平台					 *supported-platforms*
+
+`系统`            `等级`      `版本`                      `测试版本`
+Linux (x86_64)   1      >= 2.6.32, glibc >= 2.12     Ubuntu 24.04
+Linux (arm64)    1      >= 2.6.32, glibc >= 2.12     Ubuntu 24.04
+macOS (x86_64)   1      >= 11                        macOS 15
+macOS (arm64)    1      >= 11                        macOS 26
+Windows 64-bit   1      >= Windows 10 Version 2004   Windows Server 2025
+FreeBSD          1      >= 10                        FreeBSD 15
+OpenBSD          2      >= 7
+MinGW            2      MinGW-w64
+Windows 64-bit   3      < Windows 10 Version 2004
+
+注意: |:terminal| 需要 Windows 10 "Version 2004" 或更高版本。要检查你的
+Windows 版本，运行 "winver" 命令并查找 "Version xxxx"
+(不是 "OS Build")。
+
+注意: 在 Windows "Server" 上你可能需要安装 vcruntime140.dll:
+https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+
+支持类型 ~
+
+- 等级 1: 官方支持并使用 CI 测试。任何贡献的补丁不得破坏对此类平台的
+  支持。
+- 等级 2: 官方支持，但不一定使用 CI 测试。对这些平台的支持以尽力而为
+  的方式维护，不作为最高优先级。
+- 等级 3: 未测试且无保证，不是所有功能都可能正常工作。
+
+添加对新平台的支持 ~
+
+重要: 在尝试添加对新平台的支持之前，请先开一个 issue 进行讨论。
+
+
+==============================================================================
+通用
+
+添加对新平台支持时的一些通用注意事项:
+
+CMake 是唯一支持的构建系统。Nvim 必须能够在该平台上使用 CMake 构建。
+
+与新平台相关的所有功能必须在 `src/nvim/os` 内的独立文件中实现，除非它
+已经在公共文件中完成，在这种情况下添加 `#ifdef` 是可以的。
+
+
+ vim:tw=78:ts=8:et:ft=help:norl:

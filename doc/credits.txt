@@ -1,0 +1,771 @@
+*credits.txt*          Nvim
+
+
+                     NVIM REFERENCE MANUAL
+
+
+==============================================================================
+致谢                                                    *credits*
+
+Vim 的大部分代码由 Bram Moolenaar <Bram@vim.org> 编写。|Bram-Moolenaar|
+
+部分文档来自以下几位编写的 Vi 手册:
+        W.N. Joy
+        Alan P.W. Hewett
+        Mark Horton
+
+Vim 编辑器基于 Stevie，并吸收了其他软件的(想法)，这些软件由此处提到的人参与
+开发。其他人通过发送补丁、建议以及对 Vim 优缺点的反馈来帮助我。
+
+没有这些人的帮助，Vim 绝不会发展成今天的样子!
+
+        |Bram| Moolenaar	创造者和终身仁慈独裁者，直到他
+                                离世 (2023 年 8 月 3 日)
+        Ron Aaron               Win32 GUI 更改
+        Mohsin Ahmed            加密
+        Zoltan Arpadffy         VMS 移植工作
+        Tony Andrews            Stevie
+        Gert van Antwerpen      MS-DOS 上 DJGPP 的更改
+        Berkeley DB(3)          交换文件实现的灵感
+        Keith Bostic            Nvi
+        Walter Briscoe          Makefile 更新，各种补丁
+        Ralf Brown              MS-DOS 的 SPAWNO 库
+        Robert Colon            许多有用的建议
+        Marcin Dalecki          GTK+ GUI 移植，工具栏图标，gettext()
+        Kayhan Demirel          给我发送了乌干达的消息
+        Chris & John Downey     xvi (多窗口版本的灵感)
+        Henk Elbers             首个 VMS 移植
+        Daniel Elstner          GTK+ 2 移植
+        Eric Fischer            Mac 移植，'cindent'，以及其他改进
+        Benji Fisher            回答了大量用户问题
+        Bill Foster             Athena GUI 移植 (后来移除)
+        Google                  让 Bram 每周有一天时间从事 Vim 开发
+        Loic Grenie             xvim (多窗口版本的灵感)
+        Sven Guckes             Vim 推广者和前 WWW 页面维护者
+        Darren Hiebert          Exuberant ctags
+        Jason Hildebrand        GTK+ 2 移植
+        Bruce Hunsaker          VMS 移植的改进
+        Andy Kahn               Cscope 支持，GTK+ GUI 移植
+        Oezguer Kesim           Vim 邮件列表维护者
+        Axel Kielhorn           Macintosh 移植工作
+        Steve Kirkendall        Elvis
+        Roger Knobbe            最初的 Windows NT 移植
+        Sergey Laskavy          来自莫斯科的 Vim 帮助
+        Felix von Leitner       前 Vim 邮件列表维护者
+        David Leonard           Python 扩展到 Unix 的移植
+        Avner Lottem            从右到左窗口编辑
+        Flemming Madsen         X11 客户端-服务器，各种功能和
+                                补丁
+        Tony Mechelynck         回答了许多用户问题
+        Paul Moore              Python 接口扩展，许多补丁
+        Katsuhito Nagano        多字节版本的工作
+        Sung-Hyun Nam           多字节版本的工作
+        Vince Negri             Win32 GUI 和通用控制台增强
+        Steve Oualline          第一本 Vim 书的作者 |frombook|
+        Dominique Pelle         Valgrind 报告和许多修复
+        A.Politz                许多错误报告和一些修复
+        George V. Reilly        Win32 移植，Win32 GUI 启动
+        Stephen Riehm           错误收集者
+        Stefan Roemer           各种补丁和用户帮助
+        Ralf Schandl            IBM OS/390 移植
+        Olaf Seibert            DICE 和 BeBox 版本，正则表达式改进
+        Mortaza Shiran          波斯语补丁
+        Peter da Silva          termlib
+        Paul Slootman           OS/2 移植
+        Henry Spencer           正则表达式
+        Dany St-Amant           Macintosh 移植
+        Tim Thompson            Stevie
+        G. R. (Fred) Walter     Stevie
+        Sven Verdoolaege        Perl 接口
+        Robert Webb             命令行补全，GUI 版本，以及
+                                大量补丁
+        Ingo Wilken             Tcl 接口
+        Mike Williams           PostScript 打印
+        Juergen Weigert         Lattice 版本，AUX 改进，Unix 和
+                                MS-DOS 移植，autoconf
+        Stefan 'Sec' Zehl       vim.org 维护者
+        Yasuhiro Matsumoto      许多 MS-Windows 改进
+        Ken Takata              修复和功能
+        Kazunobu Kuriyama       GTK 3
+        Christian Brabandt       许多修复、功能、用户支持等
+        Yegappan Lakshmanan     许多 quickfix 功能，Vim9 script
+                                改进
+        Doug Kearns             运行时文件维护者
+        Foxe Chen               Wayland 支持，新功能
+        glepnir                 改进补全功能的工作，修复
+        Girish Palya            自动补全 (插入/命令行)，omnifunc
+                                组合，搜索/替换补全，以及更多
+        Hirohito Higashi        大量补丁和修复
+        Yee Cheng Chin          MacVim 维护者和 diff 改进
+        zeertzjq                许多修复和改进
+
+我感谢所有给我发送错误报告和建议的人。名单太长，无法在此一一列出。没有这些人
+的想法，Vim 不会成为今天的样子: 他们让 Vim 保持活力!
+*love* *peace* *friendship* *gross-national-happiness*
+
+
+文档可能引用其他版本的 Vi:
+                                                        *Vi* *vi*
+Vi      "原始版"。 如果没有进一步说明，这是指 Sun OS 4.x 中出现的 Vi 版本。
+        ":version" 返回 "Version 3.7, 6/7/85"。源代码仅在许可证下可用。
+                                                        *Nvi*
+Nvi     "新" Vi。随 BSD 4.4 和 FreeBSD 提供的 Vi 版本。
+        与原始 Vi 兼容性非常好，有一些扩展。
+        使用的版本是 1.79。":version" 返回 "Version 1.79
+        (10/23/96)"。源代码可自由获取。
+                                                        *Elvis*
+Elvis   另一个 Vi 克隆，由 Steve Kirkendall 编写。非常紧凑但没有
+        Vim 那么灵活。源代码可自由获取。
+
+Vim     Nvim 基于 Vim。https://www.vim.org/
+
+
+==============================================================================
+Neovim 众筹支持者                                               *backers.txt*
+
+感谢每一位支持 Neovim 原始众筹的人。
+
+支持者名单
+
+- [Bob Breznak](http://brez.io)
+- [Tim Uruski](http://timuruski.net)
+- @mikker (http://brnbw.com)
+- Aaron J. [@metaxis](http://twitter.com/metaxis) Peterson
+- Adam George http://www.adamgeorge.com
+- Adam Lindberg (http://alind.io)
+- Adam McLain http://twitter.com/adammclain
+- Adam Piper http://ahri.net
+- Adrian Philipp http://adrian-philipp.com
+- Alexander Quine
+- Alexandru Dabija
+- Alexis Hildebrandt http://surryhill.net
+- Andrew M. Farrell http://amfarrell.com
+- Anton Beloglazov http://beloglazov.info/
+- Arthur Axel fREW Schmidt - https://blog.afoolishmanifesto.com
+- Ben Thouret http://benjamin.thouret.com
+- Benedikt Böhm http://bb.xnull.de
+- bfredl, http://bfredl.github.io
+- Brandon Smith, http://reardencode.com
+- Brandon Wang, http://brandonwang.me
+- Brennen Bearnes http://p1k3.com
+- Brock Wilcox (awwaiid) http://thelackthereof.org/
+- Cameron Eagans http://cweagans.net
+- Carl Myers http://cmyers.org/
+- Carlos Alves http://www.carlosalves.info
+- Chris Chernesky, http://www.tinderglow.com
+- Chris Hartjes
+- Christoffer Holmstedt (http://www.christofferholmstedt.se)
+- Ciaran Downey <http://ciarand.me>
+- Craig Bane http://standardizedways.co.uk
+- Dane Summers http://pinedesk.biz
+- Daniel Collin https://twitter.com/daniel_collin
+- Daniel Rogers http://remotecodelist.com
+- Darshan Sawardekar http://pressing-matters.io
+- David Gabriel http://wiki.dest-unreachable.net
+- Deepak Kumar www.kreatio.com
+- Derek Rodger http://devslant.com
+- ebene fünf GmbH www.ebenefuenf.de
+- Ehtesh Choudhury
+- Emil Hernvall http://emilhernvall.github.io/
+- Eric Siegel https://github.com/esiegel
+- Ethan Schoonover http://ethanschoonover.com
+- FFunction http://ffctn.com
+- Frank http://duckpun.ch
+- Gabriele Lana http://github.com/gabrielelana
+- Gavin Rogers http://praxeology.co.uk
+- Geoff Greer https://floobits.com/
+- Glenn Strauss https://github.com/gstrauss/
+- Gustav Buchholtz http://grod.se
+- Henri Bourcereau http://bourcereau.fr
+- http://jaredforsyth.com
+- http://www.1bsyl.com
+- Johann Dahm (http://johanndahm.com)
+- Ian Farmer http://farmernet.net
+- iauns - http://www.noobtube.com
+- Jacob Jewell www.immersiveapplications.com
+- James A. Overton http://james.overton.ca
+- James Tomasino - http://jamestomasino.com
+- Jamiel Almeida http://slashfoo.com
+- Jan Christoph Ebersbach http://www.e-jc.de/
+- Jason Peacock http://jasonpeacock.com
+- Jason Weathered http://jasoncodes.com/
+- Javier Maestro
+- Jeff Craig http://blog.foxxtrot.net/
+- Jeremy Huffman http://jeremyhuffman.com
+- Jeremy Morrell http://rathercurio.us
+- Jesper Kjeldgaard (thejspr) - http://thejspr.com
+- Jim Hester (http://jimhester.com)
+- Joe Moon http://joe.xoxomoon.com
+- Johan Simonsson, http://fun-tech.se
+- John P. Kiffmeyer (http://jpk.is)
+- John Szakmeister http://www.szakmeister.net/
+- John W. Long http://wiseheartdesign.com Twitter: @johnwlong GitHub: @jlong
+- Jon Yurek http://thoughtbot.com
+- jonaias http://jonaias.info
+- Josh Davis, http://joshldavis.com
+- Joshua Levesque (www.jandyco.com)
+- Justin M. Keyes https://github.com/justinmk
+- Justin Russell http://jrussell.me
+- kbussell
+- Kevin Sjöberg, http://kevinsjoberg.com
+- Kevin Sumner http://kevinsumner.com
+- Kevin Wu http://kevinformatics.com
+- Ley Missailidis, http://polymet.is
+- Loa https://github.com/loa
+- Lowe Schmidt http://loweschmidt.se
+- Marcello Barnaba http://sindro.me/
+- Marcin Kulik - http://ku1ik.com
+- Marius Rieder http://www.durchmesser.ch/
+- Mark Allen [@bytemeorg](http://twitter.com/bytemeorg)
+- Mark Percival http://markpercival.us
+- Mark Sprevak
+- Martin Ansdell-Smith https://ansdell.net/
+- Martin Kopischke http://martin.kopischke.net
+- masukomi http://masukomi.org
+- Matt Greer -- http://mattgreer.org
+- MetaCosm | #Vim on Freenode
+- Michael Ulm www.mulm.at
+- Mikael Jansson http://mikaelj.se
+- Mikkel Høgh http://mikkel.hoegh.org/
+- Ming Liu http://ming.codes
+- Holger Peters http://www.holger-peters.de
+- Alexander Myshov http://myshov.com/
+- Darren Cheng http://sanguinerane.com/
+- Felix Rath www.0fx.eu
+- Hong Xu http://www.topbug.net
+- Slava Kim https://www.meteor.com
+- Nate Soares (So8res) http://so8r.es
+- neektza http://pltconfusion.com
+- Niclas Nilsson, http://niclasnilsson.se
+- Nikolay Bachiyski http://extrapolate.me/
+- Nikush Patel http://nikush.co.uk
+- Norman Köhring https://koehr.in
+- Osamu Komagata
+- Øystein E. Krog https://github.com/oysteinkrog
+- Pablo Brasero Moreno http://pablobm.com
+- Peter Souter http://www.petersouter.co.uk
+- Phil Levchenko (http://philslair.com)
+- Pierre Douyon https://github.com/pgdouyon
+- Prateek Rungta
+- Przemysław Pietrzkiewicz, http://ppi.sh
+- Rasmus Mattsson http://zzm.se
+- Reed Esau https://github.com/reedes
+- Richard Harding https://bmark.us
+- Rob Warner http://grailbox.com
+- Runar Balstad Jensen, http://stdout.no/
+- Ryan Paul http://seg.phault.net
+- Saad Malik - https://github.com/saamalik
+- Saggi Malachi - http://sagg.im
+- Scott Wessels (http://www.usgn.net)
+- Sean DuBois (Sean-Der) http://siobud.com
+- Sebastian Vetter (http://www.roadside-developer.com)
+- Simen Endsjø, http://simendsjo.me
+- Stanley Chan (Happy-Dude)
+- Stefan Penner
+- Steve Vermeulen https://github.com/svermeulen
+- Steven Myint (https://github.com/myint)
+- Tae Sandoval Murgan <taecilla.github.io>
+- The Kompanee http://thekompanee.com
+- Thomas Cannon <http://thomascannon.net>
+- Tim Oxley http://campjs.com/
+- Timo Schmiade
+- Timothy Dahlin
+- Tiziano Santoro
+- Toban Wiebe http://tobanwiebe.com
+- Tobias Sjösten http://vvv.tobiassjosten.net/
+- Tom Cammann http://github.com/takac
+- Val Markovic http://val.markovic.io/
+- Víðir Valberg Guðmundsson http://rabotnik.coop
+- Weiyi Lou http://parlseygardens.net
+- Wesley Moore http://wezm.net/
+- Woody Peterson, http://www.bitsofsignal.com
+- Zach Kelling, http://zeekay.io
+
+### Your name in BACKERS.md.
+
+- @a13xb
+- @d1eg0
+- @derkha
+- @georgebashi
+- @tmcw
+- @xpayn
+- Adam Baxter (voltagex)
+- Adam Miller (maxamillion)
+- Adam Sunderland/iterion
+- Adon Metcalfe (adonm)
+- Adrian Duyzer
+- Aidan Stein
+- ak47
+- Aketzu
+- Alessandro Gangemi
+- Alessandro Pagnin
+- Alessandro Proscia
+- Alex Genco (alexgenco)
+- Alex Heeton
+- Alex Roper
+- Alex Soto (apsoto@gmail.com)
+- Alexander Flatter
+- Alexander Jeurissen
+- Alexander Shabalin
+- Alexander Woerndle
+- Alexandru Keszeg
+- Allan Hudgins
+- Ami Chayun
+- Amit Beka
+- Anders Fuzz
+- Andre Azzolini
+- Andre da Palma
+- André Santos/andrefs
+- Andrea Michi
+- Andreas Heider
+- Andreas Lappe
+- andrej ocenas / aocenas
+- Andrew Arminio @5thWall
+- Andrew DeMaria ~ muff1nman
+- Andrew Fallows
+- Andrew Fecheyr (@andruby)
+- Andrew Hartford
+- Andrey Tarantsov
+- Andrey Yurovsky
+- Andy Dirnberger
+- Andy Gayton
+- Andy Lindeman
+- Andy Webster
+- AngelLeliel
+- Anton Egorov / satyrius
+- Anton Shemerey
+- Arnaud Bétrémieux
+- Arne Ehrlich
+- Arseny Zarechnev
+- Arvind Deshpande
+- Astro Jetson Jr
+- Attila Maczak
+- Avétis KAZARIAN (avetisk)
+- BarryKay
+- bbinet
+- BenBergman
+- Bengt Lüers
+- Benjamin Bryant
+- Bèr "berkes" Kessels
+- Bernd Homuth
+- Bheesham Persaud
+- Bilal Quadri
+- Bjorn Tipling
+- Bojan Zivanovic
+- Boris Searles
+- Braden Bruington
+- Brandon Liu/thenovices
+- Brandon Mathis - @imathis
+- Brett Ritter
+- Brian Shaver (shakerlxxv)
+- Bryan Grohman
+- Bryn Edwards
+- Calin Iorgulescu
+- calind
+- Cameron Wood / cewood
+- Chris Lopes
+- Chris Lord
+- Chris Porter
+- Chris Sims (@jcsims)
+- Christian Anton / fibbs
+- Christian Delahousse cdelahousse
+- Christian Lange
+- Christian Wellenbrock
+- Christophe Badoit
+- Christopher Lübbemeier
+- Christopher Mullins
+- Chungha Kim
+- ckromero
+- Claas-Thido Pfaff
+- Claes Mogren
+- Clayton Drazner
+- claytron
+- Colin Cooper
+- corytheboyd
+- Cristián Alberto Arenas Ulloa / NiñoScript
+- Cyril LEPAGNOT/cyrill62
+- D3 Designs
+- DAddYE (github: DAddYE)
+- Dan Webb
+- Daniel C. Henning / danielsdesk
+- Daniel Egeberg
+- Daniel Egger
+- Daniel Hodan/czertbytes
+- Daniel Latzer
+- Daniel Riti
+- Daniel Weisser
+- Daniele Polencic
+- Dave Dixon
+- David Collie
+- David Galeano
+- David Newell
+- David Rappo, Bountysource.com
+- David Rasch
+- David Stensland - terite
+- Davit Samvelyan
+- Dean Morin
+- deffi420
+- defrex
+- Deraen
+- Dewdrops
+- Dick Seabrook
+- Dominik Ritter
+- Don Browne
+- Donald Walker
+- Donna Martz
+- dpc
+- dperson
+- dvidsilva
+- Edan Maor
+- Eddy Garcia
+- Edward Ash/cazador481
+- Elias Tandel Barrionovo
+- Elijah Mirecki
+- Elliot Winkler (github: mcmire)
+- Enric Lluelles
+- Eric Fode
+- Erik Goldman
+- Erik Johnson Github: terminalmage Twitter: @terminalmage
+- Erik Nordlund
+- Ethan Erchinger/erchn
+- Evan Tatarka
+- Ewoud van Raamsdonk
+- fd0
+- Federico Galassi
+- Félix Archambault
+- Ferdinand Salis-Samaden
+- Florian Bartels
+- Florian Sachs
+- foca
+- forbesmyester
+- Frédéric de Villamil
+- Fredrik Rambris
+- Dapeng Li (luislee818)
+- Janko Marohnić (janko-m)
+- Jun Wu
+- Maurice van der Pot (Griffon26)
+- Ory Band (oryband)
+- Garrett Dawson
+- Gaveen Prabhasara
+- George Nikolopoulos
+- github username "alandyer"
+- Giuseppe Rota
+- gkalas
+- Gökhan Kocak
+- goodgravy
+- Göran Gustafsson (GLEG)
+- Graham Jans
+- Greg Marcil
+- Gregory Byrd/GByrd
+- Gustavo Barron / Cicloid
+- Gyuri Horák
+- Harald Hvaal
+- Harm Aarts
+- Harry Glaser
+- Håvard Grimelid
+- hencjo
+- Henning Hasemann
+- Henry "Ingvij" Kupty
+- henry4k
+- Heryandi
+- Hontvári József Levente
+- IKEDA, Yoshifumi
+- Ilia Choly
+- iliis
+- Ilya Katz
+- Indrek Juhkam / indrekj
+- irwand
+- Islam Sharabash / ibash
+- Ivar Vasara
+- Jack Stouffer
+- Jacqueline Leykam
+- Jakob Landbo
+- James Herdman
+- James Magness
+- James Murty / jmurty
+- James Nguyen
+- James Orr
+- James Pickard
+- James Seward
+- Jamie Hillman
+- Jan Larres
+- Jan Weitz
+- Janko Luin
+- Jannik Nielsen / bitkid
+- Jared Tyler Miller
+- Jason Imison
+- Jason Long / @jasonlong
+- Jason Stillwell/dragonfax
+- Jasu
+- javaguirre
+- Jedidiah Hurt
+- Jeff Schornick
+- Jen Patrick
+- Jens Hausherr
+- Jess Brown / Jess
+- Jesse Cooke/@jc00ke
+- Jessica Frazelle/ jfrazelle
+- Jesus Alvarez
+- Jez Allan
+- Jimmie Elvenmark
+- Jiří Koten
+- JJ Murre
+- joe di castro
+- Joe Malin/633squadron
+- Joel Meyer
+- Joey Trapp
+- Johan Klokkhammer Helsing
+- John Cant
+- John K. Paul
+- John Krueger
+- John Netherdrake
+- John Schmidt / schmee
+- John Whitley/@jwhitley
+- Jon Anhold
+- Jon Gosting
+- Jonas Rollsby
+- Jonathan Buschmann
+- Jonathan Gibert
+- Jonathan Jacobs
+- Jonathan Kinred
+- Jorge Gallegos (kad)
+- Joris Morger
+- Josemar Luedke
+- Joshua Brookover
+- Joshua Travis
+- Jouko Karvonen
+- jstemmer
+- Juan Campa
+- Juan Hernández Babón / jhbabon
+- juanolon
+- Justin Carter Moy
+- Justin Force
+- Kamil Slowikowski
+- Karl Ove Hufthammer
+- Kazuo Teramoto
+- Kevin Goslar
+- Kevin Hamer
+- Kevin Watters
+- Kevin Zimmerman / zim44
+- kryft
+- Krzysztof Adamski
+- Lachlan Brad Easton
+- Lance Ulmer
+- Larry Riedel (Larry@Riedel.org)
+- Lasse Immonen (lasse.immonen@gmail.com)
+- Léo Unbekandt / Soulou
+- Leszek Swirski
+- Levi Brown
+- lhl
+- linduxed
+- Lluis Satorre Gonzalez
+- lobachevsky
+- Louis Pilfold
+- Lucas Stephanou/lucasts
+- Lucas Werkmeister
+- Luke Sampson
+- Luke van der Hoeven / @plukevdh
+- Maciej Litwiniuk (@mlitwiniuk)
+- Mads Navntoft Noe
+- Maik Derstappen / MrTango
+- Manuel Salvadores
+- Marcus Huntemann/mapclyps
+- Marcus Martin/nymaen
+- Markus Dobler
+- Mat Moore
+- Mate Nagy
+- Mathias Fußenegger
+- Matt Moretti
+- Matthew Machuga
+- Matthew Sunderland
+- Matthias Bilger
+- Matthias Lehmann
+- Maximilian Gerlach
+- Meryn Stol
+- Michael "manveru" Fellinger
+- Michael "beefsack" Alexander
+- Michael Iles
+- Michael Irwin/mdi
+- Michael Kebe
+- Michael Lerch
+- Michael R. Jones
+- Michael Sanders/msanders
+- Michael Schall / schallm
+- Michail Denchev
+- Michał Bartoszkiewicz
+- Mickaël FORTUNATO
+- Miguel Santesmases
+- Mihir Pendse
+- Mike Bissett/paran01d
+- Mike Sergio
+- Mike Wadsten
+- mikedillion
+- Mikkel Oscar Lyderik Larsen
+- Miles Edland / edlandm
+- Miles Frain
+- Mirko Grönroos
+- Moritz Lotze
+- Morten Nygaard Åsnes
+- MrException
+- Julian Churchill (julianchurchill)
+- Nakul Dhotre
+- Corey Farwell (frewsxcv)
+- Tarrant Rollins (tarrant)
+- Naseer Ahmed
+- Nate Jones
+- Nate Soares (So8res)
+- Nate Straz
+- Neil Kirsopp
+- Nelson Chen/nelsonjchen
+- Nicholas Firth-McCoy (nfm)
+- Nick Sloan
+- Nickolas Means
+- Nicolai Ruckel
+- Niko Kivelä
+- nop
+- Nuno Frade
+- Olaf Heinemann
+- Ole Reifschneider
+- Oliver Caldwell
+- Olivier Lechevalier
+- orangain
+- orestis
+- pablasso
+- Pascal Hartig
+- Patrick Berkeley
+- Patrick Bihan-Faou, TeamBox SARL
+- Patrick Stapfer
+- Paul R Alexander
+- Pavel Afanasyev
+- Pawel Grzech
+- Paweł Nowak
+- Pedro Rodriguez T
+- Per Modin
+- Peter Edge
+- Peter Fern
+- Philipe Farias/philipefarias
+- Philipp Millar
+- Piotr Mitoraj
+- Prithvi Prabhu (prithvi)
+- Qingping Hou / houqp
+- Quasar Jarosz
+- queria
+- Rachid Zarouali / Xinity
+- Radek Szymczyszyn
+- Randy Topliffe / Taar
+- Ranko Radonić
+- Raphael Henrique Ribas
+- Ravi Joseph Pinto
+- rekab
+- Renato Zannon
+- Richard "RichiH" Hartmann
+- Richard Mihalovič
+- Richard Sotarsh Clark
+- Rio Kierkels
+- rob allen
+- Rob Bevan
+- Rob Miller @robmil
+- Rob O'Dwyer
+- Rodolfo Borges (aka bart9h)
+- Rodrigo Souto
+- Roland Szabo
+- Romans Malinovskis
+- Roshan George
+- Rostepher
+- runar
+- Russ Adams / rustushki
+- Ryan Phillips
+- Ryan Pierce/ fission1110
+- Ryan Schmitt
+- Ryan Tarpine
+- Sadik Gokhan Caglar
+- Sam Stokes
+- Sanpi
+- Santiago Suarez Ordoñez
+- saxman7000
+- Scott D'Aquila
+- Scott Mathson
+- Sean Copenhaver (@copenhas)
+- Sean McCleary
+- Sean M. Collins (sc68cal)
+- Sean Tegtmeyer
+- seanbell
+- Sebastian Geiger
+- Sergey Alexandrov
+- Shane Delmore
+- shawndumas
+- shazow
+- Silvan Jegen
+- Simon Ratner (simonratner)
+- Song Gao
+- Stanimir Angelov Mladenov
+- Stanislav B. - zbstof
+- Stefan Gojan (hoschi)
+- Stefan Hoffmann / stefan991
+- Stefan Wienert
+- Steffen Rademacker
+- Stephen Oney/soney
+- Steve "ryz" Haßenpflug
+- Steven Daniel Webb
+- Steven Sloss
+- Sven Opitz
+- Sverre Rabbelier
+- Szymon Ząbkiewicz
+- Taichi Nakamura
+- Takayuki Soga
+- Teasp00n
+- Terin Stock - @terinjokes
+- Thai Pangsakulyanont (dtinth)
+- Thameera Senanayaka
+- Theo Belaire
+- Thomas Ferris Nicolaisen
+- Thomas Hirsch
+- Thomas Maffia/Szerated
+- Thomas Pani
+- Thomas Thune Hansen
+- Thorbjørn Lindeijer
+- Thunder Hu
+- Thys Meintjes
+- Tim Anema
+- Tim Matthews
+- Timo Kröger
+- Tolstyak
+- Tom Panning
+- Tom Wadley
+- Tony Kemp
+- tonyo112
+- Tori "TicViking" Hamblin
+- treppo
+- Truman Ellis
+- Tuomas Vähänen
+- Tyler Briles/MrBri
+- Tyler Brock
+- Tyler Mandry
+- Ulf Fischer/ulf
+- Vangelis Tsoumenis
+- Vítězslav Homolka
+- Vladimir Chernis
+- Vojtech Jasny
+- vvakame
+- Vytis Valentinavičius
+- Wade Berrier
+- warrenv
+- whateverhuis
+- Will Binns-Smith
+- Xavier Antoviaque (xavier@antoviaque.org)
+- xsb
+- Yann Villessuzanne
+- yko
+- Youta Harada(cohalz)
+- Yrjö Peussa
+- Yusuke Kanda(@uskanda)
+- Yuval Langer
+- zerowidth
+- Ziling Zhao
+- Zsolt Botykai
+
+匿名支持者
+
+还有 307 位没有认领任何奖励级别但为众筹做出贡献的人。感谢大家的支持!
+
+vim:tw=78:ts=8:et:ft=help:norl:

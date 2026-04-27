@@ -1,0 +1,172 @@
+*mlang.txt*     Nvim
+
+
+		  VIM 参考手册	  able by Bram Moolenaar
+
+
+多语言功能				*multilang* *multi-lang*
+
+关于使用各种语言的消息和菜单。有关编辑多字节文本请参见 |multibyte|。
+
+基础知识在用户手册中解释: |usr_45.txt|。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 消息						*multilang-messages*
+
+Vim 从环境中获取区域设置。在大多数情况下，这意味着 Vim 将使用你偏好的
+语言，除非该语言不可用。
+
+要查看你的系统上支持的区域设置名称列表，查看以下目录之一 (Unix):
+	/usr/lib/locale ~
+	/usr/share/locale ~
+不幸的是，大小写差异很重要。还要注意 "-" 和 "_" 的使用。
+
+					    *:lan* *:lang* *:language* *E197*
+:lan[guage]
+:lan[guage] mes[sages]
+:lan[guage] cty[pe]
+:lan[guage] tim[e]
+:lan[guage] col[late]
+			打印当前语言 (即区域设置)。
+			使用 "messages" 参数打印用于消息的语言。
+			技术术语: LC_MESSAGES。
+			使用 "ctype" 参数打印用于字符编码的语言。
+			技术术语: LC_CTYPE。
+			使用 "time" 参数打印用于 strftime() 的语言。
+			技术术语: LC_TIME。
+			使用 "collate" 参数打印用于排序的语言。
+			技术术语: LC_COLLATE。
+			不带参数打印区域设置的所有部分
+			(这取决于系统)。
+			当前语言也可以通过 |v:lang|、|v:ctype|、
+			|v:collate| 和 |v:lc_time| 变量获取。
+
+:lan[guage] {name}
+:lan[guage] mes[sages] {name}
+:lan[guage] cty[pe] {name}
+:lan[guage] tim[e] {name}
+:lan[guage] col[late] {name}
+			将当前语言 (即区域设置) 设置为 {name}。
+			区域设置 {name} 必须是你系统上的有效区域设置。某些
+			系统接受别名如 "en" 或 "en_US"，但有些只接受完整
+			规范如 "en_US.ISO_8859-1"。在 Unix 系统上你可以使用
+			此命令查看支持哪些区域设置: >
+				:!locale -a
+<			使用 "messages" 参数设置用于消息的语言。当你想要
+			例如英语消息同时编辑日语文本时，这可能有所不同。
+			这设置 $LC_MESSAGES。
+			使用 "ctype" 参数设置用于字符编码的语言。这影响
+			Vim 链接的库。将它设置为与 'encoding' 不同的值
+			或 "C" 是不寻常的。这设置 $LC_CTYPE。
+			使用 "time" 参数设置用于时间和日期消息的语言。
+			这影响 strftime()。这设置 $LC_TIME。
+			使用 "collate" 参数设置用于排序顺序的语言。
+			这影响字符排序。这设置 $LC_COLLATE。
+			不带参数时设置所有，并另外设置 $LANG。
+			LC_NUMERIC 值将始终设置为 "C"，以便浮点数
+			使用 '.' 作为小数点。这会影响依赖于语言的项目
+			(某些消息、时间和日期格式)。
+			并非在所有系统上完全支持。
+			如果失败将显示错误消息。如果成功则没有消息。
+			示例: >
+				:language
+				Current language: C
+				:language de_DE.ISO_8859-1
+				:language mes
+				Current messages language: de_DE.ISO_8859-1
+				:lang mes en
+<
+
+消息文件 (vim.mo) 必须放置在 "$VIMRUNTIME/lang/xx/LC_MESSAGES" 中，
+其中 "xx" 是语言的缩写 (大多数是两个字母)。如果你编写自己的翻译，需要
+生成 .po 文件并将其转换为 .mo 文件。
+
+要覆盖语言的自动选择，将 $LANG 变量设置为你选择的语言。使用 "en" 来
+禁用翻译。 >
+
+  :let $LANG = 'ja'
+
+(Windows 相关文本由 Muraoka Taro 编写)
+
+==============================================================================
+2. 菜单						*multilang-menus*
+
+参见 |45.2| 了解基础知识，特别是使用 'langmenu'。
+
+注意如果翻译完成后对菜单进行了更改，某些菜单可能会以英语显示。请尝试联系
+翻译的维护者并请他更新。你可以在
+"$VIMRUNTIME/lang/menu_<lang>.vim" 中找到翻译者的姓名和电子邮件地址。
+
+要设置菜单使用的字体，使用 |:highlight| 命令。示例: >
+
+	:highlight Menu font=k12,r12
+
+
+别名区域设置名称
+
+不幸的是，各系统上的区域设置名称不同，即使它们是相同的语言和编码。如果
+你没有得到预期的菜单翻译，检查此命令的输出: >
+
+	echo v:lang
+
+现在检查 "$VIMRUNTIME/lang" 目录中使用类似语言的菜单翻译文件。"-" 和 "_"
+之间的差异就会导致找不到文件! 另一个需要注意的常见差异是 "iso8859-1" 与
+"iso_8859-1"。幸运的是 Vim 将所有名称转为小写，因此你不需要担心大小写
+差异。空格被更改为下划线，以避免需要转义。
+
+如果你发现了语言的菜单翻译文件但名称不同，在你自己的运行时目录中创建一个
+文件来加载那个文件。该文件的名称可以是: >
+
+	~/.config/nvim/lang/menu_<v:lang>.vim
+
+检查 'runtimepath' 选项以了解搜索的目录。在该文件中放置一个命令来加载
+具有其他名称的菜单文件: >
+
+	runtime lang/menu_<other_lang>.vim
+
+
+翻译菜单
+
+如果你想做自己的翻译，可以使用 |:menutrans| 命令，下面解释。建议将一种
+语言的翻译放在一个 Vim 脚本中。对于尚未翻译的语言，请考虑成为维护者并
+使你的翻译对所有 Vim 用户可用。发送电子邮件到 Vim 维护者
+<maintainer@vim.org>。
+
+					*:menut* *:menutrans* *:menutranslate*
+:menut[ranslate] clear
+			清除所有菜单翻译。
+
+:menut[ranslate] {english} {mylang}
+			将菜单名称 {english} 翻译为 {mylang}。所有特殊
+			字符如 "&" 和 "<Tab>" 需要包含在内。空格和点需要
+			用反斜杠转义，就像其他 |:menu| 命令一样。
+			{english} 的大小写被忽略。
+
+参见 $VIMRUNTIME/lang 目录中的示例。
+
+要试用你的翻译，首先需要删除所有菜单。以下是不重启 Vim 即可完成的方法: >
+	:source $VIMRUNTIME/delmenu.vim
+	:source <your-new-menu-file>
+	:source $VIMRUNTIME/menu.vim
+
+菜单路径的每个部分分别翻译。结果是当 "Help" 翻译为 "Hilfe" 且 "Overview"
+翻译为 "Überblick" 时，"Help.Overview" 将翻译为 "Hilfe.Überblick"。
+
+==============================================================================
+3. 脚本						*multilang-scripts*
+
+在 Vim 脚本中你可以使用 |v:lang| 变量获取当前语言 (区域设置)。默认值是
+"C" 或来自 $LANG 环境变量。
+
+以下示例展示了如何以简单的方式使用此变量，使消息适应用户的语言偏好, >
+
+	:if v:lang =~ "de_DE"
+	:  echo "Guten Morgen"
+	:else
+	:  echo "Good morning"
+	:endif
+<
+
+ vim:tw=78:sw=4:ts=8:noet:ft=help:norl:

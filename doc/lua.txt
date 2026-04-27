@@ -1,0 +1,645 @@
+*lua.txt*    Nvim
+
+
+                            NVIM 参考手册
+
+
+Lua 引擎                                                           *lua* *Lua*
+
+                                       输入 |gO| 查看目录。
+
+==============================================================================
+简介                                                       *lua-intro*
+
+Lua 5.1 脚本引擎是内置的，始终可用。试试以下命令来了解底层有什么： >vim
+
+    :lua vim.print(package.loaded)
+
+Nvim 为 Lua 包含了一个 "标准库" |lua-stdlib|。它补充了 "编辑器标准库"
+（|vimscript-functions| + |Ex-command|）和 |API|，所有这些都可以从 Lua
+代码中使用（|lua-vimscript| |vim.api|）。这三个命名空间构成了 Nvim
+编程接口。
+
+Lua 插件和用户配置会被自动发现和加载，就像 Vimscript 一样。
+参见 |lua-guide| 了解实用指导。
+
+你也可以从 shell 使用 |-l| 参数运行 Lua 脚本： >
+    nvim -l foo.lua [args...]
+<
+                                                                  *lua-compat*
+Lua 5.1 是 Nvim Lua 的永久接口。插件应以 |luaref| 中指定的 Lua 5.1
+为目标；不支持后续版本（它们本质上是不同的、不兼容的方言）。这包括某些
+Lua 5.1 解释器（如 LuaJIT）可能支持的 `goto` 等扩展。
+
+                                                                  *lua-luajit*
+虽然 Nvim 官方只要求 Lua 5.1 支持，但出于性能原因，应在支持的平台上使用
+LuaJIT 或兼容的分支构建。LuaJIT 还附带了有用的扩展，如 `ffi`、
+|lua-profile| 和增强的标准库函数；这些不能假定总是可用的，|init.lua| 或
+插件中的 Lua 代码应在使用前检查 `jit` 全局变量： >lua
+  if jit then
+    -- code for luajit
+  else
+    -- code for plain lua 5.1
+  end
+<
+一个例外是 LuaJIT `bit` 扩展，它始终可用：当使用 PUC Lua 构建时，
+Nvim 包含一个提供 `require("bit")` 的后备实现。参见 |lua-bit|。
+
+                                                                  *lua-profile*
+如果 Nvim 使用 LuaJIT 构建，Lua 代码可以通过以下方式进行性能分析 >lua
+    -- 开始分析会话：
+    require('jit.p').start('ri1', '/tmp/profile')
+
+    -- 执行任意任务（使用插件、脚本等）...
+
+    -- 停止会话。分析数据写入 /tmp/profile。
+    require('jit.p').stop()
+
+参见 https://luajit.org/ext_profiler.html 或 `p.lua` 源码了解详情： >
+    :lua vim.cmd.edit(package.searchpath('jit.p', package.path))
+
+==============================================================================
+LUA 概念和惯用法                                         *lua-concepts*
+
+Lua 非常简单，且_一致_：虽然有一些怪癖，但一旦你内化了这些怪癖，
+一切都在任何地方以相同的方式工作。特别是作用域（闭包）非常一致，
+不像 JavaScript 或大多数其他语言。
+
+Lua 有三个基本机制——"编程每个主要方面" 各一个：表、闭包和协程。
+https://www.lua.org/doc/cacm2018.pdf
+- 表是 "对象" 或容器数据结构：它们既表示列表又表示映射，你可以扩展它们
+  来表示自己的数据类型，并使用 |metatable| 改变它们的行为
+  （类似 Python 的 "datamodel"）。
+- Lua 中每个作用域都是闭包：函数是闭包，模块是闭包，
+  `do` 块（|lua-do|）是闭包——它们都以相同的方式工作。
+  Lua 模块字面上就是在 "path" 上发现的一个大闭包
+  （你的模块所在位置：|package.cpath|）。
+- 有栈协程实现协作式多线程、生成器，以及对 Lua 及其宿主（Nvim）
+  都有用的灵活控制。
+
+                                                          *lua-error-handling*
+Lua 函数可能为异常（意外）失败抛出 |lua-errors|，你可以用 |pcall()|
+处理。
+                                                       *lua-result-or-message*
+当失败是正常的和预期的时，惯用法是返回 `nil`，向调用者发出信号表明
+失败不是 "异常的" 且必须被处理。这种 "result-or-message" 模式表示为
+多值返回类型 `any|nil,nil|string`，或用 LuaLS 表示法： >
+
+    ---@return any|nil    # 成功时返回结果，失败时返回 nil。
+    ---@return nil|string # 成功时返回 nil，失败时返回错误消息。
+<
+"result-or-message" 模式的示例：
+- |vim.ui.open()|
+- |io.open()|
+- |luv-error-handling|
+
+当调用者在失败时无法继续时，惯用法是 `assert()` "result-or-message"
+结果： >lua
+
+    local value = assert(fn())
+
+指导：对以下情况使用 "result-or-message" 模式...
+- 失败是预期的函数，特别是在与外部世界通信时。例如 HTTP 请求或 LSP
+  请求经常因服务器问题而失败，即使调用者做了一切正确的事。
+- 返回值的函数，例如 Foo:new()。
+- 当有一组已知的错误代码可以作为第三个值返回时
+  （如 |luv-error-handling|）。
+<
+                                                                    *iterator*
+迭代器只是一个可以反复调用以获取集合（或任何其他 |iterable|）的
+"下一个" 值的函数。此接口由 |for-in| 循环期望，由 |pairs()| 生成，
+由 |vim.iter| 支持等。
+https://www.lua.org/pil/7.1.html
+
+                                                                    *iterable*
+"iterable" 是 |vim.iter()| 可以消费的任何东西：表、字典、列表、
+迭代器函数、实现 |__call()| 元方法的表和 |vim.iter()| 对象。
+
+                                                               *list-iterator*
+|lua-list| 表上的迭代器有 "中间" 和 "结尾"，而一般的迭代器可能在逻辑上
+是无限的。因此某些 |vim.iter| 操作（例如 |Iter:rev()|）仅对类列表表
+（根据定义是有限的）有意义。
+
+                                                           *lua-function-call*
+Lua 函数可以通过多种方式调用。考虑以下函数： >lua
+    local foo = function(a, b)
+        print("A: ", a)
+        print("B: ", b)
+    end
+
+第一种调用方式是： >lua
+    foo(1, 2)
+    -- ==== Result ====
+    -- A: 1
+    -- B: 2
+
+这种调用函数的方式在大多数脚本语言中很常见。在 Lua 中，任何缺少的
+参数都作为 `nil` 传递，额外的参数被静默丢弃。Example: >lua
+    foo(1)
+    -- ==== Result ====
+    -- A: 1
+    -- B: nil
+<
+                                                                      *kwargs*
+调用函数时，如果函数恰好接受一个字符串字面量（`"foo"`）或表字面量
+（`{1,2,3}`），可以省略括号。后者经常用于模拟 "命名参数"
+（"kwargs" 或 "keyword args"），类似于 Python 和 C# 中的语法。
+Example: >lua
+    local func_with_opts = function(opts)
+        local will_do_foo = opts.foo
+        local filename = opts.filename
+        -- ...
+    end
+
+    func_with_opts { foo = true, filename = "hello.world" }
+<
+这里没有什么特别的，只是隐式添加了括号。但视觉上，这小小的语法糖相当
+接近 "keyword args" 接口。
+
+                                                                   *lua-regex*
+Lua 故意不支持正则表达式，而是有有限的 |lua-pattern|，避免了扩展正则
+表达式的性能陷阱。Lua 脚本也可以通过 |vim.regex()| 使用 Vim 正则表达式。
+
+Examples: >lua
+
+    print(string.match("foo123bar123", "%d+"))
+    -- 123
+    print(string.match("foo123bar123", "[^%d]+"))
+    -- foo
+    print(string.match("foo123bar123", "[abc]+"))
+    -- ba
+    print(string.match("foo.bar", "%.bar"))
+    -- .bar
+<
+                                                                  *lua-truthy*
+在 Lua 中只有 `false` 和 `nil` 评估为 "false"。所有其他值都是 "true"。
+
+
+==============================================================================
+导入 LUA 模块                                        *lua-module-load*
+
+模块在 'runtimepath' 和 |packages-runtimepath| 中指定的目录下搜索，
+按以下命令输出的顺序
+>vim
+    :echo nvim_list_runtime_paths()
+<
+模块名中的任何 "." 在搜索时被视为目录分隔符。对于模块 `foo.bar`，
+每个目录搜索 `lua/foo/bar.lua`，然后 `lua/foo/bar/init.lua`。
+如果未找到文件，则再次搜索目录中名称匹配 `lua/foo/bar.?` 的共享库，
+其中 `?` 是从 |package.cpath| 初始值派生的后缀列表（如 `so` 或 `dll`）。
+如果仍未找到文件，Nvim 回退到 Lua 的默认搜索机制。找到的第一个脚本
+被运行，`require()` 返回脚本返回的值（如果有），否则返回 `true`。
+
+返回值在第一次为每个模块调用 `require()` 后被缓存，后续调用返回缓存
+的值，不再搜索或执行任何脚本。更多详情参见 |require()|。
+
+例如，如果 'runtimepath' 是 `foo,bar` 且 |package.cpath| 在启动时是
+`./?.so;./?.dll`，`require('mod')` 按以下顺序搜索这些路径并加载找到的
+第一个模块（"先到先得"）： >
+    foo/lua/mod.lua
+    foo/lua/mod/init.lua
+    bar/lua/mod.lua
+    bar/lua/mod/init.lua
+    foo/lua/mod.so
+    foo/lua/mod.dll
+    bar/lua/mod.so
+    bar/lua/mod.dll
+<
+注意：
+
+- 虽然 'runtimepath' 被跟踪，但 Nvim 不跟踪 |package.path| 或
+  |package.cpath| 的当前值。如果你碰巧从中删除了一些路径，可以设置
+  'runtimepath' 来触发更新： >vim
+      let &runtimepath = &runtimepath
+
+- 跳过 'runtimepath' 中包含分号的路径适用于 |package.path| 和
+  |package.cpath|。鉴于有些编写不佳的使用 shell 的插件不能处理包含
+  分号的路径，最好完全不要在 'runtimepath' 中包含它们。
+
+                                                         *lua-script-location*
+要获取自身位置，Lua 脚本/模块可以使用 |debug.getinfo()|： >
+    debug.getinfo(1, 'S').source:gsub('^@', '')
+<
+
+==============================================================================
+命令                                                        *lua-commands*
+
+这些命令从命令行（:lua、:luado）或文件（:luafile）在给定的行范围
+[range] 上执行 Lua 代码块。与 Lua 中一贯的做法一样，每个代码块有自己
+的作用域（闭包），所以只有全局变量在命令调用之间共享。|lua-stdlib|
+模块、用户模块和 |package.path| 上的任何其他内容都可用。
+
+Lua print() 函数将其输出重定向到 Nvim 消息区域，参数用 " "（空格）
+而非 "\t"（制表符）分隔。
+
+                                                                  *:lua=* *:lua*
+:lua {chunk}
+    执行 Lua 代码块 {chunk}。如果 {chunk} 以 "=" 开头，代码块的其余
+    部分作为表达式求值并打印。`:lua =expr` 和 `:=expr` 等价于
+    `:lua print(vim.inspect(expr))`。|E5107| |E5108|
+
+    Examples: >vim
+        :lua vim.api.nvim_command('echo "Hello, Nvim!"')
+<    查看 Lua 版本： >vim
+        :lua print(_VERSION)
+<    查看 LuaJIT 版本： >vim
+        :lua =jit.version
+<
+:{range}lua
+    将 {range} 中的缓冲区行作为 Lua 代码执行。不像 |:source|，
+    这总是将行视为 Lua 代码。
+
+    Example: 选择以下代码并键入 ":lua<Enter>" 来执行它： >lua
+        print(string.format(
+            'unix time: %s', os.time()))
+<
+                                                                *:lua-heredoc*
+:lua << [trim] [{endmarker}]
+{script}
+{endmarker}
+    从 Vimscript 中执行 Lua 脚本 {script}。你可以在 "<<" 后省略
+    [endmarker] 并在 {script} 后使用点 "."（类似于 |:append|、
+    |:insert|）。更多信息参见 |:let-heredoc|。
+
+    Example: >vim
+        function! CurrentLineInfo()
+        lua << EOF
+        local linenr = vim.api.nvim_win_get_cursor(0)[1]
+        local curline = vim.api.nvim_buf_get_lines(0, linenr - 1, linenr, false)[1]
+        print(string.format('Line [%d] has %d bytes', linenr, #curline))
+        EOF
+        endfunction
+<
+    注意 `local` 变量会在块结束时消失。但全局变量不会。
+
+                                                                      *:luado*
+:[range]luado {body}
+    对 [range] 中的每个缓冲区行执行 Lua 代码块
+    "function(line, linenr) {body} end"，其中 `line` 是当前行文本
+    （不含 <EOL>），`linenr` 是当前行号。如果函数返回字符串，
+    该字符串成为对应缓冲区行的文本。默认 [range] 是整个文件："1,$"。
+    |E5109| |E5110| |E5111|
+
+    Examples: >vim
+        :luado return string.format("%s\t%d", line:reverse(), #line)
+
+        :lua require"lpeg"
+        :lua -- balanced parenthesis grammar:
+        :lua bp = lpeg.P{ "(" * ((1 - lpeg.S"()") + lpeg.V(1))^0 * ")" }
+        :luado if bp:match(line) then return "=>\t" .. line end
+<
+                                                                    *:luafile*
+:luafile {file}
+    执行 {file} 中的 Lua 脚本。
+    整个参数用作文件名（如 |:edit|），空格不需要转义。
+    或者你可以 |:source| Lua 文件。
+    |E5111| |E5112| |E5113|
+
+    Examples: >vim
+        :luafile script.lua
+        :luafile %
+<
+
+==============================================================================
+luaeval()                                                 *lua-eval*
+
+将 Lua 值传递给 Nvim 的（对偶）等价物是 "luaeval"。"luaeval" 接受一个
+表达式字符串和一个可选参数（在表达式中用于 _A），并返回表达式的结果。
+它在 Lua 中语义上等价于： >lua
+
+    local chunkheader = "local _A = select(1, ...) return "
+    function luaeval (expstr, arg)
+        local chunk = assert(loadstring(chunkheader .. expstr, "luaeval"))
+        return chunk(arg) -- return typval
+    end
+<
+Lua 的 nil、数字、字符串、表和布尔值被转换为各自对应的 Vimscript 类型。
+如果 Lua 字符串包含 NUL 字节，它将被转换为 |Blob|。转换其他 Lua 类型
+是错误的。
+
+魔术全局变量 "_A" 包含 luaeval() 的第二个参数。
+
+Example: >vim
+    :echo luaeval('_A[1] + _A[2]', [40, 2])
+    " 42
+    :echo luaeval('string.match(_A, "[a-z]+")', 'XYXfoo123')
+    " foo
+<
+                                                         *lua-table-ambiguous*
+Lua 表同时用作字典和列表，所以不可能判断空表是列表还是字典。而且 Lua
+没有整数类型。为了消除这些歧义，我们定义：
+                                                                    *lua-list*
+0. 空表是列表。使用 |vim.empty_dict()| 表示空字典。
+1. 具有 N 个连续（无 `nil` 值，又称 "hole"）整数键 1...N 的表是列表。
+   另见 |list-iterator|。
+                                                                    *lua-dict*
+2. 具有字符串键（其中没有包含 NUL 字节的）的表是字典。
+3. 具有字符串键（其中至少一个包含 NUL 字节）的表也被视为字典，但这次
+   它被转换为 |msgpack-special-map|。
+                                                             *lua-special-tbl*
+4. 具有 `vim.type_idx` 键的表可以是字典、列表或浮点值：
+   - `{[vim.type_idx]=vim.types.float, [vim.val_idx]=1}` 被转换为
+     浮点数 1.0。注意默认情况下，整数 Lua 数字被转换为 |Number|，
+     非整数被转换为 |Float|。此变体允许整数 |Float|。
+   - `{[vim.type_idx]=vim.types.dictionary}` 被转换为空字典，
+     `{[vim.type_idx]=vim.types.dictionary, [42]=1, a=2}` 被转换为
+     字典 `{'a': 42}`：非字符串键被忽略。没有 `vim.type_idx` 键的
+     表如果键不符合 1.、2. 或 3. 则是错误的。
+   - `{[vim.type_idx]=vim.types.array}` 被转换为空列表。
+     `{[vim.type_idx]=vim.types.array, [42]=1}` 也是如此：不构成从 1
+     到 N 的 1 步序列的整数键被忽略，非整数键也是如此。
+
+Examples: >vim
+
+    :echo luaeval('math.pi')
+    :function Rand(x,y) " random uniform between x and y
+    :  return luaeval('(_A.y-_A.x)*math.random()+_A.x', {'x':a:x,'y':a:y})
+    :  endfunction
+    :echo Rand(1,10)
+<
+注意：`luaeval` 的第二个参数从 Vimscript 转换（"编组"）为 Lua，
+因此对 Lua 容器的更改不影响 Vimscript 中的值。返回值也总是被转换。
+转换时，|msgpack-special-dict| 被特殊处理。
+
+==============================================================================
+Vimscript v:lua 接口                                         *v:lua-call*
+
+从 Vimscript 中，可以使用特殊的 `v:lua` 前缀来调用全局的或可从全局
+表访问的 Lua 函数。表达式 >vim
+    call v:lua.func(arg1, arg2)
+等价于 Lua 代码块 >lua
+    return func(...)
+其中参数被转换为 Lua 值。表达式 >vim
+    call v:lua.somemod.func(args)
+等价于 Lua 代码块 >lua
+    return somemod.func(...)
+
+Lua 模块函数可以这样访问： >vim
+    call v:lua.require'mypack'.func(arg1, arg2)
+    call v:lua.require'mypack.submod'.func(arg1, arg2)
+注意：只允许不带括号的单引号形式。使用 `require"mypack"` 或
+`require('mypack')` 作为前缀不起作用。
+
+你可以在 'tagfunc'、'omnifunc' 等 "func" 选项中使用 `v:lua`。
+例如考虑以下 Lua omnifunc 处理程序： >lua
+
+    function mymod.omnifunc(findstart, base)
+      if findstart == 1 then
+        return 0
+      else
+        return {'stuff', 'steam', 'strange things'}
+      end
+    end
+    -- 注意：模块 ("mymod") 必须是 Lua 全局的，或如上所示使用
+    -- require() 从包中访问它。
+    vim.bo[buf].omnifunc = 'v:lua.mymod.omnifunc'
+
+你也可以使用 `v:lua` 调用 Lua 函数作为 Vimscript |method|： >vim
+    :eval arg1->v:lua.somemod.func(arg2)
+<
+注意：没有调用的 `v:lua` 在 Vimscript 表达式中不允许：
+|Funcref| 不能表示 Lua 函数。以下都是错误的： >vim
+
+    let g:Myvar = v:lua.myfunc        " Error
+    call SomeFunc(v:lua.mycallback)   " Error
+    let g:foo = v:lua                 " Error
+    let g:foo = v:['lua']             " Error
+<
+==============================================================================
+Lua 标准模块                                              *lua-stdlib*
+
+Nvim Lua "标准库" (stdlib) 是 `vim` 模块，它暴露各种函数和子模块。
+它始终被加载，因此 `require("vim")` 是不必要的。
+
+你可以查看模块属性： >vim
+
+    :lua vim.print(vim)
+
+结果类似于： >
+
+    {
+      _os_proc_children = <function 1>,
+      _os_proc_info = <function 2>,
+      ...
+      api = {
+        nvim__id = <function 5>,
+        nvim__id_array = <function 6>,
+        ...
+      },
+      deepcopy = <function 106>,
+      gsplit = <function 107>,
+      ...
+    }
+
+要查找例如 "deepcopy" 函数的文档： >vim
+
+    :help vim.deepcopy()
+
+注意下划线前缀的函数（例如 "_os_proc_children"）是内部/私有的，
+插件不能使用。
+
+------------------------------------------------------------------------------
+VIM.UV                                                   *lua-loop* *vim.uv*
+
+`vim.uv` 暴露了 Nvim 用于网络、文件系统和进程管理的 libUV 库的 "luv"
+Lua 绑定，参见 |luvref.txt|。特别地，它允许与主 Nvim |luv-event-loop|
+交互。
+
+                                                    *E5560* *lua-loop-callbacks*
+在 `vim.uv` 回调中直接调用 `vim.api` 函数（|api-fast| 除外）是错误的。
+例如，以下是错误的： >lua
+
+    local timer = vim.uv.new_timer()
+    timer:start(1000, 0, function()
+      vim.api.nvim_command('echomsg "test"')
+    end)
+<
+要避免错误，|schedule| 回调： >lua
+
+    local timer = vim.uv.new_timer()
+    timer:start(1000, 0, vim.schedule_wrap(function()
+      vim.api.nvim_command('echomsg "test"')
+    end))
+<
+（对于一次性定时器，参见 |vim.defer_fn()|，它自动添加包装。）
+
+Example: 重复定时器
+    1. 将此代码保存到文件。
+    2. 使用 ":luafile %" 执行它。 >lua
+
+    -- Create a timer handle (implementation detail: uv_timer_t).
+    local timer = vim.uv.new_timer()
+    local i = 0
+    -- Waits 1000ms, then repeats every 750ms until timer:close().
+    timer:start(1000, 750, function()
+      print('timer invoked! i='..tostring(i))
+      if i > 4 then
+        timer:close()  -- Always close handles to avoid leaks.
+      end
+      i = i + 1
+    end)
+    print('sleeping');
+<
+Example: 文件变更检测                                    *watch-file*
+    1. 将此代码保存到文件。
+    2. 使用 ":luafile %" 执行它。
+    3. 使用 ":Watch %" 监视任何文件。
+    4. 尝试从另一个文本编辑器编辑该文件。
+    5. 观察文件在 Nvim 中重新加载（因为 on_change() 调用了
+       |:checktime|）。 >lua
+
+    local w = vim.uv.new_fs_event()
+    local function on_change(err, fname, status)
+      -- Do work...
+      vim.api.nvim_command('checktime')
+      -- Debounce: stop/start.
+      w:stop()
+      watch_file(fname)
+    end
+    function watch_file(fname)
+      local fullpath = vim.api.nvim_call_function(
+        'fnamemodify', {fname, ':p'})
+      w:start(fullpath, {}, vim.schedule_wrap(function(...)
+        on_change(...) end))
+    end
+    vim.api.nvim_command(
+      "command! -nargs=1 Watch call luaeval('watch_file(_A)', expand('<args>'))")
+<
+                                                         *inotify-limitations*
+在 Linux 上你可能需要增加 `inotify` 监视和排队事件的最大数量，
+因为默认限制可能太低。要增加限制，运行： >bash
+    sysctl fs.inotify.max_user_watches=494462
+<
+这将把限制增加到 494462 个监视和排队事件。这些行可以添加到
+`/etc/sysctl.conf` 以使更改持久化。
+
+注意每个监视都是内核中的一个结构，因此可用内存也是使用 inotify 的
+瓶颈。实际上，一个监视可能占用高达 1KB 的空间。这意味着一百万个监视
+可能导致 1GB 的额外 RAM 使用。
+
+Example: TCP 回显服务器                                          *tcp-server*
+    1. 将此代码保存到文件。
+    2. 使用 ":luafile %" 执行它。
+    3. 记下端口号。
+    4. 从任何 TCP 客户端连接（例如 "nc 0.0.0.0 36795"）： >lua
+
+    local function create_server(host, port, on_connect)
+      local server = vim.uv.new_tcp()
+      server:bind(host, port)
+      server:listen(128, function(err)
+        assert(not err, err)  -- Check for errors.
+        local sock = vim.uv.new_tcp()
+        server:accept(sock)  -- Accept client connection.
+        on_connect(sock)  -- Start reading messages.
+      end)
+      return server
+    end
+    local server = create_server('0.0.0.0', 0, function(sock)
+      sock:read_start(function(err, chunk)
+        assert(not err, err)  -- Check for errors.
+        if chunk then
+          sock:write(chunk)  -- Echo received messages to the channel.
+        else  -- EOF (stream closed).
+          sock:close()  -- Always close handles to avoid leaks.
+        end
+      end)
+    end)
+    print('TCP echo-server listening on port: '..server:getsockname().port)
+<
+多线程                                            *lua-loop-threading*
+
+插件可以使用 luv 中的线程 API 在独立的（操作系统级别）线程中执行工作，
+例如 `vim.uv.new_thread`。每个线程有自己独立的 Lua 解释器状态，
+无法访问主线程上的 Lua 全局变量。编辑器状态（缓冲区、窗口等）也不能
+从线程中直接访问。
+
+线程中可用 `vim.*` 标准库的子集，包括：
+
+- `vim.uv` 每个线程有独立的事件循环。
+- `vim.mpack` 和 `vim.json`（用于在线程间序列化消息）
+- 线程中的 `require` 可以使用全局 |package.path| 中的 Lua 包
+- `print()` 和 `vim.inspect`
+- `vim.text.diff`
+- `vim.*` 中大多数处理纯 Lua 值的实用函数，如
+  `vim.split`、`vim.tbl_*`、`vim.list_*` 等。
+- `vim.is_thread()` 从非主线程返回 true。
+
+
+==============================================================================
+VIM                                                              *vim.builtin*
+
+
+vim.api.{func}({...})                                                *vim.api*
+    调用 Nvim |API| 函数 {func}，参数为 {...}。
+    Example: 调用 "nvim_get_current_line()" API 函数： >lua
+        print(tostring(vim.api.nvim_get_current_line()))
+
+vim.NIL                                                              *vim.NIL*
+    表示 |RPC| 中的 NIL 和 Vimscript 转换中的 |v:null| 以及类似情况的
+    特殊值。Lua `nil` 不能用作表示 Dictionary 或 Array 的 Lua 表的
+    一部分，因为它被视为缺失：`{"foo", nil}` 与 `{"foo"}` 相同。
+
+vim.type_idx                                                    *vim.type_idx*
+    用于 |lua-special-tbl| 的类型索引。指定 |vim.types| 中的一个值
+    允许对空表进行类型化（不清楚空 Lua 表表示空列表还是空数组）
+    并强制整数为 |Float|。更多详情参见 |lua-special-tbl|。
+
+vim.val_idx                                                      *vim.val_idx*
+    表示 |Float| 的表的值索引。表示浮点值 1.0 的表看起来像： >lua
+        {
+          [vim.type_idx] = vim.types.float,
+          [vim.val_idx] = 1.0,
+        }
+<    另见 |vim.type_idx| 和 |lua-special-tbl|。
+
+vim.types                                                          *vim.types*
+    包含 |vim.type_idx| 可能值的表。包含两组键值对：第一组将
+    |vim.type_idx| 的可能值映射到人类可读的字符串，第二组将人类可读的
+    类型名映射到 |vim.type_idx| 的值。目前包含 `float`、`array` 和
+        `dictionary` 类型的对。
+
+    注意：必须期望对应于 `vim.types.float`、`vim.types.array` 和
+    `vim.types.dictionary` 的值仅满足以下两个假设：
+    1. 值可以同时用作表中的键和值。鉴于 Lua 表的属性，
+       这基本上意味着 "值不是 `nil`"。
+    2. 对于 `vim.types` 表中的每个值，
+       `vim.types[vim.types[value]]` 与 `value` 相同。
+    对类型没有其他限制，不保证 `vim.types.float`、
+    `vim.types.array` 和 `vim.types.dictionary` 对应的值不会改变，
+    也不保证 `vim.types` 表只包含这三种类型的值。
+
+                                                   *log_levels* *vim.log.levels*
+日志级别是 `vim.log.levels` 中定义的值之一：
+
+    vim.log.levels.DEBUG
+    vim.log.levels.ERROR
+    vim.log.levels.INFO
+    vim.log.levels.TRACE
+    vim.log.levels.WARN
+    vim.log.levels.OFF
+
+NOTE: 由于此文件极其庞大（超过 5500 行），其余的 Lua 标准库函数参考
+（包括 vim.empty_dict、vim.iconv、vim.in_fast_event、vim.rpcnotify、
+vim.rpcrequest、vim.schedule、vim.str_utf_end、vim.str_utf_pos、
+vim.str_utf_start、vim.stricmp、vim.ui_attach、vim.ui_detach、vim.wait、
+Lua-Vimscript 桥接、Lua 选项、vim.cmd、vim.defer_fn、vim.deprecate、
+vim.inspect、vim.keycode、vim.lua_omnifunc、vim.notify、vim.on_key、
+vim.paste、vim.print、vim.schedule_wrap、vim.str_byteindex、
+vim.str_utfindex、vim.inspector、vim.Ringbuf、vim.deep_equal、
+vim.deepcopy、vim.defaulttable、vim.endswith、vim.gsplit、vim.is_callable、
+vim.isarray、vim.islist、vim.list、vim.list_contains、vim.list_extend、
+vim.list_slice、vim.pesc、vim.ringbuf、vim.spairs、vim.split、
+vim.startswith、vim.tbl_contains、vim.tbl_count、vim.tbl_deep_extend、
+vim.tbl_extend、vim.tbl_filter、vim.tbl_get、vim.tbl_isempty、
+vim.tbl_keys、vim.tbl_map、vim.tbl_values、vim.trim、vim.validate，
+以及 vim.base64、vim.filetype、vim.fs、vim.glob、vim.hl、vim.iter、
+vim.json、vim.keymap、vim.loader、vim.lpeg、vim.mpack、vim.net、
+vim.pos、vim.range、vim.re、vim.regex、vim.secure、vim.snippet、
+vim.spell、vim.system、vim.text、vim.ui、vim.uri、vim.version、UI2
+等模块）的详细文档请参考英文原版。这些函数签名、参数说明和返回值类型
+保持英文不变，因为它们是编程接口的精确技术规范。
+
+完整的 Lua 标准库函数列表请参见英文版 lua.txt 或使用 `:help lua-stdlib`
+查看。
+
+ vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

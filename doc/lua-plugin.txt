@@ -1,0 +1,320 @@
+*lua-plugin.txt*                     Nvim
+
+                            NVIM REFERENCE MANUAL
+
+                   Nvim Lua 插件开发指南
+
+
+                                       Type |gO| to see the table of contents.
+
+==============================================================================
+简介                                                               *lua-plugin*
+
+本文档为开发 Nvim Lua 插件提供指导。
+
+参见 |lua-guide| 了解如何使用 Lua 配置和操作 Nvim。
+参见 |luaref| 和 |lua-concepts| 了解 Lua 编程语言的细节。
+
+==============================================================================
+创建你的第一个插件                                           *lua-plugin-new*
+
+任何位于正确目录中的 Vimscript 或 Lua 代码文件都会自动成为"插件"。不需要
+清单文件或"注册"步骤。
+
+你现在就可以尝试：
+
+1. 进入你的配置目录： >
+    :exe 'edit' stdpath('config')
+2. 在其中创建 `plugin/foo.lua` 文件。
+3. 添加一些内容，例如： >lua
+    vim.print('Hello World')
+4. 启动 `nvim`，注意它在消息区域打印了 "Hello World"。
+   如果没看到，请检查 `:messages`。
+
+除了在启动时总是运行的 `plugin/foo.lua` 之外，你还可以在 `lua/` 目录中定义
+Lua 模块。这些模块不会被加载，直到你的 `plugin/foo.lua` 或用户调用
+`require(…)`。
+
+==============================================================================
+类型安全                                               *lua-plugin-type-safety*
+
+Lua 作为一种动态类型语言，非常适合做配置。它能提供几乎即时的反馈。
+但对于大型项目来说，这可能是一把双刃剑，使你的插件容易在不恰当的时候出现
+意外的 bug。
+
+你可以利用 LuaCATS 或 "emmylua" 注解 https://luals.github.io/wiki/annotations/
+配合 lua-language-server ("LuaLS") https://luals.github.io/ 在 CI 中发现
+潜在的 bug，赶在你的插件用户之前。Nvim 代码库广泛使用这些注解。
+
+工具
+
+- lua-typecheck-action https://github.com/marketplace/actions/lua-typecheck-action
+- lua-language-server https://luals.github.io
+
+==============================================================================
+按键映射                                                  *lua-plugin-keymaps*
+
+避免自动创建过多的按键映射。这样做可能会与用户的 |mapping| 冲突。
+
+注意：对于特定文件类型或浮动窗口的缓冲区局部 |mapping|，或者 <Plug> 映射，
+      是没有争议的按键映射的例子。
+
+允许按键映射配置的常见方法是通过 `setup` 函数定义声明式 DSL
+https://en.wikipedia.org/wiki/Domain-specific_language。
+
+然而，这样做意味着
+
+- 你需要自己实现和编写文档。
+- 如果另一个插件有稍微不同的 DSL，用户可能会面临不一致的问题。
+- 如果插件未安装或被禁用，调用此类 `setup` 函数的 |init.lua| 脚本可能会
+  抛出错误。
+
+作为替代方案，你可以提供 |<Plug>| 映射，让用户使用 |vim.keymap.set()| 定义
+自己的按键映射。
+
+- 这只需要在用户配置中写一行代码。
+- 即使你的插件未安装或被禁用，创建按键映射也不会抛出错误。
+
+另一个选择是简单地暴露一个 Lua 函数或 |user-commands|。
+
+|<Plug>| 映射的一些好处是你可以
+
+- 强制设置选项如 `expr = true`。
+- 使用 |vim.keymap| 内置的模式处理来仅为特定的 |map-modes| 暴露功能。
+- 用单个映射对不同的 |map-modes| 做不同处理，而无需在底层实现中添加模式检查。
+- 通过 |hasmapto()| 检测用户定义的映射，然后再创建默认映射。
+
+暴露 Lua 函数的一些好处是：
+
+- 可扩展性，如果函数接受一个选项表作为参数。
+- 更简洁的用户体验，如果有很多选项且枚举所有选项组合会产生大量的 |<Plug>|
+  映射。
+
+注意：如果你的函数接受选项表，用户可能仍然受益于为最常见组合提供的 |<Plug>|
+      映射。
+
+按键映射示例
+
+在你的插件中：
+>lua
+    vim.keymap.set('n', '<Plug>(SayHello)', function()
+        print('Hello from normal mode')
+    end)
+
+    vim.keymap.set('v', '<Plug>(SayHello)', function()
+        print('Hello from visual mode')
+    end)
+<
+在用户的配置中：
+>lua
+    vim.keymap.set({'n', 'v'}, '<leader>h', '<Plug>(SayHello)')
+<
+==============================================================================
+初始化                                                   *lua-plugin-init*
+
+严格分离配置和智能初始化可以让你的插件开箱即用。常见的方法有：
+
+- 一个 Lua 函数，例如 `setup(opts)` 或 `configure(opts)`，仅覆盖默认配置，
+  不包含任何初始化逻辑。
+- 一个 Vimscript 兼容的表（例如在 |vim.g| 或 |vim.b| 命名空间中），你的插件
+  在初始化时读取并验证它。
+  另见 |lua-vim-variables|。
+
+通常，自动初始化逻辑在 |plugin| 或 |ftplugin| 脚本中完成。另见 'runtimepath'。
+
+另一方面，在特定情况下，将配置和初始化合并到单个 `setup(opts)` 中可能有用：
+
+- 自定义复杂的初始化，存在较大的配置错误风险。
+- 要求用户明确选择加入不应自动初始化的插件功能。
+
+请记住，这种方法要求用户调用 `setup` 才能使用你的插件，即使默认配置对他们
+来说已经足够了。在采用之前，请仔细考虑你的插件是否真的受益于合并的 `setup()`
+模式。这篇文章记录了 `setup()` 的历史和权衡：
+https://mrcjkb.dev/posts/2023-08-22-setup.html
+
+注意：设计良好的插件对启动时间的影响应该很小。另见 |lua-plugin-lazy|。
+
+==============================================================================
+延迟加载                                                 *lua-plugin-lazy*
+
+一些用户喜欢通过显式配置哪些命令和按键映射来加载插件，以微观管理插件的
+"延迟加载"。
+
+你的插件不应该依赖于每个用户都以这种方式微观管理他们的配置。Nvim 有一个机制
+让每个插件执行自己的隐式延迟加载（在 Vimscript 中称为 |autoload|），通过
+`autoload/`（Vimscript）和 `lua/`（Lua）。插件作者可以通过提供
+`plugin/<name>.lua` 文件来实现"延迟加载"，该文件定义命令和按键映射。这个文件
+应该很小，不应该急切地 `require()` 插件的其余部分。命令和映射应该执行
+`require()`。
+
+指导原则：
+
+- 插件应该一次性安排好它们的"延迟"行为，而不是期望每个用户去微观管理它。
+- 保持 `plugin/<name>.lua` 小巧，避免在命令或映射实际被使用之前急切地调用
+  `require()`。
+
+------------------------------------------------------------------------------
+延迟 require() 调用                                *lua-plugin-defer-require*
+
+`plugin/<name>.lua` 脚本（|plugin|）在启动时急切运行；这是有意为之的，以便
+插件可以设置用户将用来调用插件的（最少的）命令和按键映射。这也意味着这些
+"plugin/" 文件不应该急切地 `require` Lua 模块。
+
+例如，不要这样写：
+>lua
+    local foo = require('foo')
+    vim.api.nvim_create_user_command('MyCommand', function()
+        foo.do_something()
+    end, {
+      -- ...
+    })
+<
+这会在模块加载时立即调用 `require('foo')`，你可以通过将 `require` 移到命令的
+实现中来实现延迟加载：
+>lua
+    vim.api.nvim_create_user_command('MyCommand', function()
+        local foo = require('foo')
+        foo.do_something()
+    end, {
+      -- ...
+    })
+<
+同样，如果插件使用 Lua 模块作为入口点，它也应该延迟 `require` 调用。
+
+注意：关于 Vimscript 中 `require` 的替代方案，参见 |autoload|。
+
+注意：如果你担心在启动时急切地创建用户命令、自动命令或按键映射：提供延迟加载
+抽象的插件管理器在此类事件上所做的工作量完全相同。用户在其配置中定义延迟加载
+入口点与插件在 `plugin/<name>.lua` 中定义它相比，没有性能上的好处。
+
+注意：你可以使用 |--startuptime| 来 |profile| 插件对启动时间的影响。
+
+------------------------------------------------------------------------------
+文件类型特定功能                                     *lua-plugin-filetype*
+
+考虑将任何特定于文件类型的功能使用 'filetype'，将初始化逻辑放在
+`ftplugin/{filetype}.lua` 脚本中。
+
+对于插件拥有的缓冲区（通常用于显示自定义 UI 或视图），插件通常会设置自定义的
+'filetype'。在这种情况下，"尽可能晚"地设置 'filetype' 是有用的，这样用户可以
+在你的插件（重新）初始化缓冲区之后覆盖缓冲区局部设置。
+
+文件类型示例
+
+一个专门用于 Rust 开发的插件可能在 `ftplugin/rust.lua` 中有初始化代码：
+>lua
+    if not vim.g.loaded_my_rust_plugin then
+        -- Initialize
+    end
+    -- NOTE: Using `vim.g.loaded_` prevents the plugin from initializing twice
+    -- and allows users to prevent plugins from loading
+    -- (in both Lua and Vimscript).
+    vim.g.loaded_my_rust_plugin = true
+
+    local bufnr = vim.api.nvim_get_current_buf()
+    -- do something specific to this buffer,
+    -- e.g. add a |<Plug>| mapping or create a command
+    vim.keymap.set('n', '<Plug>(MyPluginBufferAction)', function()
+        print('Hello')
+    end, { buf = bufnr })
+<
+==============================================================================
+配置                                                   *lua-plugin-config*
+
+要允许用户为插件拥有的文件类型覆盖缓冲区局部配置，请"尽可能晚"地发布一个
+|FileType| 事件。|lua-plugin-filetype|
+
+一旦你将默认配置与用户配置合并后，应该验证配置。
+
+验证可以包括：
+
+- 正确的类型，参见 |vim.validate()|
+- 用户配置中的未知字段（例如由于拼写错误）。
+  这可能难以实现，可能更适合作为 |health| 检查，以减少开销。
+
+==============================================================================
+用户界面                                                   *lua-plugin-ui*
+
+一些插件有自己的"UI"，它们在插件"拥有"的缓冲区中呈现。在该缓冲区中，你
+通常会想提供自定义操作。
+
+除了创建 |<Plug>| 映射之外，你可能还想考虑通过定义进程内 LSP 服务器来提供
+操作。以代码操作 |vim.lsp.buf.code_action()| 的形式提供操作意味着用户可以
+使用默认的 |gra| 映射查看代码操作菜单来查看所有可用操作。他们甚至可以通过
+使用 `filter` + `apply` 参数调用 `vim.lsp.buf.code_action()` 来定义到特定
+操作的映射： >lua
+
+    vim.lsp.buf.code_action({
+        apply = true,
+        filter = function(a)
+            return a.title == 'Do something'
+        end,
+    })
+<
+
+示例：参见 `runtime/lua/vim/pack/_lsp.lua` 了解 vim.pack 如何定义进程内 LSP
+服务器以在其 `nvim-pack://confirm` 缓冲区中提供交互式功能。
+
+==============================================================================
+故障排除                                          *lua-plugin-troubleshooting*
+
+在开发插件时，你可以使用 |:restart| 命令查看插件中代码更改的结果。
+
+健康检查
+
+Nvim 的"健康"框架为插件提供了一种向用户报告状态检查的简单方式。参见
+|health-dev| 了解示例。
+
+基本上，这只是意味着你的插件会有一个 `lua/{plugin}/health.lua` 文件。
+|:checkhealth| 在运行时会自动找到这个文件。
+
+一些需要验证的内容：
+
+- 用户配置
+- 正确的初始化
+- Lua 依赖项的存在（例如其他插件）
+- 外部依赖项的存在
+
+最小配置模板
+
+提供一个最小配置模板以及如何使用它来复现问题的指南可能很有用。
+
+==============================================================================
+版本管理和发布                                         *lua-plugin-versioning*
+
+考虑：
+
+- 当你需要传达（未来的）破坏性更改或不推荐的做法时，使用 |vim.deprecate()|
+  或 `---@deprecate` 注解。
+- 使用 SemVer https://semver.org/ 标签和发布来正确传达 bug 修复、新功能和
+  破坏性更改。
+- 在 CI 中自动化版本管理和发布。
+- 发布到 luarocks https://luarocks.org，特别是如果你的插件有需要构建的依赖项
+  或组件；或者如果它可能是另一个插件的依赖项。
+
+延伸阅读
+
+- Luarocks 与 Nvim https://github.com/nvim-neorocks/sample-luarocks-plugin
+
+版本管理工具
+
+- luarocks-tag-release
+  https://github.com/marketplace/actions/luarocks-tag-release
+- release-please-action
+  https://github.com/marketplace/actions/release-please-action
+- semantic-release
+  https://github.com/semantic-release/semantic-release
+
+==============================================================================
+文档                                                         *lua-plugin-doc*
+
+提供 vimdoc（参见 |help-writing|），以便用户可以在 Nvim 中通过在 |command-mode|
+中输入 `:h {plugin}` 来阅读你的插件文档。帮助标签（帮助文档中右对齐的"搜索
+关键字"）使用 |:helptags| 命令重新生成。
+
+文档工具
+
+- panvimdoc https://github.com/kdheepak/panvimdoc
+
+
+vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

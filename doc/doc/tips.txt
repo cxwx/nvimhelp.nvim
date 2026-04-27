@@ -1,0 +1,470 @@
+*tips.txt*      Nvim
+
+
+		  VIM 参考手册	  able Bram Moolenaar
+
+
+使用 Vim 的技巧和创意				*tips*
+
+这里只是我们认为对许多用户有帮助的一些技巧。
+你可以在 wiki 上找到更多技巧。URL 可以在
+https://www.vim.org 找到
+
+别忘了浏览用户手册，它也包含大量有用的技巧
+|usr_toc.txt|。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+编辑 C 程序					*C-editing*
+
+Vim 中有很多功能可以帮助你编辑 C 程序文件。以下是
+带有可跳转标签的概览：
+
+|usr_29.txt|		用户手册中的程序导航章节。
+|usr_30.txt|		用户手册中的程序编辑章节。
+|C-indenting|		输入文本时自动设置行的缩进。
+|=|			重新缩进几行。
+|format-comments|	格式化注释。
+
+|:checkpath|		显示所有递归包含的文件。
+|[i|			在当前文件和包含文件中搜索光标下的标识符。
+|[_CTRL-I|		跳转到 "[i" 的匹配
+|[I|			列出当前文件和包含文件中光标下标识符匹配的
+			所有行。
+|[d|			在当前文件和包含文件中搜索光标下的定义。
+
+|CTRL-]|		跳转到光标下的标签（例如函数定义）。
+|CTRL-T|		跳回到 CTRL-] 命令之前。
+|:tselect|		从匹配标签列表中选择一个。
+
+|gd|			跳转到光标下局部变量的声明。
+|gD|			跳转到光标下全局变量的声明。
+
+|gf|			跳转到光标下的文件名。
+
+|%|			跳转到匹配的 ()、{}、[]、`/* */`、#if、#else、#endif。
+|[/|			跳转到前一个注释开头。
+|]/|			跳转到下一个注释结尾。
+|[#|			回到未闭合的 #if、#ifdef 或 #else。
+|]#|			前进到未闭合的 #else 或 #endif。
+|[(|			回到未闭合的 '('
+|])|			前进到未闭合的 ')'
+|[{|			回到未闭合的 '{'
+|]}|			前进到未闭合的 '}'
+
+|v_ab|			选择从 "[(" 到 "])" 的 "一个块"，包括大括号
+|v_ib|			选择从 "[(" 到 "])" 的 "内部块"
+|v_aB|			选择从 `[{` 到 `]}` 的 "一个块"，包括方括号
+|v_iB|			选择从 `[{` 到 `]}` 的 "内部块"
+
+==============================================================================
+查找标识符使用位置				*ident-search*
+
+你可能已经知道 |tags| 可以用来跳转到函数或变量定义的地方。
+但有时你希望能跳转到使用函数或变量的所有地方。这可以通过
+两种方式实现：
+1. 使用 |:grep| 命令。这应该在大多数 Unix 系统上工作，
+   但可能较慢（它读取所有文件）且只在一个目录中搜索。
+2. 使用 ID 工具。这很快且可在多个目录中工作。它使用数据库
+   存储位置。你需要一些额外的程序才能使用。并且你需要保持
+   数据库更新。
+
+使用 GNU id-tools：
+
+你需要什么：
+- 安装了 GNU id-tools（需要 mkid 来创建 ID，需要 lid 来
+  使用宏）。
+- 当前目录中有一个名为 "ID" 的标识符数据库文件。你可以
+  用 shell 命令 "mkid file1 file2 .." 创建它。
+
+将以下内容放入你的 |init.vim|： >
+	map _u :call ID_search()<Bar>execute "/\\<" .. g:word .. "\\>"<CR>
+	map _n :n<Bar>execute "/\\<" .. g:word .. "\\>"<CR>
+
+	function! ID_search()
+	  let g:word = expand("<cword>")
+	  let x = system("lid --key=none " .. g:word)
+	  let x = substitute(x, "\n", " ", "g")
+	  execute "next " .. x
+	endfun
+
+要使用它，将光标放在一个单词上，输入 "_u"，vim 将加载包含该
+单词的文件。使用 "n" 搜索同一文件中单词的下一次出现。
+使用 "_n" 跳转到下一个文件。
+
+这已用 id-utils-3.2 测试过（这是你最近的 gnu-ftp-mirror 上
+id-tools 归档文件的名称）。
+
+[此想法来自 Andreas Kutschera]
+
+==============================================================================
+在插入模式下滚动				*scroll-insert*
+
+如果你在插入模式下想看到刚好在屏幕外的内容，你可以使用
+CTRL-X CTRL-E 和 CTRL-X CTRL-Y 来滚动屏幕。
+						|i_CTRL-X_CTRL-E|
+
+为了使这更容易，你可以使用这些映射： >
+	:inoremap <C-E> <C-X><C-E>
+	:inoremap <C-Y> <C-X><C-Y>
+这样你将失去从光标上方/下方行复制文本的能力
+|i_CTRL-E|。
+
+也可以考虑将 'scrolloff' 设置为较大的值，这样你总是可以
+看到光标周围的一些上下文。如果 'scrolloff' 大于窗口高度的
+一半，光标将始终在中间，移动光标时文本会滚动。
+
+==============================================================================
+平滑滚动					*scroll-smooth*
+
+如果你喜欢滚动更平滑一些，可以使用这些映射： >
+	:map <C-U> <C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y>
+	:map <C-D> <C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E>
+
+==============================================================================
+纠正常见输入错误				*type-mistakes*
+
+当你总是以错误的方式输入某些单词时，制作缩写来纠正它们。
+例如： >
+	:ab teh the
+	:ab fro for
+
+==============================================================================
+统计单词、行数等				*count-items*
+
+要统计当前缓冲区中任何模式出现的次数，使用替换命令并添加
+'n' 标志以避免替换。报告的替换数就是项目数。示例： >
+
+	:%s/./&/gn		字符数
+	:%s/\i\+/&/gn		单词数
+	:%s/^//n		行数
+	:%s/the/&/gn		"the" 在任何位置
+	:%s/\<the\>/&/gn	"the" 作为单词
+
+你可能想重置 'hlsearch' 或执行 ":nohlsearch"。
+如果你不想在没有匹配时出错，添加 'e' 标志。
+
+另一种方法是在可视模式下使用 |v_g_CTRL-G|。
+
+如果你想在多个文件中查找匹配，使用 |:vimgrep|。
+
+							*count-bytes*
+如果你想统计字节数，可以这样做：
+
+	可视选择字符（块模式也可以）
+	使用 "y" 复制字符
+	使用 strlen() 函数： >
+		:echo strlen(@")
+换行符算一个字节。
+
+==============================================================================
+恢复光标位置					*restore-position*
+
+有时你想编写一个映射，在文件某处进行更改并恢复光标位置，
+而不滚动文本。例如，要更改文件中的日期标记： >
+   :map <F2> msHmtgg/Last [cC]hange:\s*/e+1<CR>"_D"=strftime("%Y %b %d")<CR>p'tzt`s
+
+分解保存位置：
+	ms	将光标位置存储在 's' 标记中
+	H	去到窗口中的第一行
+	mt	将此位置存储在 't' 标记中
+
+分解恢复位置：
+	't	去到之前在窗口顶部的行
+	zt	滚动使该行移到窗口顶部
+	`s	跳转到光标的原始位置
+
+更高级的方法见 |winsaveview()| 和 |winrestview()|。
+
+==============================================================================
+重命名文件					*rename-files*
+
+假设我有一个包含以下文件的目录（随机选择的目录 :-）：
+
+buffer.c
+charset.c
+digraph.c
+...
+
+我想将 `*.c` 重命名为 `*.bla`。我会这样做： >
+
+	$ vim
+	:r !ls *.c
+	:%s/\(.*\).c/mv & \1.bla
+	:w !sh
+	:q!
+
+==============================================================================
+在多个文件中更改名称				*change-name*
+
+使用脚本文件在多个文件中更改名称的示例：
+
+	创建一个包含替换命令和 :update 命令的文件 "subs.vim"： >
+		:%s/Jones/Smith/g
+		:%s/Allen/Peter/g
+		:update
+<
+	对所有要更改的文件执行 Vim，并为每个参数运行脚本： >
+
+		vim *.let
+		argdo source subs.vim
+
+见 |:argdo|。
+
+==============================================================================
+加速外部命令					*speed-up*
+
+在某些情况下，外部命令的执行可能非常慢。这也可能减慢
+Unix 上的通配符扩展速度。以下是提高速度的一些建议。
+
+如果你的 .cshrc（或其他文件，取决于使用的 shell）非常长，
+你应该将其分为交互式使用部分和非交互式使用部分（通常称为
+辅助 shell）。当你从 Vim 执行命令如 ":!ls" 时，你不需要
+交互式的东西（例如设置提示符）。将不需要的内容放在这些行
+之后： >
+
+	if ($?prompt == 0) then
+		exit 0
+	endif
+
+另一种方法是在 'shell' 选项中包含 "-f" 标志，例如： >
+
+	:set shell=csh\ -f
+
+（反斜杠需要在选项中包含空格）。
+这将使 csh 完全跳过使用 .cshrc 文件。但这可能导致某些东西
+停止工作。
+
+==============================================================================
+有用的映射					*useful-mappings*
+
+以下是一些人喜欢使用的几个映射。
+
+							*map-backtick*  >
+	:map ' `
+使单引号像反引号一样工作。将光标放在标记的列上，而不是
+去到该行的第一个非空白字符。
+
+							*emacs-keys*
+命令行上的 Emacs 风格编辑： >
+	" 行首
+	:cnoremap <C-A>		<Home>
+	" 后退一个字符
+	:cnoremap <C-B>		<Left>
+	" 删除光标下的字符
+	:cnoremap <C-D>		<Del>
+	" 行尾
+	:cnoremap <C-E>		<End>
+	" 前进一个字符
+	:cnoremap <C-F>		<Right>
+	" 调出较新的命令行
+	:cnoremap <C-N>		<Down>
+	" 调出之前（较旧的）命令行
+	:cnoremap <C-P>		<Up>
+	" 后退一个单词
+	:cnoremap <Esc><C-B>	<S-Left>
+	" 前进一个单词
+	:cnoremap <Esc><C-F>	<S-Right>
+<
+							*format-bullet-list*
+此映射将格式化任何项目符号列表。它要求每个列表项上下都有
+空行。使用表达式命令是为了能够给映射的各部分加注释。 >
+
+	:let m =     ":map _f  :set ai<CR>"   " 需要设置 'autoindent'
+	:let m ..= "{O<Esc>"		      " 在项目上方添加空行
+	:let m ..= "}{)^W"		      " 移动到项目符号后的文本
+	:let m ..= "i     <CR>     <Esc>"     " 添加缩进空格
+	:let m ..= "gq}"		      " 格式化项目符号后的文本
+	:let m ..= "{dd"		      " 删除空行
+	:let m ..= "5lDJ"		      " 将文本放在项目符号后
+	:execute m			      |" 定义映射
+
+(<> 表示法 |<>|。注意这都是字面输入的。^W 是 "^" "W"，不是
+CTRL-W。)
+
+注意最后一个注释以 `|"` 开头，因为 ":execute" 命令不直接
+接受注释。
+
+你还需要将 'textwidth' 设置为非零值，例如 >
+	:set tw=70
+
+一个做大致相同事情的映射，但从第一行获取列表的缩进
+（注意：此映射是一个很长的行，包含很多空格）： >
+	:map _f :set ai<CR>}{a                                                          <Esc>WWmmkD`mi<CR><Esc>kkddpJgq}'mJO<Esc>j
+<
+							*collapse*
+这两个映射将一系列空行 (;b) 或空白行 (;n) 减少为一行 >
+    :map ;b   GoZ<Esc>:g/^$/.,/./-j<CR>Gdd
+    :map ;n   GoZ<Esc>:g/^[ <Tab>]*$/.,/[^ <Tab>]/-j<CR>Gdd
+
+==============================================================================
+压缩帮助文件					*gzip-helpfile*
+
+对于那些真的磁盘空间不足的人，你可以压缩帮助文件并仍然
+用 Vim 查看它们。这会使访问帮助文件稍慢一些，并且需要
+"gzip" 程序。
+
+(1) 压缩所有帮助文件："gzip doc/*.txt"。
+
+(2) 编辑 "doc/tags" 并将 ".txt" 改为 ".txt.gz"： >
+	:%s=\(\t.*\.txt\)\t=\1.gz\t=
+
+(3) 将此行添加到你的 vimrc： >
+	set helpfile={dirname}/help.txt.gz
+
+其中 {dirname} 是帮助文件所在的目录。|gzip| 插件将负责
+解压文件。
+你必须确保 $VIMRUNTIME 设置为其他 Vim 文件所在的位置，
+当它们与压缩的 "doc" 目录不在同一位置时。见
+|$VIMRUNTIME|。
+
+==============================================================================
+十六进制编辑				*hex-editing* *using-xxd*
+
+见用户手册 |23.3| 节。
+
+如果你有一个特定的扩展名用于二进制文件（如 exe、bin 等），
+你可能会发现用以下自动命令来自动化这个过程对你的 |init.vim|
+很有帮助。将那个 "*.bin" 更改为你希望编辑的以逗号分隔的
+扩展名列表： >
+
+	" vim -b : 使用 xxd 格式编辑二进制文件!
+	augroup Binary
+	  autocmd!
+	  autocmd BufReadPre  *.bin set binary
+	  autocmd BufReadPost *.bin
+	    \ if &binary
+	    \ |   execute "silent %!xxd -c 32"
+	    \ |   set filetype=xxd
+	    \ |   redraw
+	    \ | endif
+	  autocmd BufWritePre *.bin
+	    \ if &binary
+	    \ |   let s:view = winsaveview()
+	    \ |   execute "silent %!xxd -r -c 32"
+	    \ | endif
+	  autocmd BufWritePost *.bin
+	    \ if &binary
+	    \ |   execute "silent %!xxd -c 32"
+	    \ |   set nomodified
+	    \ |   call winrestview(s:view)
+	    \ |   redraw
+	    \ | endif
+	augroup END
+
+==============================================================================
+在自动命令中使用 <> 表示法			*autocmd-<>*
+
+<> 表示法在 :autocmd 的参数中不被识别。为了避免使用特殊
+字符，你可以使用自销毁映射来获得 <> 表示法，然后从自动命令
+调用该映射。示例：
+
+						*map-self-destroy*  >
+ " 这是用于自动将文件名添加到菜单列表。
+ " 它使用自销毁映射!
+ " 1. 使用缓冲区中的一行将文件名中的 '点' 转换为 \.
+ " 2. 将其存储在寄存器 '"' 中
+ " 3. 将该名称添加到 Buffers 菜单列表
+ " 警告: 这确实有一些副作用，比如覆盖当前寄存器内容
+ " 和删除 "i" 命令的任何映射。
+ "
+ autocmd BufNewFile,BufReadPre * nmap i :nunmap i<CR>O<C-R>%<Esc>:.g/\./s/\./\\./g<CR>0"9y$u:menu Buffers.<C-R>9 :buffer <C-R>%<C-V><CR><CR>
+ autocmd BufNewFile,BufReadPre * normal i
+
+另一种方法，也许更好，是使用 ":execute" 命令。在字符串中
+你可以通过在前面加反斜杠来使用 <> 表示法。不要忘记将现有
+反斜杠的数量加倍并在 '"' 前放一个反斜杠。
+>
+  autocmd BufNewFile,BufReadPre * exe "normal O\<C-R>%\<Esc>:.g/\\./s/\\./\\\\./g\<CR>0\"9y$u:menu Buffers.\<C-R>9 :buffer \<C-R>%\<C-V>\<CR>\<CR>"
+
+对于真正的缓冲区菜单，应该使用用户函数（见 |:function|），
+但那样就不使用 <> 表示法了，这就失去了作为示例的意义。
+
+==============================================================================
+高亮匹配的括号					*match-parens*
+
+此示例展示了一些高级技巧的使用：
+- 使用 |CursorMoved| 自动命令事件
+- 使用 |searchpairpos()| 查找匹配的括号
+- 使用 |synID()| 检测光标是否在字符串或注释中
+- 使用 |:match| 高亮内容
+- 使用 |pattern| 匹配文件中的特定位置
+
+这应该放在 Vim 脚本文件中，因为它使用脚本局部变量。
+它跳过字符串或注释中的匹配，除非光标从字符串或注释开始。
+这需要语法高亮。
+
+|matchparen| 插件中使用了稍微更高级的版本。
+>
+	let s:paren_hl_on = 0
+	function s:Highlight_Matching_Paren()
+	  if s:paren_hl_on
+	    match none
+	    let s:paren_hl_on = 0
+	  endif
+
+	  let c_lnum = line('.')
+	  let c_col = col('.')
+
+	  let c = getline(c_lnum)[c_col - 1]
+	  let plist = split(&matchpairs, ':\|,')
+	  let i = index(plist, c)
+	  if i < 0
+	    return
+	  endif
+	  if i % 2 == 0
+	    let s_flags = 'nW'
+	    let c2 = plist[i + 1]
+	  else
+	    let s_flags = 'nbW'
+	    let c2 = c
+	    let c = plist[i - 1]
+	  endif
+	  if c == '['
+	    let c = '\['
+	    let c2 = '\]'
+	  endif
+	  let s_skip ='synIDattr(synID(line("."), col("."), 0), "name") ' ..
+		\ '=~?	"string\\|comment"'
+	  execute 'if' s_skip '| let s_skip = 0 | endif'
+
+	  let [m_lnum, m_col] = searchpairpos(c, '', c2, s_flags, s_skip)
+
+	  if m_lnum > 0 && m_lnum >= line('w0') && m_lnum <= line('w$')
+	    exe 'match Search /\(\%' .. c_lnum .. 'l\%' .. c_col ..
+		  \ 'c\)\|\(\%' .. m_lnum .. 'l\%' .. m_col .. 'c\)/'
+	    let s:paren_hl_on = 1
+	  endif
+	endfunction
+
+	autocmd CursorMoved,CursorMovedI * call s:Highlight_Matching_Paren()
+	autocmd InsertEnter * match none
+<
+
+==============================================================================
+在当前窗口打开帮助					*help-curwin*
+
+默认情况下，帮助显示在分割窗口中。如果你希望在当前窗口打开，
+试试这个自定义 `:HelpCurwin` 命令：
+>
+	command -bar -nargs=? -complete=help HelpCurwin execute s:HelpCurwin(<q-args>)
+	let s:did_open_help = v:false
+
+	function s:HelpCurwin(subject) abort
+	  let mods = 'silent noautocmd keepalt'
+	  if !s:did_open_help
+	    execute mods .. ' help'
+	    execute mods .. ' helpclose'
+	    let s:did_open_help = v:true
+	  endif
+	  if !empty(getcompletion(a:subject, 'help'))
+	    execute mods .. ' edit ' .. &helpfile
+	    set buftype=help
+	  endif
+	  return 'help ' .. a:subject
+	endfunction
+<
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

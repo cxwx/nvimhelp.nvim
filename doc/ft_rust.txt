@@ -1,0 +1,436 @@
+*ft_rust.txt*      Rust 文件类型插件
+
+==============================================================================
+目录                                                          *rust*
+
+1. 简介                                                           |rust-intro|
+2. 设置                                                        |rust-settings|
+3. 命令                                                        |rust-commands|
+4. 映射                                                        |rust-mappings|
+
+==============================================================================
+简介                                                              *rust-intro*
+
+此插件为 Rust 文件类型提供语法和辅助功能。它需要 Vim 8 或更高版本才能使用
+全部功能。某些命令在早期版本中不可用。
+
+==============================================================================
+设置                                                           *rust-settings*
+
+此插件有一些变量可以在你的 vimrc 中定义，以改变插件的行为。
+
+某些变量可以设置为缓冲区局部的 (`:b` 前缀)，缓冲区局部的变量优先于全局
+`g:` 对应变量。
+
+                                                                *g:rustc_path*
+g:rustc_path ~
+	设置此选项为 rustc 的路径，用于 |:RustRun| 和 |:RustExpand| 命令。
+	如果未设置，将在 $PATH 中查找 `rustc`: >vim
+	    let g:rustc_path = $HOME."/bin/rustc"
+<
+
+                                                  *g:rustc_makeprg_no_percent*
+g:rustc_makeprg_no_percent ~
+	将此选项设置为 1，使 'makeprg' 默认为 `rustc` 而不是 `rustc %`: >vim
+	    let g:rustc_makeprg_no_percent = 1
+<
+
+                                                              *g:rust_conceal*
+g:rust_conceal ~
+	设置此选项以开启基本的 |conceal| 支持: >vim
+	    let g:rust_conceal = 1
+<
+
+                                                     *g:rust_conceal_mod_path*
+g:rust_conceal_mod_path ~
+	设置此选项以开启路径连接符 "::" 的 |conceal| 功能: >vim
+	    let g:rust_conceal_mod_path = 1
+<
+
+                                                          *g:rust_conceal_pub*
+g:rust_conceal_pub ~
+	设置此选项以开启 "pub" 关键字的 |conceal| 功能: >vim
+	    let g:rust_conceal_pub = 1
+<
+
+                                                     *g:rust_recommended_style*
+g:rust_recommended_style ~
+        设置此选项以启用符合 Rust 风格指南约定的 vim 缩进和文本宽度设置
+        (即使用 4 个空格缩进并设置 'textwidth' 为 100)。此选项默认启用。
+	要禁用它: >vim
+	    let g:rust_recommended_style = 0
+<
+
+                                                                 *g:rust_fold*
+g:rust_fold ~
+	设置此选项以开启 |folding| 功能: >vim
+	    let g:rust_fold = 1
+<
+	值		效果 ~
+	0		不折叠
+	1		折叠花括号块。所有折叠默认展开。
+	2		折叠花括号块。'foldlevel' 保持全局值
+			(所有折叠默认关闭)。
+
+						  *g:rust_bang_comment_leader*
+g:rust_bang_comment_leader ~
+	将此选项设置为 1 以保留使用 `/*!` 语法的多行文档注释的引导符: >vim
+	    let g:rust_bang_comment_leader = 1
+<
+
+                                                *g:rust_use_custom_ctags_defs*
+g:rust_use_custom_ctags_defs ~
+	如果你有自定义的 Rust ctags 定义，不希望使用 rust.vim 内置的，
+	将此选项设置为 1: >vim
+	    let g:rust_use_custom_ctags_defs = 1
+<
+
+	注意: rust.vim 的内置定义仅在安装了 Tagbar Vim 插件且未检测到
+	Universal Ctags 时使用。这是因为 Universal Ctags 与 Tagbar
+	配合使用时已内置了 Rust 支持。
+
+	另外请注意，使用非 Universal Ctags 时，它不会自动用于生成 Vim 可用于
+	跨文件导航定义的 |tags| 文件。如果你希望生成 |tags| 文件，可以将
+	`rust.vim/ctags/rust.ctags` 复制到你自己的 `~/.ctags`。
+
+                                                 *g:ftplugin_rust_source_path*
+g:ftplugin_rust_source_path ~
+	设置此选项为应添加到 Rust 源文件 'path' 前面的路径: >vim
+	    let g:ftplugin_rust_source_path = $HOME . '/dev/rust'
+<
+
+						       *g:rustfmt_command*
+g:rustfmt_command ~
+	设置此选项为 $PATH 中 "rustfmt" 可执行文件的名称。如果未指定则默认
+	为 "rustfmt": >vim
+	    let g:rustfmt_command = 'rustfmt'
+<
+						       *g:rustfmt_autosave*
+g:rustfmt_autosave ~
+	将此选项设置为 1 以在保存缓冲区时自动运行 |:RustFmt|。如果未指定
+	则默认为 0: >vim
+	    let g:rustfmt_autosave = 0
+<
+	也有一个缓冲区局部的 b:rustfmt_autosave 可以设置用于同样的目的，
+	并可以覆盖全局设置。
+
+                                        *g:rustfmt_autosave_if_config_present*
+g:rustfmt_autosave_if_config_present ~
+	将此选项设置为 1 以在被编辑文件的任何父目录中存在 `rustfmt.toml` 文件
+	时自动设置 *b:rustfmt_autosave*。如果未设置，默认为 0: >vim
+	    let g:rustfmt_autosave_if_config_present = 0
+<
+	这对于仅在有 `rustfmt.toml` 配置的项目上保存时执行 `rustfmt` 很有用。
+
+	也有一个缓冲区局部的 b:rustfmt_autosave_if_config_present
+	可以设置用于同样的目的，它可以覆盖全局设置。
+
+						       *g:rustfmt_fail_silently*
+g:rustfmt_fail_silently ~
+	将此选项设置为 1 以阻止 "rustfmt" 在 |location-list| 中填充错误。
+	如果未指定则默认为 0: >vim
+	    let g:rustfmt_fail_silently = 0
+<
+						       *g:rustfmt_options*
+g:rustfmt_options ~
+	设置此选项为传递给 "rustfmt" 的选项字符串。写入模式已设置为
+	"overwrite"。如果未指定则默认为 '': >vim
+	    let g:rustfmt_options = ''
+<
+                                                       *g:rustfmt_emit_files*
+g:rustfmt_emit_files ~
+	如果未指定，rust.vim 会尝试根据 rustfmt 报告的版本检测正确的参数。
+	否则，它决定是否使用 '--emit=files' (当提供 1 时) 运行 rustfmt，
+	而不是 '--write-mode=overwrite': >vim
+	    let g:rustfmt_emit_files = 0
+<
+                                                     *g:rustfmt_detect_version*
+g:rustfmt_detect_version ~
+	设置为 1 时，将尝试解析 "rustfmt" 的版本输出。出于性能原因
+	默认禁用 >vim
+	    let g:rustfmt_detect_version = 1
+<
+                                                       *g:rustfmt_find_toml*
+g:rustfmt_find_toml ~
+	设置为 1 时，将尝试从当前路径向上查找 `rustfmt.toml` 文件。
+	出于性能原因默认禁用 >vim
+	    let g:rustfmt_find_toml = 1
+<
+							  *g:rust_playpen_url*
+g:rust_playpen_url ~
+	设置此选项以覆盖 playpen 的 url: >vim
+	    let g:rust_playpen_url = 'https://play.rust-lang.org/'
+<
+
+							*g:rust_shortener_url*
+g:rust_shortener_url ~
+	设置此选项以覆盖 url 缩短服务的 url: >vim
+	    let g:rust_shortener_url = 'https://is.gd/'
+<
+                                                        *g:rust_clip_command*
+g:rust_clip_command ~
+	设置此选项为你的操作系统中用于将 Rust Play url 复制到剪贴板的命令: >vim
+	    let g:rust_clip_command = 'xclip -selection clipboard'
+<
+
+                                                       *g:cargo_makeprg_params*
+g:cargo_makeprg_params ~
+	设置此选项为传递给 cargo 的参数字符串。如果未指定则默认为
+	`$*`: >vim
+	    let g:cargo_makeprg_params = 'build'
+<
+
+                                                  *g:cargo_shell_command_runner*
+g:cargo_shell_command_runner ~
+	设置此选项以更改 cargo 命令 |:Cargo|、|:Cbuild|、|:Crun|...
+	运行 shell 命令的方式。
+	默认使用 |:terminal| 在终端窗口中异步运行 shell 命令。但如果你
+	更喜欢使用 |:!| 来运行命令，可以指定: >vim
+	    let g:cargo_shell_command_runner = '!'
+<
+
+------------------------------------------------------------------------------
+与 Syntastic 集成                                            *rust-syntastic*
+
+此插件自动与 Syntastic 检查器集成。提供了两个检查器: `rustc` 和 `cargo`。
+后者调用 `cargo` 来构建代码，前者将单个编辑的 '.rs' 文件作为编译目标直接
+传递给 Rust 编译器 `rustc`。
+
+由于现在几乎完全使用 Cargo 来构建 Rust 代码，`cargo` 是默认的检查器。 >vim
+
+    let g:syntastic_rust_checkers = ['cargo']
+<
+如果你想更改它，可以将 `g:syntastic_rust_checkers` 设置为不同的值。
+                                          *g:rust_cargo_avoid_whole_workspace*
+                                          *b:rust_cargo_avoid_whole_workspace*
+g:rust_cargo_avoid_whole_workspace ~
+	当编辑属于 Cargo 工作区的 crate 时，如果此选项设置为 1 (默认值)，
+	则 `cargo` 将直接在该 crate 目录中执行，而不是在工作区目录中。
+	设置为 0 会禁止此行为 - 但请注意，如果你在大型工作区中工作，Cargo
+	命令可能需要更多时间，并且 Syntastic 错误列表可能包括工作区中的
+	所有 crate。 >vim
+            let g:rust_cargo_avoid_whole_workspace = 0
+<
+                                              *g:rust_cargo_check_all_targets*
+                                              *b:rust_cargo_check_all_targets*
+g:rust_cargo_check_all_targets ~
+	设置为 1 时，Syntastic 执行 cargo 时将传递 `--all-targets` 选项，
+	允许检查包下的所有目标。
+	默认值为 0。
+
+                                              *g:rust_cargo_check_all_features*
+                                              *b:rust_cargo_check_all_features*
+g:rust_cargo_check_all_features ~
+	设置为 1 时，Syntastic 执行 cargo 时将传递 `--all-features` 选项，
+	允许检查包的所有功能。
+	默认值为 0。
+
+                                                 *g:rust_cargo_check_examples*
+                                                 *b:rust_cargo_check_examples*
+g:rust_cargo_check_examples ~
+	设置为 1 时，Syntastic 执行 cargo 时将传递 `--examples` 选项，
+	以防止在检查时排除示例。示例通常位于 crate 的 `examples/` 目录下。
+	默认值为 0。
+
+                                                    *g:rust_cargo_check_tests*
+                                                    *b:rust_cargo_check_tests*
+g:rust_cargo_check_tests ~
+	设置为 1 时，Syntastic 执行 cargo 时将传递 `--tests` 选项，
+	以防止在检查时排除测试。测试通常位于 crate 的 `tests/` 目录下。
+	默认值为 0。
+
+                                                  *g:rust_cargo_check_benches*
+                                                  *b:rust_cargo_check_benches*
+g:rust_cargo_check_benches ~
+	设置为 1 时，Syntastic 执行 cargo 时将传递 `--benches` 选项。
+	基准测试通常位于 crate 的 `benches/` 目录下。
+	默认值为 0。
+
+------------------------------------------------------------------------------
+与 auto-pairs 集成                                           *rust-auto-pairs*
+
+此插件自动配置 auto-pairs 插件，不重复单引号，因为单引号在 Rust 中更常用于
+生命周期标注而非单字符字面量。
+
+                                                  *g:rust_keep_autopairs_default*
+g:rust_keep_autopairs_default ~
+
+	不覆盖 Rust 文件类型的 auto-pairs 默认设置。默认值为 0。
+
+==============================================================================
+命令                                                           *rust-commands*
+
+调用 Cargo ~
+
+此插件定义了非常简单的快捷方式，用于在 Vim 中调用 Cargo。
+
+:Cargo <args>                                                       *:Cargo*
+                运行 `cargo` 并传入指定参数。
+
+:Cbuild <args>                                                     *:Cbuild*
+                `cargo build` 的快捷方式。
+
+:Cclean <args>                                                     *:Cclean*
+                `cargo clean` 的快捷方式。
+
+:Cdoc <args>                                                         *:Cdoc*
+                `cargo doc` 的快捷方式。
+
+:Cinit <args>                                                       *:Cinit*
+                `cargo init` 的快捷方式。
+
+:Crun <args>                                                         *:Crun*
+                `cargo run` 的快捷方式。
+
+:Ctest <args>                                                       *:Ctest*
+                `cargo test` 的快捷方式。
+
+:Cupdate <args>                                                   *:Cupdate*
+                `cargo update` 的快捷方式。
+
+:Cbench <args>                                                     *:Cbench*
+                `cargo bench` 的快捷方式。
+
+:Csearch <args>                                                   *:Csearch*
+                `cargo search` 的快捷方式。
+
+:Cpublish <args>                                                 *:Cpublish*
+                `cargo publish` 的快捷方式。
+
+:Cinstall <args>                                                 *:Cinstall*
+                `cargo install` 的快捷方式。
+
+:Cruntarget <args>                                                 *:Cruntarget*
+                `cargo run --bin` 或 `cargo run --example` 的快捷方式，
+                取决于当前打开的缓冲区。
+
+格式化 ~
+
+:RustFmt                                                       *:RustFmt*
+		在当前缓冲区上运行 |g:rustfmt_command|。如果设置了
+		|g:rustfmt_options|，那些选项将传递给可执行文件。
+
+		如果 |g:rustfmt_fail_silently| 为 0 (默认值)，那么它将在
+		|location-list| 中填充来自 |g:rustfmt_command| 的错误。如果
+		|g:rustfmt_fail_silently| 设置为 1，则不会填充 |location-list|。
+
+:RustFmtRange                                                  *:RustFmtRange*
+		使用选定范围运行 |g:rustfmt_command|。其他信息参见 |:RustFmt|。
+
+
+Playpen 集成 ~
+
+:RustPlay                                                          *:RustPlay*
+		此命令仅在安装了 web-api.vim 时才能工作
+		(可在 https://github.com/mattn/webapi-vim 获取)。它将当前选择
+		的内容，或如果没有选择则将当前缓冲区的全部内容发送到 Rust
+		playpen，并输出带有缩短 URL 的消息。
+
+		|g:rust_playpen_url| 是 playpen 的基础 URL，默认为
+		"https://play.rust-lang.org/"。
+
+		|g:rust_shortener_url| 是 url 缩短服务的基础 url，默认为
+		"https://is.gd/"
+
+		|g:rust_clip_command| 是用于将 playpen url 复制到系统剪贴板
+		的命令。
+
+
+评估单个 Rust 文件 ~
+
+注意: 这些命令仅在处理独立 Rust 文件时有用，这对于常见的 Rust 开发通常不适用。
+如果你希望从 Vim 中构建 Rust crate，应该使用 Vim 的 make、Syntastic 或其他
+插件的功能。
+
+
+:RustRun  [args]                                                    *:RustRun*
+:RustRun! [rustc-args] [--] [args]
+		编译并运行当前文件。如果有未保存的更改，将首先使用 |:update|
+		保存。如果当前文件是未命名的缓冲区，将先写入临时文件。编译
+		的二进制文件总是放在临时目录中，但从当前目录运行。
+
+		传递给 |:RustRun| 的参数将传递给编译后的二进制文件。
+
+		如果指定了 !，参数将传递给 rustc。"--" 参数将分隔 rustc
+		参数和传递给二进制文件的参数。
+
+		如果定义了 |g:rustc_path|，将用作 rustc 的路径。
+		否则假定可以在 $PATH 中找到 rustc。
+
+:RustExpand  [args]                                              *:RustExpand*
+:RustExpand! [TYPE] [args]
+		使用 `--pretty` 展开当前文件并在新分割窗口中显示结果。
+		如果当前文件有未保存的更改，将首先使用 |:update| 保存。
+		如果当前文件是未命名的缓冲区，将先写入临时文件。
+
+		传递给 |:RustExpand| 的参数将传递给 rustc。
+		这主要用于指定各种 `--cfg` 配置。
+
+		如果指定了 !，第一个参数是传递给 `rustc --pretty` 的展开
+		类型。否则默认为 "expanded"。
+
+		如果定义了 |g:rustc_path|，将用作 rustc 的路径。
+		否则假定可以在 $PATH 中找到 rustc。
+
+:RustEmitIr [args]                                               *:RustEmitIr*
+		将当前文件编译为 LLVM IR 并在新分割窗口中显示结果。如果
+		当前文件有未保存的更改，将首先使用 |:update| 保存。如果
+		当前文件是未命名的缓冲区，将先写入临时文件。
+
+		传递给 |:RustEmitIr| 的参数将传递给 rustc。
+
+		如果定义了 |g:rustc_path|，将用作 rustc 的路径。
+		否则假定可以在 $PATH 中找到 rustc。
+
+:RustEmitAsm [args]                                             *:RustEmitAsm*
+		将当前文件编译为汇编并在新分割窗口中显示结果。如果
+		当前文件有未保存的更改，将首先使用 |:update| 保存。如果
+		当前文件是未命名的缓冲区，将先写入临时文件。
+
+		传递给 |:RustEmitAsm| 的参数将传递给 rustc。
+
+		如果定义了 |g:rustc_path|，将用作 rustc 的路径。
+		否则假定可以在 $PATH 中找到 rustc。
+
+
+运行测试 ~
+
+:[N]RustTest[!] [options]                                       *:RustTest*
+		当当前缓冲区在 cargo 项目中时，运行光标下的测试，使用
+		"cargo test" 命令。如果命令未在光标下找到任何测试函数，
+		它将以错误消息停止。
+
+		当给出 N 时，将新窗口的大小调整为 N 行或列。
+
+		当给出 ! 时，无论当前光标位置如何都运行所有测试。
+
+		当给出 [options] 时，它将传递给 "cargo" 命令参数。
+
+		当当前缓冲区在 cargo 项目外部时，命令将运行 `rustc --test`
+		命令作为后备，而不是 "cargo test"。由于没有办法用 rustc 运行
+		特定的测试函数，所有测试都会运行而不管是否添加了 !。在这种
+		情况下，[options] 传递给 `rustc` 命令参数。
+
+		接受可选修饰符 (参见 |<mods>|):  >vim
+		    :tab RustTest
+		    :belowright 16RustTest
+		    :leftabove vert 80RustTest
+<
+rust.vim 调试 ~
+
+:RustInfo                                                          *:RustInfo*
+		输出 Vim Rust 插件的调试信息。
+
+:RustInfoToClipboard                                      *:RustInfoClipboard*
+		将 Vim Rust 插件的调试信息保存到默认寄存器。
+
+:RustInfoToFile [filename]                                   *:RustInfoToFile*
+		将 Vim Rust 插件的调试信息保存到指定文件，覆盖原有内容。
+
+==============================================================================
+映射                                                           *rust-mappings*
+
+此插件为 |[[| 和 |]]| 定义了映射以支持悬挂缩进。
+
+
+ vim:tw=78:sw=4:noet:ts=8:ft=help:norl:

@@ -1,0 +1,512 @@
+*dev_tools.txt*          Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+Nvim 开发工具和技术                                             *dev-tools*
+
+本文档用于 Nvim 自身的开发或调试。
+
+                                  输入 |gO| 查看目录。
+
+==============================================================================
+Nvim 开发快速入门指南                                    *dev-quickstart*
+
+你可以在不到 5 分钟内开始修改 Nvim：
+
+1. 确保你具备 `BUILD.md` 中列出的构建先决条件。
+2. 克隆源码仓库并进入目录： >
+        git clone https://github.com/neovim/neovim
+        cd neovim
+        # （可选）构建并运行 Nvim：
+        make
+        VIMRUNTIME=./runtime ./build/bin/nvim --luamod-dev
+3. 运行单个测试。我们将从 "example_spec.lua" 开始，它是一个真实的测试，
+   展示了测试的编写方式： >
+        make functionaltest TEST_FILE=test/functional/example_spec.lua
+4. 注意测试文件中的 `before_each` 块。因为它调用了 `clear()`，每个 `it()`
+   测试都会启动一个新的 Nvim 实例。
+5. 测试会在 Nvim 实例中执行操作，并使用 `eq()` 进行断言。
+   想要检查 UI 的测试还可以使用 `screen:expect()`。
+6. 现在修改 Nvim 自身的代码，然后你就可以看到效果。示例测试执行了
+   `feed('iline1...')`，所以让我们修改插入模式的代码，该代码位于
+   `src/nvim/edit.c` 中。在 `insert_handle_key` 函数中，就在
+   `normalchar` 标签之后，添加以下代码： >
+        s->c = 'x';
+7. 然后再次运行 "example_spec.lua" 测试，它应该会失败并显示类似如下的内容： >
+        test/functional/example_spec.lua:31: Row 1 did not match.
+        Expected:
+          |*line1               |
+          |*line^2               |
+          |{0:~                   }|
+          |{0:~                   }|
+          |                    |
+        Actual:
+          |*xine1               |
+          |*xine^2               |
+          |{0:~                   }|
+          |{0:~                   }|
+          |                    |
+
+现在你已经了解了如何修改代码库、编写测试和运行测试。详细的内部架构请参见
+|dev-arch|。
+
+==============================================================================
+日志                                                          *dev-tools-logs*
+
+底层日志消息输出到 `$NVIM_LOG_FILE`。
+
+UI 事件以 DEBUG 级别记录。 >
+
+    rm -rf build/
+    make CMAKE_BUILD_TYPE=Debug
+
+使用 `LOG_CALLSTACK()`（仅 Linux）记录当前调用栈。要输出到其他文件
+（例如 stderr），使用 `LOG_CALLSTACK_TO_FILE(FILE*)`。需要 `-no-pie`
+([参考](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=860394#15))： >
+
+    rm -rf build/
+    make CMAKE_BUILD_TYPE=Debug CMAKE_EXTRA_FLAGS="-DCMAKE_C_FLAGS=-no-pie"
+
+许多日志消息有共同的前缀，如 "UI" 或 "RPC"。使用 shell 过滤日志，
+例如在 DEBUG 级别你可能想排除 UI 消息： >
+
+    tail -F ~/.local/state/nvim/nvim.log | cat -v | stdbuf -o0 grep -v UI | stdbuf -o0 tee -a log
+
+
+==============================================================================
+可重现构建
+
+要进行 Nvim 的可重现构建，将 cmake 变量 `LUA_GEN_PRG` 设置为使用
+`LUAJIT_SECURITY_PRN=0` 构建的 LuaJIT 二进制文件。参见提交
+cb757f2663e6950e655c6306d713338dfa66b18d。
+
+
+==============================================================================
+调试 TUI                                                       *dev-tools-tui*
+
+TUI 检查
+
+使用 Ghostty https://ghostty.org/ 检查工具观察和查询任何终端应用程序
+（如 Nvim）的输出和事件。
+
+在 Ghostty 检查器中，你可以点击 "Terminal IO" 标签页获取跟踪记录。
+
+TERMINFO 日志
+
+在 'verbose' 级别 3 时，Nvim 会记录其内部 terminfo 状态，这样你就可以
+查看它在当前系统上使用的 terminfo 值。 >
+
+    nvim -V3log
+
+使用 GDB/LLDB 调试 TUI
+
+启动 Nvim TUI 涉及两个进程，一个用于主编辑器状态，另一个用于渲染 TUI。
+这两个进程都使用 nvim 二进制文件，因此在任一进程中设置断点通常都会成功，
+但根据断点设置在哪个进程中，可能不会被命中。
+
+要调试主进程，你可以使用 `--headless` 标志调试 nvim 二进制文件，
+这不会启动 TUI，允许你在非 TUI 渲染相关的代码中设置断点： >
+
+    lldb -- ./build/bin/nvim --headless --listen ~/.cache/nvim/debug-server.pipe
+
+在 lldb 中输入 `run`。然后你可以在新终端窗口中附加到 headless 进程来
+与编辑器交互： >
+
+    ./build/bin/nvim --remote-ui --server ~/.cache/nvim/debug-server.pipe
+
+相反，如果要调试 TUI 渲染，你可以启动一个 headless 进程，然后多次调试
+remote-ui 进程而不丢失编辑器状态。
+
+关于使用 nvim-dap 自动调试子（主）进程的详细信息，参见
+[这里](https://zignar.net/2023/02/17/debugging-neovim-with-neovim-and-nvim-dap/)
+
+TUI 重绘
+
+调试 Nvim TUI 重绘行为时，有时降低重绘速度是有用的。设置 'writedelay' 和
+'redrawdebug' 选项可以查看 UI 在何时何处被绘制。 >
+
+    :set writedelay=50 rdb=compositor
+
+注意：Nvim 使用内部屏幕缓冲区来仅发送最小更新，即使内部重绘了大面积区域。
+要同时高亮显示多余的内部重绘，使用 >
+
+    :set writedelay=50 rdb=compositor,nodelta
+
+TUI 跟踪
+
+在 Ghostty 检查器中，你可以点击 "Terminal IO" 标签页获取跟踪记录。
+
+或者，古老的 `script` 命令是"最先进的"。libvterm 的 `vterm-dump` 工具
+可以将结果格式化为人类可读的形式。
+
+录制 Nvim 终端会话并用 `vterm-dump` 格式化： >sh
+
+    script foo
+    ./build/bin/nvim -u NONE
+    # 使用 CTRL-d 退出 script 会话
+
+    # 使用 `vterm-dump` 工具格式化结果。
+    ./.deps/usr/bin/vterm-dump foo > bar
+
+然后你可以将 `bar` 与另一个会话进行比较，以调试 TUI 行为。
+
+终端参考
+
+- `man terminfo`
+- https://github.com/vim/vim/blob/0124320c97b0fbbb44613f42fc1c34fee6181fc8/src/libvterm/doc/seqs.txt
+- https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+
+==============================================================================
+调试性能                                                      *dev-tools-perf*
+
+性能分析（简单方法）
+
+对于调试任何代码中的性能瓶颈，有一种简单（且非常有效）的方法：
+
+1. 在循环中运行慢速代码。
+2. 中断执行约 5 次并保存调用栈。
+3. 瓶颈的原因（几乎总是）会出现在大多数调用栈中。
+
+
+性能分析（高级方法）
+
+对于更高级的性能分析，考虑使用 `perf` + `flamegraph`。
+
+
+USDT 性能分析（强大）
+
+你也可以通过 `NVIM_PROBE` 使用 USDT 探针
+([#12036](https://github.com/neovim/neovim/pull/12036))。
+
+> USDT 基本上是一种在用户空间二进制文件中定义稳定探测点的方法。
+> bcc 的好处是能够与探测点一起定义逻辑。
+
+工具：
+- bpftrace 为内核字节码 BPF 提供类似 awk 的语言。
+- BCC 提供 C 的一个子集。比 bpftrace 提供更复杂的逻辑，但需要更多工作。
+
+使用 bpftrace 跟踪慢速 vim 函数的示例，并打印出跟踪期间打开的所有文件。
+最后，它打印函数耗时的直方图： >
+
+    #!/usr/bin/env bpftrace
+
+    BEGIN {
+      @depth = -1;
+    }
+
+    tracepoint:sched:sched_process_fork /@pidmap[args->parent_pid]/ {
+      @pidmap[args->child_pid] = 1;
+    }
+
+    tracepoint:sched:sched_process_exit /@pidmap[args->pid]/ {
+      delete(@pidmap[args->pid]);
+    }
+
+    usdt:build/bin/nvim:neovim:eval__call_func__entry {
+        @pidmap[pid] = 1;
+        @depth++;
+        @funcentry[@depth] = nsecs;
+    }
+
+    usdt:build/bin/nvim:neovim:eval__call_func__return {
+        $func = str(arg0);
+        $msecs = (nsecs - @funcentry[@depth]) / 1000000;
+
+        @time_histo = hist($msecs);
+
+        if ($msecs >= 1000) {
+          printf("%u ms for %s\n", $msecs, $func);
+          print(@files);
+        }
+
+        clear(@files);
+        delete(@funcentry[@depth]);
+        @depth--;
+    }
+
+    tracepoint:syscalls:sys_enter_open,
+    tracepoint:syscalls:sys_enter_openat {
+      if (@pidmap[pid] == 1 && @depth >= 0) {
+        @files[str(args->filename)] = count();
+      }
+    }
+
+    END {
+      clear(@depth);
+    }
+
+    $ sudo bpftrace funcslower.bt
+    1527 ms for Slower
+    @files[/usr/lib/libstdc++.so.6]: 2
+    @files[/etc/fish/config.fish]: 2
+    <snip>
+
+    ^C
+    @time_histo:
+    [0]                71430 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+    [1]                  346 |                                                    |
+    [2, 4)               208 |                                                    |
+    [4, 8)                91 |                                                    |
+    [8, 16)               22 |                                                    |
+    [16, 32)              85 |                                                    |
+    [32, 64)               7 |                                                    |
+    [64, 128)              0 |                                                    |
+    [128, 256)             0 |                                                    |
+    [256, 512)             6 |                                                    |
+    [512, 1K)              1 |                                                    |
+    [1K, 2K)               5 |                                                    |
+<
+
+==============================================================================
+回溯                                                     *dev-tools-backtrace*
+
+LINUX
+
+Ubuntu、CentOS 和其他系统默认禁用核心转储。
+要启用核心转储：
+>bash
+    ulimit -c unlimited
+<
+在基于 systemd 的系统上，获取回溯非常简单：
+>bash
+    coredumpctl -1 gdb
+<
+`coredumpctl` 是一个可选工具，你可能需要安装它：
+>bash
+    sudo apt install systemd-coredump
+<
+
+完整的回溯最有用；报告与崩溃相关的 bug 时，请发送 `backtrace.txt` 文件：
+>bash
+    2>&1 coredumpctl -1 gdb | tee -a backtrace.txt
+    (gdb) thread apply all bt full
+<
+
+在没有 `coredumpctl` 的系统上，你可能会在当前目录或其他位置找到 `core`
+转储文件。在安装了 `apport` 的 Linux 系统上（如 Ubuntu），核心转储文件
+保存目录可能是 `/var/lib/apport/coredump` 或其他位置，取决于系统配置
+（参见 `/proc/sys/kernel/core_pattern`）。另见：
+https://stackoverflow.com/a/18368068
+
+从 `./core` 转储文件获取回溯：
+>bash
+    gdb build/bin/nvim ./core 2>&1 | tee backtrace.txt
+    (gdb) thread apply all bt full
+<
+
+MACOS
+
+如果 `nvim` 崩溃，你可以在 `Console.app` 中查看回溯（在"崩溃报告"或
+旧版 macOS 的"用户诊断报告"下）。
+>bash
+    open -a Console
+<
+你可能还想在 macOS 上启用核心转储。首先确保 `/cores/` 目录存在且可写：
+>bash
+    sudo mkdir /cores
+    sudo chown root:admin /cores
+    sudo chmod 1775 /cores
+<
+然后将核心大小限制设置为 `unlimited`：
+>bash
+    ulimit -c unlimited
+<
+注意这是按 shell 进程设置的。如果你想让所有 shell 都默认启用，将上面的
+命令添加到你的 shell 初始化文件中（例如 `~/.bashrc` 或类似文件）。
+
+然后你可以在 `lldb` 中打开核心文件：
+>bash
+    lldb -c /cores/core.12345
+<
+Apple 的文档存档有一些其他有用的信息
+https://developer.apple.com/library/archive/technotes/tn2124/_index.html#//apple_ref/doc/uid/DTS10003391-CH1-SECCOREDUMPS，
+但请注意此页面上的一些内容已过时（如使用 `/etc/launchd.conf` 启用核心转储）。
+
+
+WINDOWS
+
+如果 Windows 版本的 Nvim 以可重现的方式崩溃，你可以采取一些步骤来提供
+有用的 bug 报告。
+
+你必须获取 Nvim 可执行文件的调试符号（PDB）文件：nvim.pdb。PDB 应该
+可以从你获取可执行文件的同一位置获得（TODO：当前 Nvim CI 发布版未提供）。
+确保使用与 EXE 匹配的 PDB（同一构建）。
+
+如果你使用 Microsoft Visual C++ 编译器自己构建了可执行文件，则 PDB 随
+EXE 一起构建。
+
+如果你有 Visual Studio，使用它代替 VC 工具包和 WinDbg。
+
+对于其他编译器，始终使用相应的调试器：gdb 或 lldb。
+
+使用 Visual Studio 2005 调试 Nvim 崩溃 ~
+
+首先启动 nvim.exe，然后启动 Visual Studio。（如果你没有 Visual Studio，
+从 https://visualstudio.microsoft.com/downloads/ 获取）。
+
+在工具菜单中，点击"附加到进程"。选择 Nvim 进程。
+
+在 Nvim 中，重现崩溃。Visual Studio 中会出现一个对话框，告诉你 Nvim
+进程中发生了未处理的异常。点击"中断"以进入进程。
+
+Visual Studio 将弹出另一个对话框，告诉你没有加载符号，无法显示源代码。
+点击"确定"。
+
+几个窗口会打开。在"调用栈"窗口中右键点击。选择"加载符号"。"查找符号"
+对话框将打开，查找 (g)vim.pdb。导航到你有 PDB 文件的目录并点击"打开"。
+
+此时，你应该有一个完整的调用栈，包含 vim 函数名和行号。双击其中一行，
+"查找源代码"对话框将导航到 Nvim 源代码所在的目录（如果你有的话）。
+
+如果你不知道如何进一步调试，按照 ":help bug-report" 的说明操作。
+将调用栈粘贴到 bug 报告中。
+
+你也可以从 Visual Studio 通过"调试"菜单尝试保存小型转储并随 bug 报告
+一起发送。小型转储是一个小文件（<100KB），包含进程状态的信息。
+
+==============================================================================
+Gdb                                                          *dev-tools-gdb*
+
+使用 GDB 逐步调试功能测试
+
+使用 `TEST_TAG` 运行匹配 busted 标签的测试（格式为 `#foo`，例如
+`it("test #foo ...", ...)`）：
+>bash
+    GDB=1 TEST_TAG=foo make functionaltest
+<
+然后在另一个终端：
+>bash
+    gdb build/bin/nvim
+    (gdb) target remote localhost:7777
+
+-- 参见 https://github.com/neovim/neovim/blob/master/test/functional/testnvim.lua 中的 `nvim_argv`。
+
+使用 LLDB 逐步调试单元测试
+
+>
+    lldb .deps/usr/bin/luajit -- .deps/usr/bin/busted --lpath="./build/?.lua" test/unit/
+<
+使用 GDB
+
+要附加到 pid 为 1234 的运行中的 `nvim` 进程（提示：运行中的 Nvim 实例
+的 pid 可以通过调用 |getpid()| 获取），例如：
+>bash
+    gdb -tui -p 1234 build/bin/nvim
+<
+`gdb` 交互提示符将出现。在任何时候你都可以：
+
+- `break foo` 在 `foo()` 函数上设置断点
+- `n` 步过下一条语句
+    - `<Enter>` 重复上一个命令
+- `s` 步入下一条语句
+- `c` 继续
+- `finish` 步出当前函数
+- `p zub` 打印 `zub` 的值
+- `bt` 查看从当前位置的回溯（调用栈）
+- `CTRL-x CTRL-a` 或 `tui enable` 显示当前调试上下文中源文件的 TUI 视图。
+  这非常有用，因为它避免了对 gdb "前端"的需求。
+- `<up>` 和 `<down>` 滚动源文件视图
+
+GDB 反向调试
+
+- `set record full insn-number-max unlimited`
+- `continue` 运行一段时间（至少直到 `main()` 被执行）
+- `record`
+- 触发 bug，然后使用 `revert-next`、`reverse-step` 等回退调试器
+
+使用 GDBSERVER
+
+你可能想将多个 `gdb` 客户端连接到同一个运行中的 `nvim` 进程，或者你
+可能想用本地 `gdb` 连接到远程 `nvim` 进程。使用 `gdbserver`，你可以
+附加到单个进程并从多个 `gdb` 客户端控制它。
+
+打开终端并启动附加到 `nvim` 的 `gdbserver`：
+>bash
+    gdbserver :6666 build/bin/nvim 2> gdbserver.log
+<
+`gdbserver` 现在在端口 6666 上监听。然后你需要在另一个终端中附加到
+此调试会话：
+>bash
+    gdb build/bin/nvim
+<
+进入 `gdb` 后，你需要附加到远程会话：
+>
+    (gdb) target remote localhost:6666
+<
+如果 gdbserver 将 TUI 作为后台进程，TUI 可能无法从 pty 读取输入
+（并接收 SIGTTIN 信号）和/或输出数据（SIGTTOU 信号）。要强制将 TUI
+设为前台进程，你可以添加
+>c
+    signal (SIGTTOU, SIG_IGN);
+    if (!tcsetpgrp(data->input.in_fd, getpid())) {
+        perror("tcsetpgrp failed");
+    }
+<
+到 `tui.c:terminfo_start`。
+
+在 TMUX 中使用 GDBSERVER
+
+考虑使用自定义 makefile
+https://github.com/neovim/neovim/blob/master/BUILD.md#custom-makefile 来
+快速使用上述 `gdbserver` 方法启动调试会话。此示例 `local.mk` 将在你
+输入 `make debug` 时创建调试会话。
+>make
+    .PHONY: dbg-start dbg-attach debug build
+
+    build:
+        @$(MAKE) nvim
+
+    dbg-start: build
+        @tmux new-window -n 'dbg-neovim' 'gdbserver :6666 ./build/bin/nvim -D'
+
+    dbg-attach:
+        @tmux new-window -n 'dbg-cgdb' 'cgdb -x gdb_start.sh ./build/bin/nvim'
+
+    debug: dbg-start dbg-attach
+<
+这里 `gdb_start.sh` 包含调试器启动时要调用的 `gdb` 命令。它需要附加到
+`dbg-start` 规则启动的服务器。例如：
+>
+    (gdb) target remote localhost:6666
+    (gdb) br main
+<
+==============================================================================
+调试崩溃或内存泄漏                                        *dev-tools-asan*
+
+使用 ASAN 构建
+
+使用 Clang 清洁器（Address Sanitizer: ASan, Undefined Behavior Sanitizer:
+UBSan, Memory Sanitizer: MSan, Thread Sanitizer: TSan）构建 Nvim 是捕获
+未定义行为、泄漏和其他错误的好方法。它比 Valgrind 快得多。
+
+需要 clang 3.4 或更高版本，且 `llvm-symbolizer` 必须在 `$PATH` 中： >
+
+    clang --version
+
+使用清洁器检测构建 Nvim（选择一个）： >
+
+    CC=clang make CMAKE_EXTRA_FLAGS="-DENABLE_ASAN_UBSAN=ON"
+    CC=clang make CMAKE_EXTRA_FLAGS="-DENABLE_MSAN=ON"
+    CC=clang make CMAKE_EXTRA_FLAGS="-DENABLE_TSAN=ON"
+
+创建存储日志的目录： >
+
+    mkdir -p "$HOME/logs"
+
+通过以下环境变量配置清洁器： >
+
+    # 改为 detect_leaks=1 以检测内存泄漏（更慢，更多噪音）。
+    export ASAN_OPTIONS="detect_leaks=0:log_path=$HOME/logs/asan"
+    # 在日志中显示回溯。
+    export MSAN_OPTIONS="log_path=${HOME}/logs/msan"
+    export TSAN_OPTIONS="log_path=${HOME}/logs/tsan"
+
+日志将被写入 `${HOME}/logs/*san.PID`。
+
+更多信息：https://github.com/google/sanitizers/wiki/SanitizerCommonFlags
+
+
+
+ vim:tw=78:ts=8:sw=4:et:ft=help:norl:

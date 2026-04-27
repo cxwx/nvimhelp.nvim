@@ -1,0 +1,1132 @@
+*cmdline.txt*   Nvim
+
+
+		  VIM REFERENCE MANUAL	  by Bram Moolenaar
+
+
+					*Cmdline-mode* *Command-line-mode* *Cmdline*
+命令行模式		*cmdline* *Command-line* *mode-cmdline* *:*
+
+命令行模式用于输入 Ex 命令（":"）、搜索模式（"/" 和 "?"）以及过滤命令（"!"）。
+
+基本的命令行编辑在用户手册第 20 章 |usr_20.txt| 中解释。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 命令行编辑					*cmdline-editing*
+
+通常字符插入在光标位置之前。你可以用左右方向键在命令行中移动。使用 <Insert>
+键可以在插入和改写字符之间切换。
+
+注意如果你的键盘没有可用的方向键或其他特殊键，你可以使用 ":cnoremap" 来定义
+另一个键。例如，要定义 tcsh 风格的编辑键：		*tcsh-style*  >
+	:cnoremap <C-A> <Home>
+	:cnoremap <C-F> <Right>
+	:cnoremap <C-B> <Left>
+	:cnoremap <Esc>b <S-Left>
+	:cnoremap <Esc>f <S-Right>
+（<> 表示法 |<>|；照字面输入所有这些）
+
+							*cmdline-too-long*
+当命令行变得比屏幕能显示的更长时，只显示能适合的部分。光标只能在这个可见部分
+中移动，因此你不能编辑超出范围的内容。
+
+						*cmdline-history* *history*
+你输入的命令行被记录在历史表中。你可以用上下方向键来调出它们。实际上有五个
+历史表：
+
+- 一个用于 ':' 命令
+- 一个用于搜索字符串
+- 一个用于表达式
+- 一个用于输入行，为 |input()| 函数输入的。
+- 一个用于调试模式命令
+
+这些是完全独立的。每个历史只能在输入同类型的行时访问。
+使用 'history' 选项设置记住的行数。
+
+注意：
+
+- 当你输入的命令行与一个较旧的完全相同时，旧的被删除（以避免重复的命令将较旧
+  的命令移出历史）。
+- 只有输入的命令才被记住。完全从映射执行的命令不会放入历史。
+- 所有搜索都放入搜索历史，包括来自 "*" 和 "#" 等命令的搜索。但对于映射，只有
+  最后的搜索被记住（以避免长映射清除历史）。
+
+命令行上有名称的自动补全；参见 |cmdline-completion|。
+
+							*c_CTRL-V*
+CTRL-V		按字面插入下一个非数字字符。最多三位数字构成单个字节的
+		十进制值。非数字和三位数字不被视为映射的一部分。工作方式与
+		插入模式相同（参见上文，|i_CTRL-V|）。
+		对于特殊键，CTRL 修饰符可以包含在键中以产生控制字符。如果
+		该键没有控制字符，则插入其 |key-notation|。
+		注意：在 Windows 下 CTRL-V 经常被映射为粘贴文本。
+		那时使用 CTRL-Q 代替。
+							*c_CTRL-Q*
+CTRL-Q		与 CTRL-V 相同。但在某些终端中用于流控制，那时不起作用。
+
+CTRL-SHIFT-V				*c_CTRL-SHIFT-V* *c_CTRL-SHIFT-Q*
+CTRL-SHIFT-Q	与 CTRL-V 工作方式相同，但不尝试将 CTRL 修饰符包含在键中。
+		注意：当 CTRL-SHIFT-V 被你的系统拦截时（例如用于粘贴文本），
+		你通常可以用 CTRL-SHIFT-Q 代替。
+		但在某些终端（例如 GNOME Terminal）中，CTRL-SHIFT-Q 会不经
+		确认直接退出终端。
+
+							*c_<Left>* *c_Left*
+<Left>		光标左移。参见 'wildmenu' 了解 wildmenu 补全模式中的行为。
+							*c_<Right>* *c_Right*
+<Right>		光标右移。参见 'wildmenu' 了解 wildmenu 补全模式中的行为。
+							*c_<S-Left>*
+<S-Left> 或 <C-Left>					*c_<C-Left>*
+		光标左移一个 WORD
+							*c_<S-Right>*
+<S-Right> 或 <C-Right>					*c_<C-Right>*
+		光标右移一个 WORD
+CTRL-B 或 <Home>			*c_CTRL-B* *c_<Home>* *c_Home*
+		光标移到命令行开头
+CTRL-E 或 <End>				*c_CTRL-E* *c_<End>* *c_End*
+		光标移到命令行末尾。参见 'wildmenu' 了解 wildmenu 补全模式
+		中的行为。
+
+							*c_<LeftMouse>*
+<LeftMouse>	将光标移到鼠标点击的位置。
+
+							*c_<MiddleMouse>*
+<MiddleMouse>	粘贴剪贴板的内容（对于 X11 是主选区）。类似于使用
+		`CTRL-R *`，但行之间不插入 CR 字符。
+
+CTRL-H						*c_<BS>* *c_CTRL-H* *c_BS*
+<BS>		删除光标前的字符。
+							*c_<Del>* *c_Del*
+<Del>		删除光标下的字符（行尾时：光标前的字符）。
+							*c_CTRL-W*
+CTRL-W		删除光标前的 |word|。这取决于 'iskeyword' 选项。
+							*c_CTRL-U*
+CTRL-U		删除光标位置和行首之间的所有字符。之前版本的 Vim 删除行上
+		的所有字符。如果那是你偏好的行为，在你的 vimrc 中添加以下
+		内容： >
+			:cnoremap <C-U> <C-E><C-U>
+<
+						*c_<Insert>* *c_Insert*
+<Insert>	在插入和改写之间切换。
+
+{char1} <BS> {char2}	或				*c_digraph*
+CTRL-K {char1} {char2}					*c_CTRL-K*
+		输入二合字母（参见 |digraphs|）。当 {char1} 是特殊键时，
+		该键的代码以 <> 形式插入。
+
+CTRL-R {register}					*c_CTRL-R* *c_<C-R>*
+		插入编号或命名寄存器的内容。在输入 CTRL-R 和第二个字符之间
+		会显示 '"' 以表示你需要输入寄存器名称。
+		当与命名或剪贴板寄存器（A-Z,a-z,0-9,+）一起使用时，文本
+		像用 "p" 粘贴一样按字面插入。对于其他寄存器，文本像你输入
+		它一样插入，但不使用映射和缩写。通过 'wildchar' 的命令行
+		补全不会被触发。而结束命令行的字符按字面插入
+		（<Esc>、<CR>、<NL>、<C-C>）。<BS> 或 CTRL-W 仍然可能结束
+		命令行，剩余字符将在另一个模式中解释，这可能不是你想要的。
+		特殊寄存器：
+			'"'	未命名寄存器，包含上次删除或复制的文本
+			'%'	当前文件名
+			'#'	备用文件名
+			"*"	剪贴板内容（X11：主选区）
+			'+'	剪贴板内容
+			'/'	最后的搜索模式
+			':'	最后的命令行
+			'-'	最后的小型（少于一行）删除
+			'.'	最后插入的文本
+							*c_CTRL-R_=*
+			'='	表达式寄存器：你将被提示输入一个表达式
+				（参见 |expression|）
+				（在表达式提示处不工作；一些操作如修改缓冲区
+				或当前窗口不允许以避免副作用）
+				当结果是 |List| 时项目用作行。它们内部也可以
+				有换行符。
+				当结果是 Float 时自动转换为 String。
+				注意当你只想移动光标而不插入任何内容时，你必须
+				确保表达式求值为空字符串。例如： >
+					<C-R><C-R>=setcmdpos(2)[-1]<CR>
+<			你可以用这个将寄存器作为输入的内容插入，
+			使用 CTRL-R =@reg。
+		关于寄存器参见 |registers|。
+		实现细节：使用 |expression| 寄存器并调用 setcmdpos() 时，
+		这会在插入结果字符串之前设置位置。使用 CTRL-R CTRL-R 在
+		之后设置位置。
+
+CTRL-R CTRL-F				*c_CTRL-R_CTRL-F* *c_<C-R>_<C-F>*
+CTRL-R CTRL-P				*c_CTRL-R_CTRL-P* *c_<C-R>_<C-P>*
+CTRL-R CTRL-W				*c_CTRL-R_CTRL-W* *c_<C-R>_<C-W>*
+CTRL-R CTRL-A				*c_CTRL-R_CTRL-A* *c_<C-R>_<C-A>*
+CTRL-R CTRL-L				*c_CTRL-R_CTRL-L* *c_<C-R>_<C-L>*
+		插入光标下的对象：
+			CTRL-F	光标下的文件名
+			CTRL-P	光标下的文件名，用 'path' 展开如 |gf|
+			CTRL-W	光标下的 Word
+			CTRL-A	光标下的 WORD；参见 |WORD|
+			CTRL-L	光标下的行
+
+		当设置了 'incsearch' 时，使用当前显示的匹配末尾的光标位置。
+		使用 CTRL-W 时已经输入的单词部分不会再次插入。
+
+					*c_CTRL-R_CTRL-R* *c_<C-R>_<C-R>*
+					*c_CTRL-R_CTRL-O* *c_<C-R>_<C-O>*
+CTRL-R CTRL-R `{register CTRL-F CTRL-P CTRL-W CTRL-A CTRL-L}`
+CTRL-R CTRL-O `{register CTRL-F CTRL-P CTRL-W CTRL-A CTRL-L}`
+		插入寄存器或光标下的对象。工作方式类似 |c_CTRL-R| 但按字面
+		插入文本。例如，如果寄存器 a 包含 "xy^Hz"（其中 ^H 是退格），
+		"CTRL-R a" 将插入 "xz" 而 "CTRL-R CTRL-R a" 将插入 "xy^Hz"。
+
+CTRL-\ e {expr}						*c_CTRL-\_e*
+		评估 {expr} 并用结果替换整个命令行。你将被提示输入表达式，
+		输入 <Enter> 完成。在映射中使用最有用。参见 |expression|。
+		参见 |c_CTRL-R_=| 了解插入表达式的结果。
+		有用的函数有 |getcmdtype()|、|getcmdline()| 和 |getcmdpos()|。
+		光标位置不变，除非光标在行尾时保持在行尾。
+		|setcmdpos()| 可用于设置光标位置。
+		|sandbox| 用于评估表达式以避免讨厌的副作用。
+		示例： >
+			:cmap <F7> <C-\>eAppendSome()<CR>
+			:func AppendSome()
+			   :let cmd = getcmdline() .. " Some()"
+			   :" 将光标放在 ) 上
+			   :call setcmdpos(strlen(cmd))
+			   :return cmd
+			:endfunc
+<		这不能递归工作，因此在已经编辑表达式时不行。但可以在映射中
+		使用。
+
+							*c_CTRL-Y*
+CTRL-Y		当有无模式选择时，将选择复制到剪贴板。
+		如果没有选择，CTRL-Y 作为字符插入。
+		参见 'wildmenu' 了解 wildmenu 补全模式中的行为。
+
+							*c_CTRL-Z*
+CTRL-Z		触发 'wildmode'。与 'wildcharm' 相同，但始终可用。
+
+CTRL-M 或 CTRL-J		*c_CTRL-M* *c_CTRL-J* *c_<NL>* *c_<CR>* *c_CR*
+<CR> 或 <NL>	开始执行输入的命令
+
+CTRL-[						*c_CTRL-[* *c_<Esc>* *c_Esc*
+<Esc>		当输入时且 'cpoptions' 中没有 'x'，退出命令行模式而不执行。
+		在宏中或当 'cpoptions' 中有 'x' 时，开始执行输入的命令。
+		注意：如果你的 <Esc> 键难以按到，训练自己使用 CTRL-[。
+						*c_META* *c_ALT*
+		如果和弦没有映射，ALT (|META|) 可能像 <Esc> 一样工作。
+		例如 <A-x> 像 <Esc>x 一样工作，如果 <A-x> 没有命令行模式
+		映射。
+							*c_CTRL-C*
+CTRL-C		退出命令行而不执行
+
+							*c_<Up>* *c_Up*
+<Up>		从历史中调出较旧的命令行，其开头与当前命令行匹配（见下文）。
+		参见 'wildmenu' 了解 wildmenu 补全模式中的行为。
+							*c_<Down>* *c_Down*
+<Down>		从历史中调出较新的命令行，其开头与当前命令行匹配（见下文）。
+		参见 'wildmenu' 了解 wildmenu 补全模式中的行为。
+
+							*c_<S-Up>* *c_<PageUp>*
+<S-Up> 或 <PageUp>
+		从历史中调出较旧的命令行
+						*c_<S-Down>* *c_<PageDown>*
+<S-Down> 或 <PageDown>
+		从历史中调出较新的命令行
+
+CTRL-D		命令行补全（参见 |cmdline-completion|）
+'wildchar' 选项
+		命令行补全（参见 |cmdline-completion|）
+CTRL-N		命令行补全（参见 |cmdline-completion|）
+CTRL-P		命令行补全（参见 |cmdline-completion|）
+CTRL-A		命令行补全（参见 |cmdline-completion|）
+CTRL-L		命令行补全（参见 |cmdline-completion|）
+
+							*c_CTRL-^*
+CTRL-^		切换语言 |:lmap| 映射和/或输入法的使用。
+		当为搜索命令输入模式且 'imsearch' 不为 -1 时，VAL 是
+		'imsearch' 的值，否则 VAL 是 'iminsert' 的值。
+		当定义了语言映射时：
+		- 如果 VAL 为 1（使用 langmap 映射）则变为 0（不使用
+		  langmap 映射）。
+		- 如果 VAL 不为 1 则变为 1，因此启用 langmap 映射。
+		当没有定义语言映射时：
+		- 如果 VAL 为 2（使用输入法）则变为 0（不使用输入法）
+		- 如果 VAL 有其他值则变为 2，因此启用输入法。
+		这些语言映射通常用于输入与键盘产生的不同的字符。
+		'keymap' 选项可用于安装一整套映射。
+		进入命令行时，langmap 映射被关闭，因为你应该输入命令。
+		用 CTRL-^ 打开后，新状态不会再次用于下一个命令或搜索模式。
+
+						*c_CTRL-]*
+CTRL-]		触发缩写，不插入字符。
+
+关于命令行上的 Emacs 风格编辑参见 |emacs-keys|。
+
+<Up> 和 <Down> 键将当前命令行作为搜索字符串。下一个/上一个命令行的开头与这个
+字符串比较。第一个匹配的行是新的命令行。重复按这两个键时使用同一个字符串。
+例如，这可以用来找到上一个替换命令：输入 ":s" 然后按 <Up>。
+同样的效果可以通过多次按 <S-Up> 直到显示所需的命令行来实现。（注意：Shift
+方向键不是在所有终端上都有效）
+
+							*:his* *:history*
+:his[tory]	打印最后输入命令的历史。
+
+:his[tory] [{name}] [{first}][, [{last}]]
+		列出历史 {name} 的内容，可以是：
+		c[md]	 或 :		命令行历史
+		s[earch] 或 / 或 ?	搜索字符串历史
+		e[xpr]	 或 =		表达式寄存器历史
+		i[nput]	 或 @		输入行历史
+		d[ebug]	 或 >		调试命令历史
+		a[ll]			以上所有
+
+		如果给出了数字 {first} 和/或 {last}，则列出历史中相应的
+		条目范围。这些数字可以以下形式指定：
+							*:history-indexing*
+		正数表示条目的绝对索引，如 :history 列表第一列中给出的。
+		这个数字保持不变，即使其他条目被删除。
+		（参见 |E1510|）
+
+		负数表示条目的相对位置，从最新的条目（索引为 -1）向后计数。
+
+		示例：
+		列出搜索历史的第 6 到 12 条目： >
+			:history / 6,12
+<
+		列出所有历史的倒数第二条目： >
+			:history all -2
+<
+		列出所有历史最近的两条目： >
+			:history all -2,
+
+:keepp[atterns] {command}			*:keepp* *:keeppatterns*
+		执行 {command}，不向搜索历史添加任何内容，并且在 |:s| 或 |:&|
+		的情况下，不修改最后的替换模式或替换字符串。
+
+==============================================================================
+2. 命令行补全				*cmdline-completion*
+
+编辑命令行时，可以使用几个命令来补全光标前的单词。可用于：
+
+- 命令名称：在命令行的开始处。
+- |++opt| 值。
+- 标签：仅在 ":tag" 命令之后。
+- 文件名：仅在接受文件名的命令之后或可以设置为文件名的选项之后。这称为文件名
+  补全。
+- Shell 命令名称：在 ":!cmd"、":r !cmd" 和 ":w !cmd" 之后。使用 $PATH。
+- 选项：仅在 ":set" 命令之后。
+- 映射：仅在 ":map" 或类似命令之后。
+- 变量和函数名称：仅在 ":if"、":call" 或类似命令之后。
+
+帮助项目匹配的数量有限（目前为 300），以避免匹配太多时的长时间延迟。
+
+关于在输入时自动补全（不按 <Tab> 之类的键），参见 |cmdline-autocompletion|。
+
+以下是可以使用的命令：
+
+							*c_CTRL-D*
+CTRL-D		列出匹配光标前模式的名称。显示文件名时，目录被高亮显示
+		（参见 |highlight-groups|）。'suffixes' 匹配的名称被移到
+		末尾。
+		'wildoptions' 选项可以设置为 "tagfile" 以列出匹配标签的
+		文件。
+				*c_CTRL-I* *c_wildchar* *c_<Tab>* */_<Tab>*
+'wildchar' 选项
+		对光标前的模式进行匹配。匹配结果（如果有多个，取第一个）
+		被插入以替代模式。（注意：在宏中不起作用，因为 <Tab> 或
+		<Esc> 大多用作 'wildchar'，而这些在某些宏中有特殊含义。）
+		再次输入时，如果有多个匹配，插入下一个匹配。最后一个匹配
+		后使用第一个（循环）。
+
+		在搜索上下文中使用 <CTRL-V><Tab> 或 "\t" 搜索字面 <Tab>
+		而不是触发补全。
+
+		可以用 'wildmode' 选项改变行为。
+							*c_<S-Tab>*
+<S-Tab>		类似 'wildchar' 或 <Tab>，但从最后一个匹配开始然后到上一个
+		匹配。
+							*c_CTRL-N*
+CTRL-N		使用 'wildchar' 后有多个匹配时，跳到下一个匹配。否则从
+		历史中调出较新的命令行。
+							*c_CTRL-P*
+CTRL-P		使用 'wildchar' 后有多个匹配时，跳到上一个匹配。否则从
+		历史中调出较旧的命令行。
+							*c_CTRL-A*
+CTRL-A		插入匹配光标前模式的所有名称。
+							*c_CTRL-L*
+CTRL-L		对光标前的模式进行匹配。如果只有一个匹配，将其插入以替代
+		模式。如果有多个匹配，插入最长公共部分以替代模式。如果结果
+		比模式短，不进行补全。
+							*/_CTRL-L*
+		当 'incsearch' 设置时，输入 "/" 或 "?" 的搜索模式且显示
+		当前匹配时，CTRL-L 将从当前匹配的末尾添加一个字符。如果
+		设置了 'ignorecase' 和 'smartcase' 且命令行没有大写字符，
+		添加的字符被转换为小写。
+		                                    *c_CTRL-G* */_CTRL-G*
+CTRL-G		当 'incsearch' 设置时，输入 "/" 或 "?" 的搜索模式且显示
+		当前匹配时，CTRL-G 将移到下一个匹配（不考虑 |search-offset|）。
+		使用 CTRL-T 移到上一个匹配。提示：在普通键盘上 G 在 T 下方。
+		                                    *c_CTRL-T* */_CTRL-T*
+CTRL-T		当 'incsearch' 设置时，输入 "/" 或 "?" 的搜索模式且显示
+		当前匹配时，CTRL-T 将移到上一个匹配（不考虑 |search-offset|）。
+		使用 CTRL-G 移到下一个匹配。提示：在普通键盘上 T 在 G 上方。
+
+'wildchar' 选项默认为 <Tab>（在 Vi 兼容模式中为 CTRL-E；在之前的版本中使用
+<Esc>）。在模式中匹配文件名时接受标准 |wildcards|。
+
+重复 'wildchar' 或 CTRL-N 会循环浏览匹配，最终回到你输入的内容。如果第一个
+匹配不是你想要的，你可以使用 <S-Tab> 或 CTRL-P 直接回到你输入的内容。
+
+可以设置 'wildmenu' 选项以在命令行正上方显示匹配。
+
+'wildoptions' 选项提供额外配置，可以为 'wildmenu' 使用弹出菜单，以及使用
+模糊匹配。
+
+可以设置 'wildignorecase' 选项以在文件名中忽略大小写。对于补全其他文本
+（例如命令名称），使用 'ignorecase' 选项（但模糊匹配始终忽略大小写）。
+
+如果你喜欢 tcsh 的 autolist 补全，你可以使用这个映射： >
+	:cnoremap X <C-L><C-D>
+（其中 X 是要使用的命令键，<C-L> 是 CTRL-L，<C-D> 是 CTRL-D）
+这将找到最长匹配然后列出所有匹配文件。
+
+如果你喜欢 tcsh 的 autolist 补全，你可以使用 'wildmode' 选项来模拟它。
+例如，这模拟 autolist=ambiguous： >
+	:set wildmode=longest,list
+这将用第一个 'wildchar' 找到最长匹配，然后用下一个列出所有匹配文件。
+
+					*complete-script-local-functions*
+补全用户函数名时，加 "s:" 前缀来查找脚本局部函数。
+
+							*suffixes*
+对于文件名补全你可以使用 'suffixes' 选项在几乎相同名称的文件之间设置优先级。
+如果有多个匹配，扩展名在 'suffixes' 选项中的文件被忽略。默认值是
+".bak,~,.o,.h,.info,.swp,.obj"，即以 ".bak"、"~"、".o"、".h"、".info"、
+".swp" 和 ".obj" 结尾的文件有时被忽略。
+
+空条目，即两个连续的逗号，匹配不含 "." 的文件名，因此没有后缀。这对于忽略
+"prog" 而优先选择 "prog.c" 很有用。
+
+示例：
+
+  模式：	文件：				匹配：	~
+   test*	test.c test.h test.o		test.c
+   test*	test.h test.o			test.h 和 test.o
+   test*	test.i test.h test.c		test.i 和 test.c
+
+不可能忽略含有两个点的后缀。
+
+如果有多个匹配文件（忽略匹配 'suffixes' 选项的文件后），插入第一个文件名。
+你可以通过两次输入 'wildchar' 看到只有一个匹配时补全的匹配保持不变。你可以
+通过输入 'wildchar'、CTRL-N 或 CTRL-P 来获取其他匹配。所有文件都包含在内，
+也包括扩展名匹配 'suffixes' 选项的文件。
+
+要完全忽略某些扩展名的文件使用 'wildignore'。
+
+要只匹配在输入文本末尾结束的文件，追加 "$"。例如，只匹配以 ".c" 结尾的
+文件： >
+	:e *.c$
+这不会匹配以 ".cpp" 结尾的文件。没有 "$" 时会匹配。
+
+						*complete-set-option*
+使用 |:set=| 设置选项时，在 '=' 后输入 'wildchar' 可以获得选项的旧值。
+例如，在 ":set dir=" 后输入 'wildchar' 将插入 'dir' 的当前值。这覆盖了
+接受文件名的选项的文件名补全。
+
+使用 |:set=|、|:set+=| 或 |:set^=| 时，具有预定义名称或语法的字符串选项
+（例如 'diffopt'、'listchars'）或是单字符标志列表的选项（例如 'shortmess'）
+在使用 'wildchar' 时也会显示可能值的列表以进行补全。
+
+使用 |:set-=| 时，逗号分隔的选项如 'diffopt' 或 'backupdir' 会分别显示每个
+项目。标志列表选项如 'shortmess' 会同时显示整个旧值和各个标志。否则补全只会
+填入整个旧值。
+
+==============================================================================
+3. Ex 命令行					*cmdline-lines*
+
+Ex 命令有一些特殊之处：
+
+							*:quote* *:comment*
+行首的 '"' 使整行被忽略。命令后的 '"' 使行的其余部分被忽略。这可以用来添加
+注释。示例： >
+	:set ai		"设置 'autoindent' 选项
+不可能在 shell 命令 ":!cmd" 或 ":map" 命令及少数其他命令（主要是期望表达式的
+命令）后添加注释，因为它们将 '"' 视为其参数的一部分：
+
+    :argdo
+    :autocmd
+    :bufdo
+    :cexpr（及类似）
+    :cdo（及类似）
+    :command
+    :debug
+    :display
+    :echo（及类似）
+    :elseif
+    :execute
+    :folddoopen
+    :folddoclosed
+    :for
+    :grep（及类似）
+    :help（及类似）
+    :if
+    :let
+    :make
+    :map（及类似包括 :abbrev 命令）
+    :menu（及类似）
+    :mkspell
+    :normal
+    :popup
+    :registers
+    :return
+    :sort
+    :syntax
+    :tabdo
+    :tearoff
+    :vimgrep（及类似）
+    :while
+    :windo
+
+							*:bar* *:\bar*
+'|' 可用于分隔命令，这样你可以在一行中给出多个命令。如果你想在参数中使用 '|'，
+在前面加 '\'。
+
+这些命令将 '|' 视为其参数，因此后面不能跟另一个 Vim 命令：
+    :argdo
+    :autocmd
+    :bufdo
+    :cdo
+    :cfdo
+    :command
+    :debug
+    :eval
+    :folddoopen
+    :folddoclosed
+    :function
+    :global
+    :help
+    :helpgrep
+    :ldo
+    :lfdo
+    :lhelpgrep
+    :lsp
+    :make
+    :normal
+    :perlfile
+    :pyfile
+    :python
+    :registers
+    :read !
+    :sign
+    :tabdo
+    :terminal
+    :vglobal
+    :windo
+    :write !
+    :[range]!
+    没有 "-bar" 参数的用户定义命令 |:command|
+
+注意这很容易混淆（从 Vi 继承来的）：使用 ":g" 时 '|' 包含在命令中，使用 ":s"
+时则不包含。
+
+无论如何要使用另一个命令，使用 ":execute" 命令。
+示例（追加 "ls" 的输出并跳到第一行）： >
+	:execute 'r !ls' | '[
+
+有一个例外：当 'cpoptions' 中有 'b' 标志时，对于 ":map" 和 ":abbr" 命令及
+其相关命令，需要用 CTRL-V 代替 '\'。你也可以用 "<Bar>" 代替。另见 |map_bar|。
+
+示例： >
+	:!ls | wc		查看两个命令的输出
+	:r !ls | wc		将相同输出插入文本
+	:%g/foo/p|>		将所有匹配行移动一个 shiftwidth
+	:%s/foo/bar/|>		将一行移动一个 shiftwidth
+	:map q 10^V|		将 "q" 映射到 "10|"
+	:map q 10\| map \ l	将 "q" 映射到 "10\" 并将 "\" 映射到 "l"
+					（当 'cpoptions' 中有 'b' 时）
+
+你也可以用 <NL> 以与 '|' 相同的方式分隔命令。要插入 <NL> 使用 CTRL-V CTRL-J。
+将显示 "^@"。使用 '|' 是首选方式。但对于外部命令必须使用 <NL>，因为 '|' 包含
+在外部命令中。要避免 <NL> 的特殊含义，必须在前面加反斜杠。示例： >
+	:r !date<NL>-join
+这将当前日期读入文件并将其与上一行合并。
+
+注意当 '|' 前的命令产生错误时，后续命令将不被执行。
+
+
+由于 Vi 兼容性，以下奇怪命令被支持： >
+	:|			打印当前行（类似 ":p"）
+	:3|			打印第 3 行（类似 ":3p"）
+	:3			跳到第 3 行
+
+范围和命令名之间可以有冒号。它被忽略（这与 Vi 兼容）。例如： >
+	:1,$:s/pat/string
+
+当在期望文件名的地方使用字符 '%' 或 '#' 时，它们被展开为当前和备用文件名
+（参见"编辑文件"章节 |:_%| |:_#|）。
+
+文件名中的尾随空格被忽略，除非用反斜杠或 CTRL-V 转义。注意 ":next" 命令使用
+空格分隔文件名。转义空格以将其包含在文件名中。示例： >
+	:next foo\ bar goes\ to school\
+开始编辑三个文件 "foo bar"、"goes to" 和 "school "。
+
+当你想在命令中使用特殊字符 '"' 或 '|'，或在文件名中使用 '%' 或 '#' 时，
+在前面加反斜杠。在范围中和 ":substitute" 命令中不需要反斜杠。
+另见 |`=|。
+
+							*:_!*
+Ex 命令后的 '!'（叹号）字符使命令以不同方式运行。'!' 应紧接在命令后面，中间
+不能有空白。如果你插入空白，'!' 将被视为命令的参数，含义不同。例如：
+	:w! name	将当前缓冲区写入文件 "name"，覆盖任何已有文件
+	:w !name	将当前缓冲区作为标准输入发送给命令 "name"
+
+==============================================================================
+4. Ex 命令行范围	*cmdline-ranges* *[range]* *E16*
+
+一些 Ex 命令在前面接受一个行范围。这记作 [range]。它由一个或多个行指定符
+组成，用 ',' 或 ';' 分隔。
+
+基础知识在用户手册第 |10.3| 节中解释。
+
+								*:,* *:;*
+用 ';' 分隔时，在解释下一个行指定符之前光标位置会被设置到该行。这对 ',' 不会
+发生。
+示例： >
+   4,/this line/
+<	从第 4 行到光标行之后匹配 "this line" 的行。 >
+   5;/that line/
+<	从第 5 行到第 5 行之后匹配 "that line" 的行。
+
+大多数命令的默认行指定符是光标位置，但命令 ":write" 和 ":global" 的默认范围
+是整个缓冲区 (1,$)。
+
+如果给出的行指定符多于命令所需，用逗号分隔时，最左边的被忽略，例如这里的
+-2,+ ： >
+	:-2,+,-2,. print
+<用分号分隔时，从最左边的到倒数第二个指定符的值被求和，例如 -4 + 3 - 1 = -2：
+>
+	:-4;+3;-1;+2 print
+<
+行号可以用以下方式指定：		*:range* *{address}*
+	{number}	绝对行号  *E1247*
+	.		当前行			   *:.*
+	$		缓冲区最后一行		   *:$*
+	%		等于 1,$（整个缓冲区）	   *:%*
+	*		等于 '<,'>（上次选择的可视区域的行；
+			参见下面的 |:star|）
+	'x		标记 x 位置的行		   *:'x*
+			（其中 x 是任何 {a-z} 标记）
+	'X		标记 X 位置的行		   *:'X*
+			（其中 X 是任何 {A-Z0-9} 标记，但当 X 在
+			另一个缓冲区中时不能在范围中使用）
+	'[		最近更改或复制的第一行	   *:'[*
+	']		最近更改或复制的最后一行   *:']*
+	'<		最近选择的可视区域的第一行 *:'<*
+	'>		最近选择的可视区域的最后一行 *:'>*
+	''		最近跳转之前的位置的行，   *:''*
+			或最后的 "m'"/"m`" 命令所在的行
+			（但如果不在当前缓冲区中则 '' 为 1）
+	'"		上次退出缓冲区时光标位置的行 *:'quote*
+	'^		上次停止插入模式时光标位置的行 *:'^*
+	'.		缓冲区上次被修改时光标位置的行 *:'.*
+	'(		当前句子第一个字符的行	   *:'(*
+	')		当前句子结束后第一个字符的行 *:')*
+	'{		包含光标的段落之前的第一个空行 *:'{*
+	'}		包含光标的段落之后的第一个空行 *:'}*
+	/{pattern}[/]	{pattern} 匹配的下一行	   *:/*
+				另见下面的 |:range-pattern|
+	?{pattern}[?]	{pattern} 匹配的上一行	   *:?*
+				另见下面的 |:range-pattern|
+	\/		最近搜索模式匹配的下一行
+	\?		最近搜索模式匹配的上一行
+	\&		最近替换模式匹配的下一行
+
+	注意："下一行" 和 "上一行" 不包括在当前行中出现的匹配。
+
+						*:range-offset*
+每个行指定符后面可以跟一个或多个 '+' 或 '-' 和一个可选数字。该值加到或从前面
+的行号减去。例如，'x+2 是包含标记 x 的行之后两行。如果数字省略，每个 '+' 使用
++1，每个 '-' 使用 -1，例如 'x++ 和 'x+2 是同义的。如果 '+' 或 '-' 前面没有
+内容，对于 [range] 中的第一个行号使用当前行作为相对起点。因此 -,. 表示
+"当前行的前一行到当前行"。[range] 中第二个行号的值取决于是逗号还是分号分隔
+行号（参见 |:,| 和 |:;|）。
+示例：如果光标在下面这行内，以下任一命令都会打印标签行 ":range-offset"
+和 "Each..." 行： >
+	:-11;+1 print
+	:-----------,-10 print
+	:?Each line?-;+ print
+	:'{+,'{+2 print
+	:'{+1;')-1 print
+<						*:range-closed-fold*
+当逗号后的行号在关闭的折叠中时，它会调整到折叠的最后一行，因此整个折叠被
+包含。
+
+添加数字时在调整到折叠最后一行之后进行。这意味着这些行额外包含在范围中。
+
+						*:range-pattern*
+{pattern} 后的 "/" 和 "?" 是必需的，用于将模式与后面的内容分隔。
+
+"/" 和 "?" 前面可以有另一个地址。搜索从那里开始。与使用 ';' 的区别是光标
+不会移动。
+
+{number} 必须在 0 和文件行数之间。当使用 0（零）时，大多数命令将其解释为 1。
+将其用作计数的命令使用 0（|:tag|、|:pop| 等）。一些命令将零解释为"在第一行
+之前"（|:read|、搜索模式等）。
+
+有些命令允许在命令后跟一个计数。此计数用作要使用的行数，从最后一个行指定符
+给出的行开始（默认为光标行）。接受计数的命令是使用范围但没有文件名参数的命令
+（因为文件名也可以是数字）。计数不能为负。
+
+示例： >
+	:s/x/X/g 5	在当前行和之后四行中将 'x' 替换为 'X'
+	:23d 4		删除第 23、24、25 和 26 行
+
+
+折叠和范围
+
+当折叠处于活动状态时，行号会被舍入以包含整个关闭的折叠。参见 |fold-behavior|。
+
+
+反向范围						*E493*
+
+范围的较小行号应该在前面。如果不是这种情况，Vim 会问你是否要交换行号。
+	Backwards range given, OK to swap ~
+这在全局命令 ":g" 中不会发生。
+
+你可以在命令前使用 ":silent" 来避免这个问题，范围将始终被交换。
+
+
+计数和范围						*N:*
+
+在输入 ":" 之前给出计数时，它被翻译为： >
+		:.,.+(count - 1)
+换言之：光标处和光标之后的 "count" 行。示例：要删除三行： >
+		3:d<CR>		被翻译为：.,.+2d<CR>
+<
+
+可视模式和范围
+							*v_:*
+{Visual}:	以可视选择的行作为范围开始命令行。使用 `:'<,'>` 代码
+		表示此范围，这使得可以从命令行历史中选择类似的行以对不同
+		的可视选择的行重复命令。
+
+:*						*:star* *:star-visual-range*
+		当可视模式已经结束时，使用可视区域作为范围的简短方式是 `:*`。
+
+==============================================================================
+5. Ex 命令行标志				*ex-flags*
+
+以下标志被一些 Ex 命令支持。它们打印执行命令后光标所在的行：
+
+	l	输出方式类似 |:list|
+	#	添加行号
+	p	输出方式类似 |:print|
+
+标志可以组合，因此 "l#" 同时使用行号和 |:list| 风格输出。
+
+==============================================================================
+6. Ex 特殊字符				*cmdline-special*
+
+注意：这些是在执行的命令行中的特殊字符。如果你想在输入时插入特殊内容，你可以
+使用 CTRL-R 命令。例如，"%" 代表当前文件名，而 CTRL-R % 会立即插入当前文件名。
+参见 |c_CTRL-R|。
+
+注意：如果你想在 Vim 脚本中避免特殊字符的效果，你可能想使用 |fnameescape()|。
+另见 |`=|。
+
+
+在 Ex 命令中，在可以使用文件名的地方，以下字符有特殊含义。这些也可以在表达式
+函数 |expand()| 中使用。
+	%	被替换为当前文件名。		  *:_%* *c_%*
+	#	被替换为备用文件名。		  *:_#* *c_#*
+		这对每个窗口都被记住。
+	#n	（n 是数字）被替换为		  *:_#0* *:_#n*
+		缓冲区 n 的文件名。"#0" 与 "#" 相同。     *c_#n*
+	##	被替换为参数列表中的所有名称	  *:_##* *c_##*
+		用空格连接。名称中的每个空格前加反斜杠。
+	#<n	（n 是大于 0 的数字）被替换为	  *:_#<* *c_#<*
+		旧文件名 n。参见 |:oldfiles| 或 |v:oldfiles| 获取编号。
+								*E809*
+
+注意除了 "#<n" 之外，这些给出的是输入时的文件名。如果需要绝对路径（从不同
+目录使用文件名时），你需要添加 ":p"。参见 |filename-modifiers|。
+
+"#<n" 项返回绝对路径，但对于你家目录下的文件会以 "~/" 开头。
+
+注意在空格前插入反斜杠，以便命令正确解释文件名。但这对 shell 命令不会发生。
+对于那些你可能需要使用引号（这对包含引号和通配符的文件不起作用）： >
+	:!ls "%"
+	:r !spell "%"
+
+要避免 '%' 和 '#' 的特殊含义，在前面加反斜杠。
+详细说明：特殊含义在前面有反斜杠时总是被转义，不管有多少个反斜杠。
+	你输入：		结果	~
+	   #			alternate.file
+	   \#			#
+	   \\#			\#
+另见 |`=|。
+
+							*E499* *E500*
+注意：这些是按字面输入的，它们不是特殊键！
+							*:<cword>* *<cword>*
+	<cword>    被替换为光标下的 word（类似 |star|）
+							*:<cWORD>* *<cWORD>*
+	<cWORD>    被替换为光标下的 WORD（参见 |WORD|）
+							*:<cexpr>* *<cexpr>*
+	<cexpr>    被替换为光标下的 word，包括更多内容以形成 C 表达式。
+		   例如，当光标在 "ptr->arg" 的 "arg" 上时结果是
+		   "ptr->arg"；当光标在 "list[idx]" 的 "]" 上时结果是
+		   "list[idx]"。
+							*:<cfile>* *<cfile>*
+	<cfile>    被替换为光标下的路径名（类似 |gf| 使用的）
+							*:<afile>* *<afile>*
+	<afile>    执行自动命令时，被替换为正在操作的缓冲区的文件名，
+		   或用于读取或写入的文件。  *E495*
+							*:<abuf>* *<abuf>*
+	<abuf>     执行自动命令时，被替换为当前有效的缓冲区号。不是
+		   所有事件都设置，另见 |bufnr()|。对于 ":r file" 和
+		   ":so file" 它是当前缓冲区，正在读取/执行的文件不在
+		   缓冲区中。  *E496*
+							*:<amatch>* *<amatch>*
+	<amatch>   执行自动命令时，被替换为此自动命令被执行时的匹配。
+		   *E497*
+		   当文件名不用于匹配时（对于 FileType、Syntax 和
+		   SpellFileMissing 事件）它与 <afile> 不同。
+		   当匹配是文件名时，它被展开为完整路径。
+							*:<stack>* *<stack>*
+	<stack>	   被替换为调用栈，对函数行使用
+		   "function {function-name}[{lnum}]"，对脚本行使用
+		   "script {file-name}[{lnum}]"，项目之间用 ".." 分隔。
+		   例如：
+		   "function {function-name1}[{lnum}]..{function-name2}[{lnum}]"
+		   如果没有调用栈你会得到错误 *E489*。
+							*:<script>* *<script>* *E498*
+	<script>   执行 `:source` 命令时，被替换为执行文件的文件名。
+		   执行函数时，被替换为定义它的脚本的文件名。
+		   如果无法确定文件名你会得到错误 *E1274*。
+							*:<slnum>* *<slnum>*
+	<slnum>	   执行 `:source` 命令时，被替换为行号。  *E842*
+		   执行函数时它是相对于函数开始的行号。
+							*:<sflnum>* *<sflnum>*
+	<sflnum>   执行脚本时，被替换为脚本行号。
+		   它与 <slnum> 的区别在于 <sflnum> 在任何情况下都被替换为
+		   脚本行号。  *E961*
+
+							 *filename-modifiers*
+*:_%:* *::8* *::p* *::.* *::~* *::h* *::t* *::r* *::e* *::s* *::gs* *::S*
+     *%:8* *%:p* *%:.* *%:~* *%:h* *%:t* *%:r* *%:e* *%:s* *%:gs* *%:S*
+文件名修饰符可以在 "%"、"#"、"#n"、"<cfile>"、"<script>"、"<afile>" 或 "<abuf>"
+后使用。它们也可以与 |fnamemodify()| 函数一起使用。
+
+这些修饰符可以按此顺序给出：
+	:p	使文件名成为完整路径。必须是第一个修饰符。也将 "~/"
+		（Unix 上的 "~user/"）改为家目录路径。
+		如果名称是目录，在末尾添加路径分隔符。
+		对于不存在且没有绝对路径的文件名，结果不可预测。
+		在 MS-Windows 上 8.3 短文件名被展开为长名称。
+	:8	将路径转换为 8.3 短格式（目前仅在 MS-Windows 上）。将尽可能
+		多地处理存在的路径。
+	:~	将文件名缩短为相对于家目录的路径（如果可能）。如果文件不在
+		家目录下则不修改。
+	:.	将文件名缩短为相对于当前目录的路径（如果可能）。如果文件不在
+		当前目录下则不修改。
+		要获得最短的路径，使用 ":~:."。
+	:h	文件名的头部（最后一个组件和所有分隔符被删除）。不能与
+		:e、:r 或 :t 一起使用。
+		可以重复以删除末尾的多个组件。
+		当文件名以路径分隔符结尾时，只删除路径分隔符。因此对目录名
+		使用 ":p:h" 的结果是目录名本身（不带尾随斜杠）。
+		当文件名是绝对路径（Unix 上以 "/" 开始；Win32 上以 "x:\"
+		开始）时，该部分不被删除。
+		当没有头部（路径相对于当前目录）时结果为空。
+	:t	文件名的尾部（名称的最后一个组件）。必须在 :r 或 :e 之前。
+	:r	文件名的根（最后一个扩展名被删除）。当只有一个扩展名
+		（文件名以 '.' 开始，例如 ".nvimrc"）时不被删除。可以重复
+		以删除多个扩展名（最后的先删除）。
+	:e	文件名的扩展名。单独使用时才有意义。
+		当没有扩展名时结果为空。
+		当只有扩展名（文件名以 '.' 开始）时结果为空。可以重复以
+		包含更多扩展名。如果扩展名不够（但至少有一个）则包含尽可能
+		多的。
+	:s?pat?sub?
+		将 "pat" 的第一次出现替换为 "sub"。工作方式类似 |:s| 命令。
+		"pat" 是正则表达式。任何字符可以用于 '?'，但不能出现在
+		"pat" 或 "sub" 中。
+		此后可以再次使用前面的修饰符。例如 ":p"，在替换后制作完整
+		路径。
+	:gs?pat?sub?
+		将 "pat" 的所有出现替换为 "sub"。其他方面与 ":s" 相同。
+	:S	转义用于 shell 命令的特殊字符（参见 |shellescape()|）。必须
+		是最后一个。示例： >
+		    :!dir <cfile>:S
+		    :call system('chmod +w -- ' .. expand('%:S'))
+
+示例，当文件名是 "src/version.c"，当前目录是 "/home/mool/vim"： >
+  :p			/home/mool/vim/src/version.c
+  :p:.				       src/version.c
+  :p:~				 ~/vim/src/version.c
+  :h				       src
+  :p:h			/home/mool/vim/src
+  :p:h:h		/home/mool/vim
+  :t					   version.c
+  :p:t					   version.c
+  :r				       src/version
+  :p:r			/home/mool/vim/src/version
+  :t:r					   version
+  :e						   c
+  :s?version?main?		       src/main.c
+  :s?version?main?:p	/home/mool/vim/src/main.c
+  :p:gs?/?\\?		\home\mool\vim\src\version.c
+
+示例，当文件名是 "src/version.c.gz"： >
+  :p			/home/mool/vim/src/version.c.gz
+  :e						     gz
+  :e:e						   c.gz
+  :e:e:e					   c.gz
+  :e:e:r					   c
+  :r				       src/version.c
+  :r:e						   c
+  :r:r				       src/version
+  :r:r:r			       src/version
+<
+					*extension-removal* *:_%<*
+如果在 "%"、"#"、"#n" 或 "CTRL-V p" 后追加 "<"，文件名的扩展名被删除
+（最后一个 '.' 及之后的所有内容）。这是为了与 3.0 版本向后兼容，推荐使用
+":r" 形式。示例： >
+
+	%		当前文件名
+	%<		不带扩展名的当前文件名
+	#		当前窗口的备用文件名
+	#<		同上，不带扩展名
+	#31		备用文件号 31
+	#31<		同上，不带扩展名
+	<cword>		光标下的 word
+	<cWORD>		光标下的 WORD（参见 |WORD|）
+	<cfile>		光标下的路径名
+	<cfile><	同上，不带扩展名
+
+注意：在期望文件名的地方会进行通配符展开。在 Unix 上使用 shell 进行此操作，
+除非可以在内部完成（为了速度）。反引号也可以使用，如 >
+	:n `echo *.c`
+但只有在展开 '%'、'#' 等之前有通配符时才进行展开。这避免了在文件名内部展开
+通配符。如果你想展开 <cfile> 的结果，在其后添加通配符字符。
+示例：（备用文件名是 "?readme?"）
+	命令		展开为 >
+	:e #		:e ?readme?
+	:e `ls #`	:e {匹配 "?readme?" 的文件}
+	:e #.*		:e {匹配 "?readme?.*" 的文件}
+	:cd <cfile>	:cd {光标下的文件名}
+	:cd <cfile>*	:cd {光标下的文件名加 "*" 然后展开}
+另见 |`=|。
+
+当展开的参数包含 "!" 且用于 shell 命令（":!cmd"、":r !cmd" 或 ":w !cmd"）时，
+"!" 会被反斜杠转义以避免它被展开为之前使用的命令。当 'shell' 选项包含 "sh"
+时，这样做两次，以避免 shell 尝试展开 "!"。
+
+							*filename-backslash*
+对于使用反斜杠作为目录分隔符的文件系统（Windows 文件系统），很难识别用于转义
+下一个字符特殊含义的反斜杠。一般规则是：如果反斜杠后面跟着普通的文件名字符，
+它没有特殊含义。因此 "\file\foo" 是有效的文件名，你不需要输入两次反斜杠。
+
+一个例外是 '$' 符号。它是文件名中的有效字符。但为了避免类似 "$home" 的文件名
+被解释为环境变量，需要在前面加反斜杠。因此你需要使用 "/\$home" 来表示根目录
+中的文件 "$home"。一些示例：
+
+	文件名		解释为	~
+	$home		展开为环境变量 $home 的值
+	\$home		当前目录中的文件 "$home"
+	/\$home		根目录中的文件 "$home"
+	\\$home		文件 "\\"，后跟展开的 $home
+
+另见 |`=|。
+
+==============================================================================
+7. 命令行窗口				*cmdline-window* *cmdwin*
+							*command-line-window*
+在命令行窗口中，命令行可以像在任何窗口中编辑文本一样编辑。它是一种特殊窗口，
+因为你不能用正常方式离开它。
+
+
+打开						*c_CTRL-F* *q:* *q/* *q?*
+
+有两种方式打开命令行窗口：
+1. 从命令行模式，使用 'cedit' 选项指定的键。
+2. 从普通模式，使用 "q:"、"q/" 或 "q?" 命令。
+   这开始编辑 Ex 命令行（"q:"）或搜索字符串（"q/" 或 "q?"）。注意当正在录制
+   时不可能这样做（"q" 会停止录制）。
+
+窗口打开后填充了命令行历史。最后一行包含到目前为止输入的命令。左列显示一个
+字符指示正在编辑的命令行类型，参见 |cmdwin-char|。
+
+打开编辑器时 Vim 将在普通模式。
+
+窗口的高度由 'cmdwinheight' 指定（如果没有空间则更小）。窗口总是全宽的，
+定位在命令行正上方。
+
+
+编辑
+
+你现在可以使用命令在窗口中移动和编辑文本。在普通模式和插入模式中都可以。
+
+可以使用 ":"、"/" 和其他使用命令行的命令，但不能打开另一个命令行窗口。
+没有嵌套。
+							*E11* *E1188*
+命令行窗口不是普通窗口。不可能移到另一个窗口或编辑另一个缓冲区。所有会这样
+做的命令在命令行窗口中被禁用。当然你 _可以_ 执行你在命令行窗口中输入的任何
+命令。关闭窗口时其他文本编辑被丢弃。
+
+
+关闭							*E199*
+
+有几种方式离开命令行窗口：
+
+<CR>		执行光标下的命令行。在插入和普通模式中都有效。
+CTRL-C		继续在命令行模式中。光标下的命令行作为命令行使用。在插入和
+		普通模式中都有效。不会重绘，因此窗口仍然可见。
+:quit		放弃命令行并回到普通模式。
+		":close"、CTRL-W c、":exit"、":xit" 和 CTRL-\ CTRL-N 也有效。
+:qall		退出 Vim，除非有缓冲区有修改。
+:qall!		退出 Vim，丢弃任何缓冲区的修改。
+
+关闭命令行窗口后恢复旧的窗口大小。执行的命令应用于命令行开始时的窗口和缓冲区。
+这就像命令行窗口不在那里一样，除了会有一次额外的屏幕重绘。
+命令行窗口使用的缓冲区被删除。用 <CR> 执行的行以外的行的任何修改都会丢失。
+
+如果你想执行光标下的命令然后再次打开命令行窗口，你可能会发现这个映射有用： >
+
+	:autocmd CmdwinEnter * map <buffer> <F5> <CR>q:
+
+
+杂项
+
+当已经有命令行窗口时不能使用命令行窗口（没有嵌套）。
+
+命令行窗口打开时设置一些选项：
+'filetype'	"vim"，编辑 Ex 命令行时；如果启用了 Vim 语法高亮，则启动
+'rightleft'	off
+'modifiable'	on
+'buftype'	"nofile"
+'swapfile'	off
+
+允许将缓冲区内容写入文件。这是保存命令行历史并稍后读回的简便方式。
+
+如果 'wildchar' 选项设置为 <Tab>，且命令行窗口用于 Ex 命令，则添加两个映射
+以在命令行窗口中使用 <Tab> 补全，如下： >
+	:inoremap <buffer> <Tab> <C-X><C-V>
+	:nnoremap <buffer> <Tab> a<C-X><C-V>
+注意在普通模式中按 <Tab> 将在下一个字符上补全。这样在行尾也能工作。
+如果你不想要这些映射，用以下方式禁用它们： >
+	au CmdwinEnter [:>] iunmap <buffer> <Tab>
+	au CmdwinEnter [:>] nunmap <buffer> <Tab>
+你可以将这些行放在你的 vimrc 文件中。
+
+在命令行窗口中你不能用鼠标将光标放在另一个窗口中，或拖动其他窗口的状态栏。
+你可以拖动命令行窗口本身的状态栏和它上面的状态栏。因此你可以调整命令行窗口
+的大小，但不能调整其他窗口的。
+
+|getcmdwintype()| 函数返回正在编辑的命令行类型，如 |cmdwin-char| 中所述。
+
+Nvim 在 "nvim.cmdwin" 组中定义了这个默认 CmdwinEnter 自动命令： >
+    autocmd CmdwinEnter [:>] syntax sync minlines=1 maxlines=1
+<
+你可以在配置中用 "autocmd! nvim.cmdwin" 禁用它。|default-autocmds|
+
+
+自动命令
+
+使用了两个自动命令事件：|CmdwinEnter| 和 |CmdwinLeave|。你可以使用 Cmdwin
+事件来做专门针对命令行窗口的设置。注意不要造成副作用！
+示例： >
+	:au CmdwinEnter :  let b:cpt_save = &cpt | set cpt=.
+	:au CmdwinLeave :  let &cpt = b:cpt_save
+这设置 'complete' 以在当前窗口中使用 |i_CTRL-N| 补全。
+另一个示例： >
+	:au CmdwinEnter [\/\?]  startinsert
+这将使 Vim 在命令行窗口中以插入模式启动。
+注意："/" 和 "?" 需要转义，因为这是 |file-pattern|。
+另见 |cmdline-autocompletion|。
+
+					*cmdline-char* *cmdwin-char*
+模式使用的字符指示命令行的类型：
+	:	普通 Ex 命令
+	>	调试模式命令 |debug-mode|
+	/	正向搜索字符串
+	?	反向搜索字符串
+	=	"= 的表达式 |expr-register|
+	@	|input()| 的字符串
+	`-`	|:insert| 或 |:append| 的文本
+
+==============================================================================
+8. 命令行自动补全			 *cmdline-autocompletion*
+
+自动补全通过在你输入时自动显示建议弹出菜单，使命令行更高效、更容易导航，
+无论是搜索（/ 或 ?）还是输入命令（:）。
+
+基本设置是： >
+	autocmd CmdlineChanged [:\/\?] call wildtrigger()
+	set wildmode=noselect:lastused,full
+	set wildoptions=pum
+
+使用此配置，建议会立即出现，你可以用 <Tab> 或方向键浏览它们。
+
+要保留用 <Up>/<Down> 进行正常命令行历史导航的功能： >
+	cnoremap <expr> <Up>   wildmenumode() ? "\<C-E>\<Up>"   : "\<Up>"
+	cnoremap <expr> <Down> wildmenumode() ? "\<C-E>\<Down>" : "\<Down>"
+
+选项也可以只应用于特定的命令行。例如，只在搜索期间使用较短的弹出菜单高度： >
+	autocmd CmdlineEnter [\/\?] set pumheight=8
+	autocmd CmdlineLeave [\/\?] set pumheight&
+
+额外功能				*fuzzy-file-picker* *live-grep*
+
+命令行自动补全也可以扩展用于高级用途。
+例如，你可以将原生 |:find| 命令变成模糊交互式文件选择器： >
+
+	set findfunc=Find
+	func Find(arg, _)
+	  if empty(s:filescache)
+	    let s:filescache = globpath('.', '**', 1, 1)
+	    call filter(s:filescache, '!isdirectory(v:val)')
+	    call map(s:filescache, "fnamemodify(v:val, ':.')")
+	  endif
+	  return a:arg == '' ? s:filescache : matchfuzzy(s:filescache, a:arg)
+	endfunc
+	let s:filescache = []
+	autocmd CmdlineEnter : let s:filescache = []
+
+`:Grep` 命令搜索匹配模式的行并在你输入时动态更新结果（在两个字符后触发；
+注意：需要下一节中的 `CmdlineLeavePre` 自动命令）： >
+
+	command! -nargs=+ -complete=customlist,<SID>Grep
+		\ Grep call <SID>VisitFile()
+
+	func s:Grep(arglead, cmdline, cursorpos)
+	  if match(&grepprg, '\$\*') == -1 | let &grepprg ..= ' $*' | endif
+	  let cmd = substitute(&grepprg, '\$\*', shellescape(escape(a:arglead, '\')), '')
+	  return len(a:arglead) > 1 ? systemlist(cmd) : []
+	endfunc
+
+	func s:VisitFile()
+	  let item = getqflist(#{lines: [s:selected]}).items[0]
+	  let pos  = '[0,\ item.lnum,\ item.col,\ 0]'
+	  exe $':b +call\ setpos(".",\ {pos}) {item.bufnr}'
+	  call setbufvar(item.bufnr, '&buflisted', 1)
+	endfunc
+
+离开命令行时自动选择补全列表中的第一个项目，对于 `:Grep`，将输入的模式添加到
+命令行历史： >
+
+	autocmd CmdlineLeavePre :
+	      \ if get(cmdcomplete_info(), 'matches', []) != [] |
+	      \   let s:info = cmdcomplete_info() |
+	      \   if getcmdline() =~ '^\s*fin\%[d]\s' && s:info.selected == -1 |
+	      \     call setcmdline($'find {s:info.matches[0]}') |
+	      \   endif |
+	      \   if getcmdline() =~ '^\s*Grep\s' |
+	      \     let s:selected = s:info.selected != -1
+	      \         ? s:info.matches[s:info.selected] : s:info.matches[0] |
+	      \     call setcmdline(s:info.cmdline_orig) |
+	      \   endif |
+	      \ endif
+
+关于插入模式中的自动补全，参见 |ins-autocompletion|。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

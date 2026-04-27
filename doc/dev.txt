@@ -1,0 +1,641 @@
+*dev.txt*          Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+Nvim 的开发                                             *development* *dev*
+
+本参考文档描述了开发 Nvim 应用程序或 Nvim 本身时的设计约束和指南。有关 Nvim 架构
+和内部概念的讨论请参阅 |dev-arch|。
+
+Nvim 是自由开源软件。欢迎每个人参与贡献。
+    https://github.com/neovim/neovim/blob/master/CONTRIBUTING.md
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+设计目标                                                *design-goals*
+
+最重要的排在前面（大致如此）。某些条目之间存在冲突；这是有意为之的。
+必须找到平衡点。
+
+
+NVIM 是……改进的                                        *design-improved*
+
+Nvim 的 Neo 部分应该使它成为更好的 Vim，而不是变成一个完全不同的编辑器。
+- 在品味问题上，优先遵循 Vim/Unix 传统。如果没有相关的 Vim/Unix 传统，
+  则考虑"常见情况"。
+- 可以添加的功能没有限制。根据以下标准选择新功能：(1) 用户的需求，
+  (2) 实现所需的工作量，以及 (3) 是否有人实际实现它。
+- 向后兼容性是一个特性。特别是 RPC API 永远不应该出现破坏性变更。
+
+
+NVIM 是……有良好文档的                                   *design-documented*
+
+- 没有文档的功能是无用的功能。新功能的补丁必须包含文档。
+- 文档应该全面且易于理解。请使用示例。
+- 不要让文本不必要地冗长。更少的文档意味着更容易找到某个条目。
+
+
+NVIM 是……快速且小巧的                                   *design-speed-size*
+
+保持 Nvim 小巧和快速。这直接影响通用性和可用性。
+- 计算机每年都在变得更快、更大。Vim 也可以增长，但增长速度不能超过计算机的
+  增长速度。保持 Vim 在旧系统上可用。
+- 许多用户经常从 shell 启动 Vim。启动时间必须短。
+- 命令必须高效工作。它们消耗的时间必须尽可能少。有用的命令可以花费更长时间。
+- 不要忘记有些人通过慢速连接使用 Vim。最小化通信开销。
+- Vim 是其他组件中的一个组件。不要把它变成一个庞大的应用程序，而应让它与
+  其他程序良好协作（"可组合性"）。
+
+
+NVIM 是……可维护的                                       *design-maintain*
+
+- 源代码不应该变成一团糟。它应该是可靠的代码。
+- 以有用的方式使用注释！引用函数名和参数名不是有用的。要解释它们的用途。
+- 移植到另一个平台应该很容易，而不需要更改太多平台无关的代码。
+- 使用面向对象的思想：将数据和代码放在一起。最小化知识向代码其他部分的扩散。
+
+
+NVIM 不是……                                             *design-not*
+
+Nvim 不是操作系统；相反，它应该与其他工具组合使用或作为组件被嵌入。
+Marvim 曾说过："与 Emacs 不同，Nvim 不包含厨房水槽……但它很适合做管道工作。"
+
+
+==============================================================================
+开发者指南                                              *dev-guidelines*
+
+
+提供者                                                  *dev-provider*
+
+Nvim 的一个主要目标是允许在不了解核心特殊知识的情况下扩展编辑器。某些核心功能被
+委托给作为外部脚本实现的"提供者"。
+
+示例：
+
+1. 在 Vim 源代码中，剪贴板逻辑占了超过 1000 行的 C 源代码 (ui.c)，用于执行现在
+   通过 xclip 或 pbcopy/pbpaste 等 shell 命令完成的两个任务。
+2. Python 脚本支持：Vim 有三个专门用于嵌入 Python 解释器的文件：if_python.c、
+   if_python3.c 和 if_py_both.h。这些文件总共约 9500 行 C 源代码。相比之下，
+   Nvim 的 Python 脚本由约 2000 行 Python 实现的外部宿主进程执行。
+
+提供者框架从 C 调用 Vimscript。它由 eval.c 中的两个函数组成：
+
+- eval_call_provider({name}, {method}, {arguments}, {discard})：使用 {method}
+  和 {arguments} 调用 `provider#{name}#Call`。如果 {discard} 为 true，则提供者
+  返回的任何值将被丢弃，并返回空值。
+- eval_has_provider({name})：检查 `g:loaded_{name}_provider` 变量，该变量必须
+  由提供者脚本设置为 2 以表示它"已启用并正常工作"。由 |has()| 调用以检查功能
+  是否可用。
+
+例如，Python 提供者由 "autoload/provider/python.vim" 脚本实现，该脚本仅在找到
+有效的外部 Python 宿主时才将 `g:loaded_python_provider` 设置为 2。然后
+`has("python")` 反映 Python 支持是否正常工作。
+
+                                                        *provider-reload*
+有时 GUI 或其他应用程序可能想要强制提供者"重新加载"。要重新加载提供者，取消定义
+其 "loaded" 标志，然后使用 |:runtime| 重新加载它：>vim
+
+    :unlet g:loaded_clipboard_provider
+    :runtime autoload/provider/clipboard.vim
+
+
+文档                                                    *dev-doc*
+
+- "直接说"。在所有文档（文档字符串、用户手册、网站材料、新闻通讯等）中避免含糊、
+  口语化的措辞。不要拐弯抹角。适度使用个性和风味是受欢迎的——但总的来说，
+  要为读者的时间和精力优化：做到"精确而简洁"。
+    - 优先使用主动语态："Foo 做 X"，而不是"X 由 Foo 完成"。
+    - "你选择的词是用户体验的重要组成部分。"
+      https://developer.apple.com/design/human-interface-guidelines/writing
+    - "……不要过于口语化或轻浮。"
+      https://developers.google.com/style/tone
+- 文档字符串（与内联注释相对）使用现在时态（"Gets"），而不是祈使语气（"Get"）。
+  这有助于减少歧义并通过描述"是什么"而不是"怎么做"来提高清晰度。>
+    ✅ 正确：
+    /// Gets a highlight definition.
+    ❌ 错误：
+    /// Get a highlight definition.
+- 避免以 "The" 或 "A" 开头的文档字符串，除非需要避免歧义。这是一种视觉辅助
+  并减少噪音。>
+    ✅ 正确：
+    /// @param dirname Path fragment before `pend`
+    ❌ 错误：
+    /// @param dirname The path fragment before `pend`
+- Vim 差异：
+    - 不要在帮助标签前加 "nvim-" 前缀。使用 |vim_diff.txt| 来记录与 Vim 的差异；
+      不需要其他区分。
+    - 如果某个 Vim 功能被移除，删除其帮助部分并将其标签移至 |vim_diff.txt|。
+- 在 |deprecated.txt| 中提及已弃用的功能并删除其旧文档。
+- 使用一致的语言。
+    - 帮助标签中的 "terminal" 始终指"内嵌终端模拟器"，而不是"用户主机终端"。
+    - 使用 "tui-" 前缀来标记与主机终端相关的帮助标签，如果可能的话在文本中
+      使用 "TUI"。
+- 关于 Lua 文档应放在哪里的大致指南：
+    - Nvim API 函数 `vim.api.nvim_*` 应放在 `api.txt` 中。
+    - 如果模块很大且与通用和底层 Lua 功能无关，则它是分离的有力候选。
+      例如：`treesitter.txt`
+    - 否则，将它们添加到 `lua.txt`
+
+文档格式 ~
+
+对于 Nvim 自有的文档，使用以下严格的 "vimdoc" 子集，以确保帮助文档在其他格式
+（如 HTML：https://neovim.io/doc/user ）中也能很好地呈现。
+
+严格的 "vimdoc" 子集：
+
+- 使用以 "-" 或 "•" 为前缀的列表（像这样！），用于你不想自动换行的相邻行。
+  列表始终以"流式"布局（软换行）呈现，而不是传统 :help 文档中常见的预格式化
+  （硬换行）布局。你也可以使用编号列表，如 "1."
+- 用空行分隔内容块（段落）。
+- 不要在随意的地方使用缩进——那会阻止页面使用"流式"布局。如果你需要预格式化
+  部分，请将其放在以 ">" 开头的 |help-codeblock| 中。
+- 参数和字段记录为 `{foo}`。
+- 可选参数和字段记录为 `{foo}?`。
+
+C 文档字符串 ~
+
+Nvim API 文档存在于源代码中，作为函数定义上的文档字符串（文档注释）。
+|api| :help 从 src/nvim/api/*.c 中定义的文档字符串生成。
+
+文档字符串格式：
+- 行以 `///` 开头
+- 特殊标记以 `@` 后跟标记名称开头：
+  `@note`、`@param`、`@return`
+- 支持 Markdown。
+- 标签写为 `[tag]()`。
+- 引用写为 `[tag]`
+- 使用 "```" 作为代码示例。
+  代码示例可以标注为 `vim` 或 `lua`
+
+示例：|nvim_open_win()| 的帮助文档从 src/nvim/api/win_config.c 中定义的文档
+字符串生成，如下所示：>
+
+    /// Opens a new window.
+    /// ...
+    ///
+    /// Example (Lua): window-relative float
+    ///
+    /// ```lua
+    /// vim.api.nvim_open_win(0, false, {
+    ///   relative='win',
+    ///   row=3,
+    ///   col=3,
+    ///   width=12,
+    ///   height=3,
+    /// })
+    /// ```
+    ///
+    /// @param buffer Buffer to display
+    /// @param enter  Enter the window
+    /// @param config Map defining the window configuration. Keys:
+    ///   - relative: Sets the window layout, relative to:
+    ///      - "editor" The global editor grid.
+    ///      - "win"    Window given by the `win` field.
+    ///      - "cursor" Cursor position in current window.
+    /// ...
+    /// @param[out] err Error details, if any
+    ///
+    /// @return Window handle, or 0 on error
+
+
+Lua 文档字符串 ~
+                                                        *dev-lua-doc*
+Lua 文档存在于源代码中，作为函数定义上的文档字符串。|lua-vim| :help 从文档字符串
+生成。
+
+文档字符串格式：
+- 使用 LuaCATS 注解：https://luals.github.io/wiki/annotations/
+- 支持 Markdown。
+- 标签写为 `[tag]()`。
+- 引用写为 `[tag]`
+- 使用 "```" 作为代码示例。
+  代码示例可以标注为 `vim` 或 `lua`
+- 使用 `@since <api-level>` 来标注该函数成为"稳定"时的 |api-level|。如果
+  `<api-level>` 大于当前稳定版本（或为 0），则标记为"实验性"。
+  - 有关 api-level 到 Nvim 版本的映射，请参阅 scripts/util.lua。
+- 使用 `@deprecated` 来标记已弃用的函数。
+- 使用 `@nodoc` 来阻止文档生成。
+- 使用 `@private` 表示函数是内部的或非公开的。
+  - 以下划线前缀命名函数（"_foo"，而非 "foo"）隐含 `@nodoc` 和 `@private`。
+- 使用 `@inlinedoc` 将 `@class` 块内联到 `@param` 块中。
+  例如 >lua
+      --- Object with fields:
+      --- @class myOpts
+      --- @inlinedoc
+      ---
+      --- Documentation for some field
+      --- @field somefield? integer
+
+      --- @param opts? myOpts
+      function foo(opts)
+      end
+<
+
+  将被渲染为：>vimdoc
+
+      foo({opts})
+
+          Parameters:
+            - {opts}? (table) Object with the fields:
+                      - {somefield}? (integer) Documentation
+                        for some field
+<
+- 声明为 `@meta` 的文件仅用于类型标注和文档（类似于 "*.d.ts" TypeScript 文件）。
+
+示例：|vim.paste()| 的帮助文档从 runtime/lua/vim/_core/editor.lua 中修饰
+vim.paste 的文档字符串生成，如下所示：>
+
+    --- Paste handler, invoked by |nvim_paste()| when a conforming UI
+    --- (such as the |TUI|) pastes text into the editor.
+    ---
+    --- Example: To remove ANSI color codes when pasting:
+    ---
+    --- ```lua
+    --- vim.paste = (function()
+    ---   local overridden = vim.paste
+    ---   ...
+    --- end)()
+    --- ```
+    ---
+    --- @since 12
+    --- @see |paste|
+    ---
+    --- @param lines  ...
+    --- @param phase  ...
+    --- @returns false if client should cancel the paste.
+
+
+标准库设计指南                                                   *dev-lua*
+
+另请参阅 |dev-naming|。
+
+- 保持核心 Lua 模块 |lua-stdlib| 简单。避免复杂的 OOP 或伪 OOP 设计。插件
+  作者只想调用函数，而不是一个庞大、花哨的继承层次结构。
+- 避免在 Nvim 标准库中要求或返回特殊对象。普通的表或值更容易序列化，更容易
+  从字面量构造，更容易检查和打印，并且与所有 Lua 插件天然兼容。
+  （此指南不适用于不透明的非数据对象，如 `vim.cmd`。）
+- 标准库函数应遵循以下常见模式：
+  - 返回 |lua-result-or-message|（`any|nil,nil|string`）来传达失败，或在适当
+    时从 |dev-error-patterns| 中选择。
+  - 接受可迭代对象而不是仅接受表。
+    - 注意：在某些情况下，可迭代对象没有意义，例如 spair() 按定义排序输入，
+      所以它没有理由接受可迭代对象，因为输入需要被"具体化"；它不能操作"流"。
+  - 如果可能，返回可迭代对象（生成器）而不是表。
+  - 如果函数用于在 |for-in| 循环中使用，则模仿 pairs() 或 ipairs() 接口。
+
+                                                          *dev-error-patterns*
+要向消费者传达失败，请从以下模式中选择（按优先级排序）：
+1. `retval, errmsg`
+  - 当失败是正常的，或当消费者以其他方式继续（回退）是实际可行的。
+    参见 |lua-result-or-message|。
+2. 可选结果，无错误消息
+  - 1 的特殊情况。当只有单个"不存在"的情况时（例如缓存查找、字典查找）。
+3. `error("no luck")`
+  - 用于无效状态（"不应发生"），当失败是异常的，或在消费者不太可能以有意义的
+    方式处理它的底层。优点是传播是免费的，并且更难意外地吞掉错误。
+    （例如，使用 `uv_handle/pipe:write()` 而不检查返回值是很常见的。）
+4. `on_error` 回调
+  - 用于异步和遍历图的"访问者"，在工作继续时可能会收集许多错误。
+5. `vim.notify`（有时带有可选的 `opts.silent`（异步、访问者））
+  - 高级/应用级消息。最终用户直接调用这些。
+
+                                                        *dev-patterns*
+接口约定 ~
+
+在适用的情况下，这些模式同时适用于 Lua 和 API：
+
+- 当接受缓冲区 ID 等时，0 表示"当前缓冲区"，nil 表示"所有缓冲区"。
+  窗口 ID、标签页 ID 等同理。
+  - 示例：|vim.lsp.codelens.clear()| |vim.diagnostic.enable()|
+- 任何接受回调的函数签名（例如：|table.foreach()|）应尽可能将回调放在最后
+  一个参数位置（在 opts 之后），或者对于 |continuation| 来说必须始终如此——
+  即只调用一次的函数。
+  - 通过将较少"嘈杂"的参数放在开头来提高可读性。
+  - 与 luv 保持一致。
+  - 对将来的异步库有用，该库将形如
+    `function(<args>, cb(<ret)>))` 的函数转换为 `function(<args>) -> <ret>`。
+  - 示例：>lua
+    -- ✅ 正确：
+    filter(…, opts, function() … end)
+    -- ❌ 错误：
+    filter(function() … end, …, opts)
+    -- ❌ 错误：
+    filter(…, function() … end, opts)
+- 如果模块接受用户配置，请暴露一个 `config(opts)` 函数。
+  如果省略 `opts`（或为 `nil`），则返回当前配置。
+  - 示例：参见 |vim.diagnostic.config()|。
+- "启用"（"切换"）接口和行为：
+  - `enable(…, nil)` 和 `enable(…, {buf=nil})` 是同义词，控制功能的"全局"
+    启用。
+    - `is_enabled(nil)` 和 `is_enabled({buf=nil})` 同样查询功能的全局状态。
+  - `enable(…, {buf: number})` 设置缓冲区本地的"启用"标志。
+    - `is_enabled({buf: number})` 同样查询功能的缓冲区本地状态。
+  - 参见 |vim.lsp.inlay_hint.enable()| 和 |vim.lsp.inlay_hint.is_enabled()|
+    作为这些"最佳实践"的参考实现。
+  - 注意：未决问题：https://github.com/neovim/neovim/issues/28603
+- 转换函数在适当时还应具有"过滤"功能：当函数返回 nil 值时，它会排除（过滤掉）
+  其输入，否则使用转换后的值。
+  - 示例：参见 |vim.diagnostic.Opts.Float| 的 format() 字段。
+- 不要添加 "foreach" 函数（例如 |LanguageTree:for_each_tree()|）。
+  而是返回一个 |iterable|，它更灵活且可组合：>
+    vim.iter(parser.tree_iter()):each(function()
+      ...
+    end)
+<
+
+API 设计指南                                            *dev-api*
+
+另请参阅 |dev-naming|。
+
+- 添加 API 时，检查以下内容：
+  - 你参考了哪些先例？你的方案与它们相比如何？
+  - 你的新 API 是否允许未来扩展？如何扩展？或者为什么不允许？
+  - 新 API 是否与现有 API 相似？我们是否需要弃用旧的？
+  - 你是否在文档中交叉引用了相关概念？
+- 如果有必要，通过约束或限制避免"互斥"参数。例如 nvim_create_autocmd()
+  有互斥的 "callback" 和 "command" 参数；但可以通过简单地不支持 Vimscript 函数
+  名，并将字符串 "callback" 参数视为 Ex 命令（可以调用 Vimscript 函数）来消除
+  "command" 参数。"buffer" 参数也可以通过将数字 "pattern" 视为缓冲区号来消除。
+- 避免依赖光标位置、当前缓冲区等的函数。相反，函数应接受位置参数、缓冲区参数等。
+
+内容放置位置 ~
+
+- API (libnvim/RPC)：暴露底层内部实现，或客户端或 C 消费者需要的基础功能
+  （如 `nvim_exec_lua()`）。
+- Lua 标准库 = 建立在 API 之上的高级功能。
+
+命名指南                                                *dev-naming*
+
+命名极其重要：事物的名称是使用它、讨论它、搜索它、分享它的主要接口……
+标准库、API 和 UI 中一致的命名帮助用户和开发者发现和直觉地理解相关概念
+（"家族"），并减少认知负担。可发现性鼓励代码复用，同样避免了冗余、重叠的机制，
+从而减少代码表面积，进而最小化错误……
+
+命名约定 ~
+
+一般来说，选择名称时要寻找先例，即查看现有的（未弃用的）函数。特别是，请参阅
+以下内容……
+
+                                                        *dev-name-common*
+如果可能，使用现有的常见 {动词} 名称（操作）：
+    - add:          向集合中追加或插入
+    - attach:       监听某物以获取其事件（TODO：重命名为 "on"？）
+    - call:         调用函数
+    - callback      |continuation|：返回异步函数结果的函数参数（不是字段）。
+                    所有其他回调和事件处理程序使用 "on_…" 命名约定。
+    - cancel:       取消或关闭事件或交互，通常是用户发起的且没有错误。
+                    （比较 "abort"，它取消并发出错误/失败信号。）
+    - clear:        清除状态但不销毁容器
+    - create:       创建新的（非平凡的）事物（TODO：重命名为 "def"？）
+    - del:          删除一个（或一组）事物
+    - detach:       释放已附加的监听器（TODO：重命名为 "un"？）
+    - enable:       启用/禁用功能。签名应为
+                    `enable(enable?:boolean, filter?:table)`。
+    - eval:         求值表达式
+    - exec:         执行代码，可能返回结果
+    - fmt:          格式化
+    - get:          获取事物。两种变体（重载）：
+                    1. `get<T>(id: int): T` 返回一个条目。
+                    2. `get<T>(filter: dict): T[]` 返回列表。
+    - has:          检查条目、功能等是否存在
+    - inspect:      呈现高级的、通常是交互式的视图
+    - is_enabled:   检查功能是否已启用。
+    - on_…:         处理事件或异步结果，或注册此类处理程序。|dev-name-events|
+    - open:         打开某物（缓冲区、窗口等）
+    - parse:        将某物解析为结构化形式
+    - request:      调用远程（网络、RPC）操作。
+    - send:         向通道写入数据或消息。
+    - set:          设置一个（或一组）事物
+    - start:        启动一个长期运行的进程。除非 "start" 明显更合适，
+                    否则优先使用 "enable"。
+    - stop:         "start" 的反操作。拆除一个长期运行的进程。
+    - try_{verb}:   尽力操作，失败返回 null 或错误对象
+
+不要使用这些已弃用的动词：
+    - contains:     优先使用 "has"。
+    - disable:      优先使用 `enable(enable: boolean)`。
+    - exit:         优先使用 "cancel"（或适当时使用 "stop"）。
+    - is_disabled:  优先使用 `!is_enabled()`。
+    - list:         与 "get" 冗余
+    - notify:       与 "print"、"echo" 冗余
+    - show:         与 "print"、"echo" 冗余
+    - toggle:       优先使用 `enable(not is_enabled())`。
+
+在 API 函数中对 {主题} 使用一致的名称：buffer 到处都叫 "buf"，不要在某些地方
+叫 "buffer" 而在其他地方叫 "buf"。
+    - buf:          缓冲区
+    - chan:         |channel|
+    - cmd:          命令
+    - cmdline:      命令行 UI 或输入
+    - dir:          目录
+    - fn:           函数
+    - hl:           高亮
+    - pos:          位置
+    - proc:         系统进程
+    - tabpage:      标签页
+    - win:          窗口
+
+不要使用这些已弃用的名词：
+    - buffer        使用 "buf" 代替
+    - command       使用 "cmd" 代替
+    - window        使用 "win" 代替
+
+                                                        *dev-name-events*
+使用 "on_" 前缀来命名事件处理回调，以及"注册"此类处理程序的接口 (on_key)。
+这种双重性质是可以接受的，以避免为这些相关概念混合使用不同的命名约定。
+
+编辑器 |events|（自动命令）历史上命名如下：>
+    {名词}{事件}
+
+使用此格式命名 API (RPC) 事件：>
+    nvim_{名词}_{事件名称}_event
+
+示例：>
+    nvim_buf_changedtick_event
+<
+                                                        *continuation*
+"continuation" 是作为回调函数实现的，它返回异步函数的结果并且只被调用一次。
+通常接受 `err` 作为第一个参数，以避免在主线程上抛出错误。示例：>
+    foo(…, callback: fun(err, …))
+仅对 continuation 使用名称 `callback`。所有其他回调和事件处理程序应使用
+|dev-name-events| "on_…" 约定命名。
+
+                                                        *dev-api-name*
+使用此格式命名新的 RPC |API| 函数：>
+    nvim_{主题}_{动词}_{任意限定词}
+
+不要添加新的 nvim_buf/nvim_win/nvim_tabpage API，除非你确定该概念永远不会
+应用于多个"作用域"。即 {主题} 应该是作用于作用域（buf/win/tabpage/global）的
+主题（"ns"、"extmark"、"option" 等），而不应该是作用域。相反，作用域应该是一个
+参数（通常表现为互斥的 buf/win/… 标志，如 |nvim_get_option_value()|，或较少
+见的 `scope: string` 字段，如 |nvim_get_option_info2()|）。
+
+- 示例：`nvim_get_keymap('v')` 在全局上下文中操作（第一个参数不是 Buffer）。
+  "get" 动词表示它获取与给定过滤参数匹配的任何内容。"list" 动词是不必要的，
+  因为 `nvim_get_keymap('')`（空过滤）返回所有条目。
+- 示例：`nvim_buf_del_mark` 作用于 `Buffer` 对象（第一个参数）并使用 "del"
+  {动词}。
+
+                                                        *dev-namespace-name*
+使用类似 `nvim.foo.bar` 的命名空间名称：>
+    vim.api.nvim_create_namespace('nvim.lsp.codelens')
+<
+
+                                                        *dev-augroup-name*
+使用类似 `nvim.foo.bar` 的自动命令组名称：>
+    vim.api.nvim_create_augroup('nvim.treesitter.dev')
+<
+
+接口模式                                                *dev-api-patterns*
+
+优先为给定主题添加单个 `nvim_{主题}_{动词}_…` 接口。
+
+示例：>
+
+    nvim_ns_add(
+      ns_id: int,
+      filter: {
+        handle: integer (buf/win/tabpage id)
+        scope: "global" | "win" | "buf" | "tabpage"
+      }
+    ): { ok: boolean }
+
+    nvim_ns_get(
+      ns_id: int,
+      filter: {
+        handle: integer (buf/win/tabpage id)
+        scope: "global" | "win" | "buf" | "tabpage"
+      }
+    ): { ids: int[] }
+
+    nvim_ns_del(
+      ns_id: int,
+      filter: {
+        handle: integer (buf/win/tabpage id)
+        scope: "global" | "win" | "buf" | "tabpage"
+      }
+    ): { ok: boolean }
+
+
+反面示例：
+
+为相同的 `xx` 主题创建单独的 `nvim_xx`、`nvim_buf_xx`、`nvim_win_xx` 和
+`nvim_tabpage_xx` 函数，需要 4 倍的文档、测试、样板代码和接口，用户必须理解，
+维护者必须维护等。因此以下做法不推荐（将这 12(!) 个函数与上面的 3 个函数
+进行比较）：>
+
+    nvim_add_ns(…)
+    nvim_buf_add_ns(…)
+    nvim_win_add_ns(…)
+    nvim_tabpage_add_ns(…)
+    nvim_del_ns(…)
+    nvim_buf_del_ns(…)
+    nvim_win_del_ns(…)
+    nvim_tabpage_del_ns(…)
+    nvim_get_ns(…)
+    nvim_buf_get_ns(…)
+    nvim_win_get_ns(…)
+    nvim_tabpage_get_ns(…)
+
+API 客户端                                              *dev-api-client*
+
+                                                        *api-client*
+API 客户端封装 Nvim |API| 以为其各自平台提供惯用的 "SDK"（参见 |jargon|）。
+你可以为你喜欢的平台或编程语言构建新的 API 客户端。
+
+API 客户端列表：
+    https://github.com/neovim/neovim/wiki/Related-projects#api-clients
+
+                                                        *node-client* *pynvim*
+以下客户端可以被视为 API 客户端的"参考实现"：
+- https://github.com/neovim/node-client
+- https://github.com/neovim/pynvim
+
+标准功能 ~
+
+- API 客户端的存在是为了隐藏 msgpack-rpc 的细节。封装可以通过读取 Nvim 的
+  |api-metadata| 自动生成。|api-mapping|
+- 客户端应在连接后调用 |nvim_set_client_info()|，以便用户和插件可以通过处理
+  |ChanInfo| 事件来检测客户端。这避免了对特殊变量或其他客户端提示的需求。
+- 客户端应处理 |nvim_error_event| 通知，如果异步请求被 nvim 拒绝或导致错误，
+  将发送该通知。
+
+包命名 ~
+
+API 客户端包不应该命名为像 "neovim" 或 "python-client" 这样含糊的名称。
+使用 "nvim" 作为前缀/后缀，并遵循生态系统约定添加其他标识符。
+
+例如，Python 包倾向于在名称中包含 "py"，所以 "pynvim" 是一个好名字：它既
+惯用又明确。如果包命名为 "neovim"，会让用户困惑，并使文档和讨论变得复杂。
+
+API 客户端包名称示例：
+- ✅ 正确：nvim-racket
+- ✅ 正确：pynvim
+- ❌ 错误：python-client
+- ❌ 错误：neovim_
+
+API 客户端实现指南 ~
+
+- 将传输层与库的其余部分分离。|rpc-connecting|
+- 使用至少实现 MessagePack 规范版本 5 的 MessagePack 库，该版本支持 Nvim 使用
+  的 BIN 和 EXT 类型。
+- 使用单线程事件循环库/模式。
+- 使用纤程/协程库来实现客户端。这些大大简化了并发性，并允许库在非阻塞事件循环
+  之上暴露阻塞 API，而无需抢占式多任务带来的复杂性。
+- 不要假设 RPC 请求响应的顺序。
+- 客户端应该预期请求，必须立即处理，因为 Nvim 在等待客户端响应时是阻塞的。
+- 客户端应该预期通知，但这些可以"尽快"（而不是立即）处理，因为它们不会阻塞
+  Nvim。
+- 对于 C/C++ 项目，考虑使用 libmpack 而不是 msgpack.org 库。
+    https://github.com/libmpack/libmpack/
+  libmpack 小巧（无依赖，可以内联到你的 C/C++ 项目中）且高效（无分配）。
+  它还实现了 msgpack-RPC，这是 Nvim 所需的协议。
+    https://github.com/msgpack-rpc/msgpack-rpc
+
+
+外部 UI                                                 *dev-ui*
+
+外部 UI 应该了解 |api-contract|。特别是，未来版本的 Nvim 可能会向现有事件
+添加新条目。API 具有很强的向后兼容性，但如果向现有事件添加了新的（可选）
+字段，客户端不应崩溃。
+
+标准功能 ~
+
+外部 UI 应实现以下常见功能：
+
+- 连接后调用 |nvim_set_client_info()|，以便用户和插件可以通过处理 |ChanInfo|
+  事件来检测 UI。这避免了对特殊变量和 UI 特定配置文件（gvimrc、macvimrc 等）
+  的需求。
+- 光标样式（形状、颜色）应符合 mode_info_set UI 事件传递的 'guicursor' 属性。
+- 将 ALT/META（macOS 上的 "Option"）键作为 |<M-| 组合键发送。
+- 将"超级"键（Windows 键、Apple 键）作为 |<D-| 组合键发送。
+- 避免与 Nvim 键映射空间冲突的映射；GUI 有许多新的组合键（<C-,> <C-Enter>
+  <C-S-x> <D-x>）和模式（"shift shift"），不会与 Nvim 默认设置、插件等
+  产生潜在冲突。
+- 将 "option_set" |ui-global| 事件视为其他 GUI 行为的提示。各种 UI 相关选项
+  （'guifont'、'ambiwidth' 等）在此事件中发布。另请参阅 "mouse_on"、"mouse_off"。
+- UI 通常不应设置 |$NVIM_APPNAME|（除非用户明确请求）。
+- 支持 |ui-event-hl_attr_define| 给出的文本装饰/属性。"url" 属性应呈现为
+  可点击的超链接。
+- 处理 "restart" UI 事件以使 |:restart| 工作。
+- 检测大写锁定并在大写锁定激活时显示指示器。
+
+多网格 UI ~
+                                                        *dev-ui-multigrid*
+- 多网格 UI 应使用以下方法之一显示浮动窗口，使用 `win_float_pos`
+  |ui-multigrid| 事件。可以根据需要为每个窗口选择不同的方法。
+
+  1. 让 Nvim 确定窗口的位置和 z 顺序。这可以通过使用 `win_float_pos` UI 事件
+  中的 `compindex`、`screen_row` 和 `screen_col` 信息来实现。要让 Nvim 自动
+  确定网格，UI 应使用 0 作为 `grid` 参数调用 `nvim_input_mouse`。
+  2. 使用 `anchor`、`anchor_grid`、`anchor_row`、`anchor_col` 和 `zindex` 作为
+  定位窗口的参考。如果窗口在屏幕外，UI 有责任重新定位和/或调整它们的大小。
+  由于 Nvim 在这种情况下缺少关于实际窗口位置的信息，UI 必须使用实际的网格 ID
+  调用 `nvim_input_mouse`，同时考虑 `mouse_enabled`。
+  注意：由于缺少信息，某些 API 函数可能会对这些窗口返回意外结果。
+- 对于外部窗口，网格 ID 也应传递给 `nvim_input_mouse`。
+
+ vim:tw=78:ts=8:sw=4:et:ft=help:norl:

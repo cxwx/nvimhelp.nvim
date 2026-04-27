@@ -1,0 +1,470 @@
+*news.txt*    Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+
+自 Nvim 0.11 以来的显著变化                                *news*
+
+上一版本的变更请参阅 |news-0.11|。
+
+                                       输入 |gO| 查看目录。
+
+==============================================================================
+破坏性变更                                                  *news-breaking*
+
+这些变更可能需要调整你的配置或插件。
+
+API
+
+• |nvim_get_commands()| 如果 `complete` 是以 Lua 函数定义的，则
+  返回 Lua 函数。
+
+诊断
+
+• |diagnostic-signs| 不再能通过 |:sign-define| 或 |sign_define()|
+  配置（在 Nvim 0.10 中弃用 |deprecated-0.10|）。
+• 移除了 |vim.diagnostic.disable()| 和 |vim.diagnostic.is_disabled()|
+  （在 Nvim 0.10 中弃用 |deprecated-0.10|）。
+• |vim.diagnostic.enable()| 的旧签名（在 Nvim 0.10 中弃用
+  |deprecated-0.10|）不再受支持。
+
+编辑器
+
+• |i_CTRL-R| 按字面值插入命名/剪贴板寄存器 (A-Z,a-z,0-9+)，
+  类似于粘贴而非用户输入。提高了性能，避免了格式错乱。要获得
+  旧行为，可以使用 `<C-R>=@x`。
+• 类 URI 缓冲区名称的解析更加严格地遵循 RFC3986，因此例如
+  "svn+ssh:"、"ed2k:" 和 "iris.xpc:" 现在被识别为 URI 方案。
+• 安全性: Windows 上的 Nvim 不再在当前目录中搜索外部命令可执行
+  文件; 如果需要旧行为，请使用相对或绝对路径前缀
+  |$NoDefaultCurrentDirectoryInExePath|。
+
+事件
+
+• |ui-messages| 不再发出 `msg_show.return_prompt` 和
+  `msg_history_clear` 事件。`msg_clear` 事件被重新定义，现在在
+  屏幕清除后发出。这些事件任意假设了一个模拟旧版消息网格的消息
+  UI。好处: 减少了 UI 事件流量，为 UI 提供了更大的灵活性。
+  `msg_history_show` 事件新增了 "prev_cmd" 参数。
+
+LSP
+
+• LSP 消息中的 JSON "null" 值以 |vim.NIL| 表示而非 `nil`。
+  缺失的字段（与 JSON "null" 相对）仍以 `nil` 表示。
+• 通过 |vim.lsp.log.set_format_func()| 设置的函数现在接收对应于
+  日志条目的所有参数，而不是单个参数。
+• 将 `vim.lsp.semantic_tokens` 的 `start()/stop()` 重命名为
+  `enable()`。
+• |vim.lsp.util.convert_signature_help_to_markdown_lines()|
+  activeParameter 处理更新:
+    • 小于 0 的值现在被视为 `nil` 而非 0。
+    • 超出 `signatures[activeSignature].parameters` 范围的值
+      现在被视为 `nil` 而非 `#signatures[activeSignature].parameters`
+
+Lua
+
+• 将 `vim.diff` 重命名为 `vim.text.diff`。
+
+选项
+
+• 'shelltemp' 默认值为 "false"。
+
+插件
+
+• 移除了 "shellmenu" 插件，一个用于 shell 脚本的旧式基于菜单的
+  准代码片段插件。
+• |package-tohtml| 现在是"按需加入"插件。使用 |:packadd| 激活它: >
+  :packadd nvim.tohtml
+
+Treesitter
+
+• |ft-query-plugin| 不再默认启用 |vim.treesitter.query.lint()|。
+• |treesitter-directive-offset!| 现在可以应用于量化捕获。它不再
+  设置 `metadata[capture_id].range`；而是设置
+  `metadata[capture_id].offset`。偏移量将在
+  |vim.treesitter.get_range()| 中应用，在获取节点范围时应优先
+  使用该函数而非直接读取 metadata。
+• |Query:iter_matches()| 的 "all" 选项（在 Nvim 0.11 中引入以
+  帮助过渡到新行为）已被移除。
+
+==============================================================================
+新功能                                                      *news-features*
+
+以下新功能已被添加。
+
+API
+
+• |api-contract| 允许现有函数将返回类型从 `void => non-void` 变更。
+• |nvim_win_text_height()| 可以在达到某个 `max_height` 时限制检查
+  的行数，并返回达到 `max_height` 或计算高度时的 `end_row` 和
+  `end_vcol`。
+• |vim.secure.read()| 现在对受信任的目录返回 `true`。之前返回
+  `nil`，因此无法判断目录是否真的受信任。
+• |nvim_ui_send()| 向 UI 的 stdout 写入任意数据。当 Nvim 在 |TUI|
+  中运行时，使用此功能向终端写入转义序列。
+• |nvim_echo()| 可以设置发出消息的 |ui-messages| kind。
+• |nvim_echo()| 可以创建 |Progress| 消息
+• |nvim_get_commands()| 如果 `preview` 和 `callback` 在
+  `nvim_create_user_command()` 中以 Lua 函数指定，则返回 Lua 函数。
+• |nvim_open_tabpage()| 可以打开新 |tab-page|。
+• |nvim_open_win()| 浮动窗口可以显示 'statusline'。插件可以使用
+  `style='minimal'` 或 `:setlocal statusline=` 来隐藏状态栏。
+• |nvim_win_set_config()| 可以将 |floating-windows| 移动到其他标签页。
+• 实验性: |nvim__exec_lua_fast()| 允许远程 API 客户端在 Nvim 阻塞
+  等待输入时执行 Lua。|api-fast|
+• Decoration provider 新增了 `on_range` 回调（弃用 `on_line`）。
+• |vim.secure.trust()| 的 `allow` 操作接受 `path`。
+• |nvim_get_chan_info()| 包含 :terminal 缓冲区的 `exitcode` 字段。
+• |nvim_set_hl()| 支持仅更新指定属性。
+
+编译
+
+• 实验性: 基于 Zig 的编译可作为 CMake 的替代方案。目前功能有限，
+  CMake 仍然是暂时推荐的选项。
+• Nvim 可以在不使用 Unibilium（terminfo 实现）的情况下编译，此时
+  不会加载用户的 terminfo 数据库，仅使用最常见终端的内部定义: >
+  make distclean && make CMAKE_EXTRA_FLAGS="-DENABLE_UNIBILIUM=0" DEPS_CMAKE_FLAGS="-DUSE_BUNDLED_UNIBILIUM=0"
+• 在 Windows 上，`tee.exe` 默认包含在 `nvim.exe` 中，以便 :make、
+  :grep 等命令开箱即用。
+
+默认值
+
+• 'diffopt' 默认值现在包含 "indent-heuristic" 和 "inline:char"。
+• 'statusline' 默认值现在以状态栏表达式的形式暴露（之前是作为
+  内部 C 例程实现的）。
+• 默认 'statusline' 显示:
+  • |vim.diagnostic.status()|
+  • |vim.ui.progress_status()|
+  • :terminal 退出码
+• 项目本地配置（'exrc'）也从父目录加载。取消设置 'exrc' 以停止
+  进一步搜索。
+• 映射:
+  • Normal 模式下 |grt| 映射到 |vim.lsp.buf.type_definition()|
+  • Normal 模式下 |grx| 映射到 |vim.lsp.codelens.run()|
+• 'shada' 默认值现在排除 "/tmp/" 和 "/private/" 路径以减少
+  |:oldfiles| 中的杂项。
+• 为 Markdown 文件启用了 treesitter 高亮。
+
+诊断
+
+• |vim.diagnostic.setloclist()| 和 |vim.diagnostic.setqflist()| 现在
+  支持 `format` 函数，可在设置到位置/quickfix 列表之前修改（或
+  过滤）诊断。
+• |vim.diagnostic.get()| 现在接受 `enabled` 过滤器，仅返回已启用
+  或已禁用的诊断。
+• |vim.diagnostic.status()| 返回当前缓冲区诊断的状态描述。
+• |vim.diagnostic.fromqflist()| 接受 `opts.merge_lines` 以合并
+  多行编译器消息。
+
+编辑器
+
+• |:iput| 的工作方式类似 |:put| 但调整缩进。
+• |:retab| 接受新的可选参数 -indentonly，仅更改缩进行中的前导
+  空白。
+• |:uniq| 对当前缓冲区中的文本去重。
+• 编辑 |help| 缓冲区时可以使用 |omnicompletion|。|ft-help-omni|
+• |:help!| 具有 DWIM（"Do What I Mean"，即猜你所想）行为: 它尝试
+  猜测光标处的帮助标签。在帮助缓冲区中，'keywordprg' 默认为
+  ":help!"。例如，在这段代码的任意位置试试 "K": >
+    local v = vim.version.parse(vim.system({'foo'}):wait().stdout)
+• 在 'shada' 中设置 "'0" 可防止在 shada 文件中存储跳转列表。
+• 'shada' 现在正确遵守 "/0" 和 "f0"。
+• |prompt-buffer| 支持多行输入/粘贴、撤销/重做以及 o/O normal
+  命令。
+• 'wildchar' 现在在使用 |/|、|?|、|:g|、|:v| 和 |:vimgrep| 命令的
+  搜索上下文中启用补全。
+• 安全性: 'exrc' 不再显示 "(a)llow"。你必须 "(v)iew"，然后运行
+  `:trust`（或 `:trust [file]`，但有 TOCTOU 风险）。
+• 帮助缓冲区中的 |gx| 打开光标处标签的在线文档。
+• 在非 Lua 文件（如 vimdoc）中带范围的 |:source| 现在通过
+  treesitter 检测 Lua 代码块并作为 Lua 而非 Vimscript 执行。
+  （或使用 `:{range}lua` 跳过检测。）
+• |:wall| 与 |++p| 自动创建缺失的父目录。
+
+事件
+
+• 在 |ui-protocol| 中，消息类型 `empty` 用于空消息（例如
+  `:echo ""`）。
+• |CmdlineLeave| 将 |v:char| 设为停止 Cmdline 模式的字符。
+• |CmdlineLeavePre| 在准备离开命令行之前触发。
+• |ui-messages| `msg_show` 事件新增 `append`、`id` 和 `trigger`
+  参数。
+• 当 'rulerformat' 不是状态栏的一部分时，作为 `msg_ruler` 发出。
+• 使用 |nvim_echo()| 创建或更新进度消息会触发 |Progress| 事件。
+• |MarkSet| 在用户设置 |mark| 后触发（目前不支持隐式标记如
+  |'[| 或 |'<|，……）。
+• |SessionLoadPre| 在加载 |Session| 文件之前触发。
+• |TabClosedPre| 在关闭 |tabpage| 之前触发。
+• |TermRequest| 事件新增了 `terminator` 参数。
+
+高亮
+
+• |hl-DiffTextAdd| 高亮变更行内新增的文本。
+• |hl-OkMsg| |hl-StderrMsg| |hl-StdoutMsg|
+• |hl-SnippetTabstopActive| 高亮当前活动的 tabstop。
+• |hl-PmenuBorder| |hl-PmenuShadow| |hl-PmenuShadowThrough| 参阅
+  'pumborder'。
+• |nvim_set_hl()| 和 |nvim_get_hl()| 支持 SGR 属性 "dim"、
+  "blink"、"conceal" 和 "overline"。
+
+LSP
+
+• |lsp-completion|:
+  • |vim.lsp.completion.enable()| 新增了 `cmp` 选项用于自定义排序。
+  • 支持颜色项的彩色符号预览。
+  • 如果 'completeopt' 有 "popup"，显示预览
+    （"completionItem/resolve"）。
+  • 支持 `textDocument/inlineCompletion` |lsp-inline_completion|
+    https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#textDocument_inlineCompletion
+    快速入门说明参阅 |lsp-inline_completion|。
+• |:lsp| 可用于交互式管理 LSP 客户端。
+• |vim.lsp.ClientConfig| 新增了 `workspace_required`。
+• 你可以控制 |vim.lsp.Config| `root_markers` 的优先级。
+• LSP 能力:
+  • `textDocument/codeLens` |lsp-codelens| 已重新实现。
+    https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/#textDocument_codeLens
+  • `textDocument/colorPresentation` |lsp-document_color|
+    https://microsoft.github.io/language-server-protocol/specification/#textDocument_colorPresentation
+  • `textDocument/diagnostic`
+  • `textDocument/documentColor` |lsp-document_color|
+    https://microsoft.github.io/language-server-protocol/specification/#textDocument_documentColor
+  • `textDocument/documentLink`: |gx| 打开光标处的 "documentLink" 项。
+  • `textDocument/inlineCompletion`
+  • `textDocument/linkedEditingRange` |lsp-linked_editing_range|
+    https://microsoft.github.io/language-server-protocol/specification/#textDocument_linkedEditingRange
+  • `textDocument/onTypeFormatting` |lsp-on_type_formatting|
+    https://microsoft.github.io/language-server-protocol/specification/#textDocument_onTypeFormatting
+  • `textDocument/selectionRange` 增量选择。
+    |v_an| 向外选择，|v_in| 向内选择。
+  • `textDocument/semanticTokens/range`
+  • `workspace/codeLens/refresh`
+    https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#codeLens_refresh
+  • `workspace/diagnostic/refresh`
+    https://microsoft.github.io/language-server-protocol/specification/#diagnostic_refresh
+  • `workspace/diagnostic` |vim.lsp.buf.workspace_diagnostics()|
+    https://microsoft.github.io/language-server-protocol/specifications/specification-current/#workspace_dagnostics
+• 动态注册支持:
+  • `textDocument/diagnostic`
+• `textDocument/diagnostic` 请求现在在其参数中包含之前的 id。
+• |vim.lsp.enable()| 根据需要启动/停止客户端并分离不适用的 LSP
+  客户端。
+• |vim.lsp.is_enabled()| 检查 LSP 配置是否已启用（不进行"解析"）。
+• |vim.lsp.get_configs()| 获取与可选过滤器匹配的所有 LSP 配置。
+• 支持多行语义令牌。
+• 支持代码操作的 `disabled` 字段。
+• vim.lsp.Config 或 vim.lsp.ClientConfig 中 `cmd` 的函数形式
+  以解析后的配置作为第二个参数: `cmd(dispatchers, config)`。
+• 支持带注解的文本编辑。
+• `:checkhealth vim.lsp` 现在可用于检查活动 LSP 功能附加到了
+  哪些缓冲区。
+• LSP `DiagnosticRelatedInformation` 现在在
+  |vim.diagnostic.open_float()| 中显示。它从存储在 `user_data`
+  字段中的 LSP 诊断对象读取。
+• 在 |vim.diagnostic.open_float()| 创建的浮动窗口内，当光标在
+  有 `DiagnosticRelatedInformation` 的行上时，可以使用 |gf|
+  跳转到问题位置。
+• 支持拉取诊断中的相关文档:
+  https://microsoft.github.io/language-server-protocol/specifications/specification-current/#relatedFullDocumentDiagnosticReport
+• |vim.lsp.buf.signature_help()| 支持 "noActiveParameterSupport"。
+• |vim.lsp.buf.code_action()| 的 filter 选项现在接收客户端 ID
+  作为参数。
+• |vim.lsp.ClientConfig| 的 `exit_timeout` 决定 |vim.lsp.enable()|、
+  |Client:stop()| 和 Nvim 关闭期间从"停止"升级到"强制停止"的
+  等待时间。
+  • `exit_timeout` 从实验性的 `flags.exit_timeout` 升级为顶级
+    字段。默认为 `false`。
+• |Client:stop()| 接受 `force` 作为整数，被视为从停止升级到
+  强制停止的等待时间。
+• |vim.lsp.buf.rename()| 现在使用 |hl-LspReferenceTarget| 高亮组
+  高亮正在重命名的符号。
+• 代码透镜现在显示为虚拟行
+
+Lua
+
+• |vim.net.request()| 可以获取/下载 HTTP 内容。
+• |vim.wait()| 返回回调结果。
+• `vim.uv` 的 Lua 类型注解。
+• |vim.hl.range()| 现在允许多个定时高亮。
+• |vim.tbl_extend()|、|vim.tbl_deep_extend()| 的 `behavior` 参数
+  可以是函数。
+• |vim.fs.root()| 可以通过嵌套列表定义"相同优先级"。
+• |vim.fs.ext()| 返回文件的最后一个扩展名。
+• |vim.version.range()| 可以通过 |tostring()| 输出人类可读的字符串。
+• |vim.version.intersect()| 计算两个版本范围的交集。
+• |Iter:take()| 和 |Iter:skip()| 现在可选地接受谓词。
+• |Iter:peek()| 现在适用于所有迭代器类型，不仅仅是 |list-iterator|。
+• |vim.list.unique()| 和 |Iter:unique()| 分别用于列表和迭代器
+  的去重。
+• |vim.list.bisect()| 执行二分搜索。
+• |vim.json.encode()| 的 `indent` 选项执行美化格式化。
+• |vim.json.encode()| 的 `sort_keys` 选项按键排序。
+• |vim.json.decode()| 的 `skip_comments` 选项允许 JSON 数据中有
+  注释。
+• 实验性: |vim.pos|、|vim.range| 提供 Position/Range 抽象。
+
+选项
+
+• 'autocomplete' 启用 |ins-autocompletion|。
+• 'autowriteall' 在收到 `SIGHUP`、`SIGQUIT` 或 `SIGTSTP` 时写入
+  所有缓冲区。
+• 'chistory' 和 'lhistory' 设置 |quickfix-stack| 的大小。
+• 'complete' 新标志:
+  • "F{func}"   使用给定函数补全
+  • "F"         使用 'completefunc' 补全
+  • "o"         使用 'omnifunc' 补全
+• 'complete' 允许使用 "{flag}^<limit>" 限制来源的匹配数量。
+• 'completeopt' 标志 "nearest" 按与光标的距离排序补全结果。
+• 'diffanchors' 指定锚定差异的地址。
+• 'diffopt' `inline:` 配置行内变更的差异高亮。
+• 'diffopt' 与 `inline:word` 现在自动合并由间隙和标点分隔的
+  相邻差异块（5 字节内），以提高可读性。
+• 'fillchars' 有新标志 "foldinner"。
+• 'fsync' 和 'grepformat' 现在是 |global-local| 选项。
+• 'listchars' 有新标志 "leadtab"。
+• 'jumpoptions' 标志 "view" 现在在弹出 |tagstack| 时也适用。
+• 'maxsearchcount' 设置 |searchcount()| 的最大值，默认为 999。
+• 'pummaxwidth' 设置补全弹出菜单的最大宽度。
+• 'winborder' "bold" 样式，自定义边框样式。
+• 'busy' 设置缓冲区的"忙碌"状态。在默认状态栏中指示。
+• 'pumborder' 为弹出菜单添加边框。
+• |g:clipboard| 接受字符串名称以强制使用任何内置剪贴板工具。
+• |g:clipboard| 自动检测仅在 tmux 内运行时选择 tmux。
+• 'statusline' 允许"堆叠"高亮组（组继承前一个高亮属性）
+• 'messagesopt' 的 "progress:c" 标志控制进度消息是否在命令行
+  消息区域显示。
+• 改进了 |:set+=|、|:set^=| 和 |:set-=| 对逗号分隔的 "key:value"
+  对（例如 'listchars'、'fillchars'、'diffopt'）的处理。
+
+性能
+
+• |vim.glob.to_lpeg()| 使用新的基于 LPeg 的实现（Peglob），对
+  复杂模式提供约 50% 的加速。该实现恢复了对嵌套大括号的支持，
+  遵循 LSP 3.17 规范，并添加了额外约束以提高正确性和抵抗回溯
+  边界情况。
+• |i_CTRL-R| 按字面值插入命名/剪贴板寄存器，速度提升 10 倍。
+• 支持 LSP `textDocument/semanticTokens/range`，仅请求视口
+  （可见屏幕）的令牌。
+• |:packadd| 不再使缓存的 Lua 包路径失效。而是就地更新缓存。
+  对于多个 |:packadd| 或 |vim.pack.add()| 调用与其他代码交错的
+  某些 |init.lua| 模式，这可能会显著影响启动时间。
+
+插件
+
+• 内置插件管理器: |vim.pack|
+• |:DiffTool| 比较目录（和文件）。
+• |:Undotree| 让你可视化地导航 |undo-tree|。
+• 通过处理 `FileType checkhealth` 事件自定义 :checkhealth。
+  |health-usage|
+• 简化 Python 提供者设置为单步操作:
+  `uv tool install pynvim`
+  Nvim 将自动检测插件位置，无需用户配置，即使激活了不相关的
+  Python 虚拟环境也可以。
+  |provider-python|
+• |:checkhealth| 现在检查是否有可用的 |vim.ui.open()| 处理器。
+• spellfile.vim: 已被 |package-spellfile| 替代。
+
+启动
+
+• |v:argf| 提供启动时给出的文件参数。
+• 如果日志文件路径不可访问，Nvim 会显示警告。
+
+终端
+
+• |nvim_open_term()| 可以在非空缓冲区上调用。缓冲区内容会被管道
+  传输到 PTY 并作为终端输出显示。
+• 现在支持 CSI 3 J（清除终端回滚的序列）。
+• 现在支持 DEC 私有模式 2026（同步输出）。在 |:terminal| 中运行
+  的应用程序可以批量屏幕更新以避免撕裂。
+• 暂停的 PTY 进程现在在缓冲区左下角显示 "[Process suspended]"，
+  可以按键恢复。
+• 终端退出时，"[Process exited]" 显示为虚拟文本（而不是修改缓冲区
+  内容），退出码显示在状态栏中。
+  • 你可以完全禁用 "[Process exited]"，参阅 |terminal-config|。
+
+Treesitter
+
+• |Query:iter_captures()| 支持指定起始和结束列。
+• |:EditQuery| 命令新增了 Tab 补全，支持注入语言。
+• |LanguageTree:parse()| 现在接受范围列表。
+• |v_an| |v_in| |v_]n| |v_[n| treesitter 节点的增量选择。
+
+TUI
+
+• |TermResponse| 现在支持 DA1 和 APC 查询响应。
+• 使用 OSC 9;4 序列为 |Progress| 事件显示原生进度条。
+• TUI 现在渲染 SGR dim（暗淡）、blink、conceal 和 overline 属性。
+
+UI
+
+• |ui2| 是核心消息和命令行 UI 的重新设计，将取代 TUI 中的旧版
+  消息网格。
+  • 避免"按 ENTER 继续"中断。
+  • 避免 |W10| "修改只读文件"和其他警告的延迟。
+  • 在你输入时高亮命令行。
+  • 以缓冲区 + 窗口的形式提供 |pager|。
+  • 目前是实验性的。启用它: `require('vim._core.ui2').enable()`
+• |:restart| 重启 Nvim 并重新附加所有 UI。
+• |:connect| 动态将当前 UI 连接到给定地址的服务器。
+• |:checkhealth| 在每个健康检查的标题中显示摘要。
+• |ui-multigrid| 提供合成信息和绝对坐标。
+• 错误消息更加简洁:
+  • "Error detected while processing:" 改为 "Error in:"。
+  • "Error executing Lua:" 改为 "Lua:"。
+• 'busy' 状态在默认状态栏中用符号 ◐ 显示
+• 当光标位于未聚焦的浮动窗口后面时，光标形状会有所指示。
+• 改进了 LSP 签名帮助的渲染。
+• Multigrid UI 可以使用 grid 0 调用 nvim_input_mouse，让 Nvim
+  决定使用哪个 grid。
+• |vim.ui.progress_status()| 返回当前运行的 |progress-message|
+  的状态描述。
+
+Vimscript
+
+• |chdir()| 允许可选地指定作用域参数。
+• |cmdcomplete_info()| 获取当前命令行补全信息。
+• |getcompletiontype()| 获取任意字符串的命令行补全类型。
+• |has()| 新增两个系统相关的功能标志，|android| 和 |termux|。
+• |prompt_getinput()| 获取 prompt-buffer 中的当前用户输入。
+• |wildtrigger()| 触发命令行展开。
+• |v:vim_did_init| 在加载 |init.vim| 之后但在 |load-plugins| 之前
+  设置。
+• |prompt_appendbuf()| 向 prompt-buffer 追加文本。
+
+==============================================================================
+变更的功能                                                   *news-changed*
+
+这些现有功能改变了它们的行为。
+
+• 'pumblend' 不再将背景层的特殊属性（粗体、下划线）应用到前景层。
+• |gv| 在操作符等待模式下工作且不会中止。
+• 'smartcase' 应用于补全过滤。
+• 'spellfile' 位置默认为 `stdpath("data").."/site/spell/"` 而非
+  'runtimepath' 中第一个可写目录。
+• |vim.version.range()| 当 `to` 等于 `from` 时不再排除 `to`。
+• |$VIM| 和 |$VIMRUNTIME| 不再检查 Vim 版本特定的运行时目录
+  `vim{number}`（例如 `vim82`）。
+• 'scrollback' 最大值从 100000 增加到 1000000
+• |matchfuzzy()| 和 |matchfuzzypos()| 使用改进的模糊匹配算法
+  （与 fzy 相同）。
+• Windows: 像 "\Windows" 和 "/Windows" 这样的路径现在被视为
+  绝对路径（到当前驱动器），不再视为相对路径。
+• 当 'shelltemp' 关闭时，shell 命令现在使用 `pipe()` 而不是
+  `socketpair()` 进行输入和输出。这主要影响 Linux，某些使用
+  "/dev/stdin" 及类似特殊文件的命令行在由管道支持时可以重新
+  打开，但由套接字对支持时不行。
+
+==============================================================================
+移除的功能                                                   *news-removed*
+
+这些已弃用的功能已被移除。
+
+• |vim.treesitter.get_parser()| 不再抛出错误，
+  `get_parser()` 在创建解析器失败时始终返回 nil。
+
+==============================================================================
+弃用                                                    *news-deprecations*
+
+参阅 |deprecated-0.12|。
+
+ vim:tw=78:ts=8:sw=2:et:ft=help:norl:

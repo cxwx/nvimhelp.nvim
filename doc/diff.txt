@@ -1,0 +1,548 @@
+*diff.txt*      Nvim
+
+
+		  VIM 参考手册	  able Bram Moolenaar
+
+
+							*diff* *diff-mode*
+本文件描述差异功能：显示同一文件的两到八个版本之间的差异。
+
+基础知识在用户手册的 |08.7| 节中有解释。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 启动差异模式						*start-vimdiff*
+
+要以差异模式开始编辑，运行 "nvim -d"。这像往常一样启动 Nvim，并额外
+设置查看参数之间差异的功能。 >
+
+	nvim -d file1 file2 [file3 [file4]]
+
+除了 |-d| 参数外，还可以使用 |-R| 进入只读模式。
+
+第二个及后续参数也可以是目录名。Vim 会将第一个参数的文件名附加到
+目录名后以找到文件。
+
+默认情况下使用内部差异库。当设置了 'diffopt' 或 'diffexpr' 时，
+将使用外部 "diff" 命令。这只在有可用的差异程序时才有效。
+
+差异是当前标签页本地的 |tab-page|。你无法在另一个标签页中的窗口
+看到差异。这使得同时拥有多个差异成为可能，每个在自己的标签页中。
+
+Nvim 会为每个文件打开一个窗口。这类似于使用 |-O| 参数。这使用
+垂直分割，但如果你更喜欢水平分割，可以使用 |-o| 参数替代： >
+
+	nvim -d -o file1 file2 [file3 [file4]]
+
+如果你总是偏好水平分割，可以在 'diffopt' 中包含 "horizontal"。
+
+在每个编辑的文件中设置这些选项：
+
+	'diff'		on
+	'scrollbind'	on
+	'cursorbind'	on
+	'scrollopt'	包含 "hor"
+	'wrap'		off，或者如果 'diffopt' 包含 "followwrap" 则保持不变
+	'foldmethod'	"diff"
+	'foldcolumn'	来自 'diffopt' 的值，默认为 2
+
+这些选项设置为窗口本地的。编辑另一个文件时它们会重置为全局值。
+选项仍然可以在重新编辑文件时从模式行中被覆盖。但是，当设置了
+'diff' 时，'foldmethod' 和 'wrap' 不会从模式行设置。
+参见 `:diffoff` 了解轻松恢复选项的方法。
+
+显示的差异实际上是缓冲区中的差异。因此，如果你在加载文件后做了
+修改，这些修改将包含在显示的差异中。你可能需要不时地执行
+":diffupdate"，因为不是所有更改都会立即被考虑进去，特别是当使用
+外部差异命令时。
+
+在你的 vimrc 文件中，你可以在 Vim 以差异模式启动时做一些特别的事情。
+你可以使用这样的构造： >
+
+	if &diff
+	   为差异模式设置
+	else
+	   为非差异模式设置
+	endif
+
+在 Vim 内部，你可以用三种方式启动差异模式。
+
+							*E98*
+:diffs[plit] {filename}					*:diffs* *:diffsplit*
+		在文件 {filename} 上打开一个新窗口。选项设置方式与
+		"nvim -d" 相同，用于当前窗口和新打开的窗口。
+		另见 'diffexpr'。
+
+							*:difft* *:diffthis*
+:difft[his]	使当前窗口成为差异窗口之一。这会设置选项，方式与
+		"nvim -d" 相同。
+
+:diffp[atch] {patchfile}		 *E816* *:diffp* *:diffpatch*
+		使用当前缓冲区，用 {patchfile} 中的差异进行补丁，并
+		在结果上打开一个缓冲区。选项设置方式与 "nvim -d" 相同。
+		{patchfile} 可以是 "patch" 程序能理解或 'patchexpr'
+		能处理的任何格式。
+		注意 {patchfile} 应只包含一个文件（当前文件）的差异。
+		如果 {patchfile} 也包含其他文件的差异，结果是不可预测的。
+		Vim 将目录更改为 /tmp 以避免当前目录中的文件被意外补丁。
+		但仍可能导致创建各种 ".rej" 文件。当存在绝对路径名时，
+		这些文件可能还是会被补丁。
+
+要使这些命令使用垂直分割，在前面加上 |:vertical|。示例： >
+
+	:vert diffsplit main.c~
+	:vert diffpatch /tmp/diff
+
+如果你总是偏好垂直分割，可以在 'diffopt' 中包含 "vertical"。
+
+							*E96*
+最多可以有八个缓冲区设置 'diff'。
+
+由于选项值与缓冲区一起记住，你可以暂时编辑另一个文件，然后回到
+同一个文件，仍然处于差异模式。
+
+							*:diffo* *:diffoff*
+:diffo[ff]	关闭当前窗口的差异模式。即使 'diff' 未设置，也会重置
+		相关选项。
+
+:diffo[ff]!	关闭当前窗口及当前标签页中所有设置了 'diff' 的窗口的
+		差异模式。只在设置了 'diff' 的窗口中重置相关选项，
+		如果当前窗口未设置 'diff'，则其中没有选项被更改。
+		隐藏缓冲区也会从差异缓冲区列表中移除。
+
+`:diffoff` 命令将相关选项重置为使用 `:diffsplit`、`:diffpatch`、
+`:diffthis` 或以差异模式启动 Vim 时的值。当使用 `:diffoff` 两次时，
+恢复上次保存的值。否则设置为默认值：
+
+	'diff'		off
+	'scrollbind'	off
+	'cursorbind'	off
+	'scrollopt'	去掉 "hor"
+	'wrap'		on，或者如果 'diffopt' 包含 "followwrap" 则保持不变
+	'foldmethod'	"manual"
+	'foldcolumn'	0
+
+'foldenable' 很可能会被重置为 off。这是在 'foldmethod' 恢复为
+"manual" 时发生的。折叠本身不会被清除，但它们不应该显示出来，
+重置 'foldenable' 是最好的方式。
+
+==============================================================================
+2. 查看差异						*view-diffs*
+
+效果是差异窗口显示相同的文本，差异部分高亮显示。滚动文本时，
+'scrollbind' 选项会使其他窗口中的文本也随之滚动。使用垂直分割时，
+文本应正确对齐。
+
+文本对齐在以下情况下会出错：
+- 'wrap' 打开时，某些行会折行并占用两个或更多屏幕行
+- 折叠在一个窗口中打开但在另一个中没有
+- 'scrollbind' 关闭
+- 对文本做了更改
+- 'diffopt' 中没有 "filler"，删除/插入的行使对齐出错
+
+所有在设置了 'diff' 选项的窗口中编辑的缓冲区都会加入差异。
+这对隐藏缓冲区也是可能的。它们必须先在窗口中被编辑过才能实现。
+要去掉隐藏缓冲区，使用 `:diffoff!`。
+
+					*:DiffOrig* *diff-original-file*
+由于 'diff' 是窗口本地选项，可以在一个窗口中以差异模式查看同一
+缓冲区，在另一个窗口中"正常"查看。也可以查看你对缓冲区所做的
+更改与加载文件时的区别。由于 Vim 不允许同一个文件有两个缓冲区，
+你需要另一个缓冲区。此命令很有用： >
+	 command DiffOrig vert new | set buftype=nofile | read ++edit # | 0d_
+		\ | diffthis | wincmd p | diffthis
+使用 ":DiffOrig" 查看当前缓冲区与其加载文件之间的差异。
+
+未加载的缓冲区不能用于差异。但对隐藏缓冲区有效。你可以使用 ":hide"
+关闭窗口而不卸载缓冲区。如果你不想让缓冲区继续用于差异，在隐藏
+之前执行 ":set nodiff"。
+
+						*:dif* *:diff* *:diffupdate*
+:dif[fupdate][!]		更新差异高亮和折叠。
+
+Vim 会在你对文本进行更改时尝试保持差异更新。这主要处理插入和删除
+的行。行内的更改和更复杂的更改不会导致差异更新。要强制更新差异，
+使用： >
+
+	:diffupdate
+
+如果包含了 !，Vim 将检查文件是否在外部被更改并需要重新加载。
+它会像使用了 `:checktime` 一样对每个更改的文件进行提示。
+
+Vim 会为在一个窗口中缺失但在另一个窗口中存在的行显示填充行。
+这些行是在另一个文件中插入的或在此文件中删除的。从 'diffopt'
+选项中移除 "filler" 将使 Vim 不显示这些填充行。
+
+
+折叠用于隐藏未更改的文本。参见 |folding| 了解所有可用于折叠的命令。
+
+差异上方未包含在折叠中的上下文行数可以通过 'diffopt' 选项设置。
+例如，将上下文设置为三行： >
+
+	:set diffopt=filler,context:3
+
+
+差异用以下高亮组显示：
+
+|hl-DiffAdd|	DiffAdd		新增（插入）的行。这些行存在于此缓冲区中
+				但不在另一个中。
+|hl-DiffChange|	DiffChange	更改的行。
+|hl-DiffText|	DiffText	更改行中的更改文本。具体行为取决于
+				'diffopt' 中的 `inline:` 设置。
+				`inline:` 设为 "simple" 时，Vim 找到第一个
+				不同的字符和最后一个不同的字符（从行尾
+				搜索）。中间的文本被高亮。这意味着中间
+				仍然相同的部分也会被高亮。'diffopt' 的
+				"iwhite" 和 "icase" 标志在此处使用。
+				`inline:` 设为 "char" 或 "word" 时，Vim
+				使用内部差异库对更改的块执行详细差异，并
+				高亮两者之间的确切差异。将遵守任何影响
+				内部差异的 'diffopt' 标志。
+				`inline:` 设为 "none" 时不使用。
+|hl-DiffTextAdd|  DiffTextAdd	更改行中的新增文本。类似于 DiffText，但
+				用于在其他缓冲区中没有对应文本的情况。
+				`inline:` 设为 "simple" 或 "none" 时不使用。
+|hl-DiffDelete|	DiffDelete	删除的行。也称为填充行，因为它们实际上
+				不存在于此缓冲区中。
+
+==============================================================================
+3. 跳转到差异						*jumpto-diffs*
+
+两个命令可用于跳转到差异：
+								*[c*
+	[c		向后跳转到前一个更改的开始。
+			使用计数时，重复相应次数。
+								*]c*
+	]c		向前跳转到下一个更改的开始。
+			使用计数时，重复相应次数。
+
+如果光标无法移动到某个更改，这是一个错误。
+
+==============================================================================
+4. 差异复制			*copy-diffs* *E99* *E100* *E101* *E102* *E103*
+								*merge*
+有两个命令可以将文本从一个缓冲区复制到另一个。结果是在指定范围内
+缓冲区将变得相同。
+
+							*:diffg* *:diffget*
+:[range]diffg[et] [bufspec]
+		修改当前缓冲区以消除与另一个缓冲区的差异。如果给出了
+		[bufspec]，则使用该缓冲区。如果 [bufspec] 引用的是当前
+		缓冲区，则什么都不做。否则，这只在差异模式中有另一个
+		缓冲区时有效。
+		关于 [range] 见下文。
+
+						*:diffpu* *:diffput* *E793*
+:[range]diffpu[t] [bufspec]
+		修改另一个缓冲区以消除与当前缓冲区的差异。就像
+		":diffget" 但修改的是另一个缓冲区。
+		当省略 [bufspec] 且差异模式中有多个其他缓冲区设置了
+		'modifiable' 时，此命令失败。
+		关于 [range] 见下文。
+
+							*do*
+[count]do	与不带范围的 ":diffget" 相同。"o" 代表 "obtain"
+		（"dg" 不能用，它可能是 "dgg" 的开头！）。注意：
+		这在可视模式下不起作用。
+		如果给出 [count]，它用作 ":diffget" 的 [bufspec] 参数。
+
+							*dp*
+[count]dp	与不带范围的 ":diffput" 相同。注意：这在可视模式下
+		不起作用。
+		如果给出 [count]，它用作 ":diffput" 的 [bufspec] 参数。
+
+
+当没有给出 [range] 时，影响光标位置处或其上方的差异。有可能在缓冲区
+最后一行下方有删除的行。当光标在缓冲区最后一行且此行上方没有差异，
+且没有给出 [range] 时，将使用光标位置下方的差异。
+
+当使用 [range] 时，Vim 尝试只放入或获取指定的行。当有删除的行时，
+如果它们在 [range] 指定的行之间，也会被使用。
+
+为了能够在 [range] 中将那些行放入/从另一个缓冲区获取，允许使用 0 和
+最后行号加一。此命令获取另一个缓冲区的所有差异： >
+
+	:0,$+1diffget
+
+注意删除的行会显示，但不计为文本行。你不能将光标移动到它们中。
+要用另一个缓冲区的行填充删除的行，在它们下方的行上使用 ":diffget"。
+								*E787*
+当即将修改的缓冲区是只读的且由 |FileChangedRO| 触发的自动命令
+更改了缓冲区时，命令将失败。自动命令不能更改缓冲区。
+
+上面的 [bufspec] 参数可以是缓冲区编号、缓冲区名称的模式或缓冲区
+名称的一部分。示例：
+
+	:diffget		使用差异模式中的另一个缓冲区
+	:diffget 3		使用 3 号缓冲区
+	:diffget v2		使用匹配 "v2" 且处于差异模式的缓冲区
+				（例如，"file.c.v2"）
+
+==============================================================================
+5. 差异锚点						*diff-anchors*
+
+差异锚点允许你控制差异算法在文件间对齐和同步文本的位置。每个锚点
+在每个文件中彼此匹配，使你可以控制差异的输出。
+
+当更改涉及复杂的编辑时，这很有用。例如，如果一个函数被移动到
+另一个位置并进一步编辑。默认情况下，算法旨在创建最小的差异，
+这导致整个函数被认为是删除并在另一侧添加，使得很难看到实际的
+编辑是什么。你可以使用差异锚点来固定该函数，使差异算法基于它
+进行对齐。
+
+要使用它，使用 'diffanchors' 设置锚点，它是每个文件中以逗号
+分隔的 {address} 列表，然后在 'diffopt' 中添加 "anchor"。
+在内部，Vim 将每个文件按锚点分割成段。它对每对段分别执行差异，
+然后将结果合并回来。
+
+设置 'diffanchors' 将立即更新差异。如果锚点绑定到标记，且你
+更改了标记指向的内容，你需要在之后手动调用 |:diffupdate| 以
+获取更新的差异结果。
+
+示例：
+
+假设我们有以下文件并排显示。我们对函数 `foo()` 的更改感兴趣，
+它被编辑并移动了。
+
+File A: >
+	int foo() {
+	    int n = 1;
+	    return n;
+	}
+
+	int g = 1;
+
+	int bar(int a) {
+	    a *= 2;
+	    a += 3;
+	    return a;
+	}
+<File B: >
+	int bar(int a) {
+	    a *= 2;
+	    a += 3;
+	    return a;
+	}
+
+	int foo() {
+	    int n = 999;
+	    return n;
+	}
+
+	int g = 1;
+<
+正常差异通常会这样对齐差异结果： >
+
+	int foo() {     |----------------
+	    int n = 1;  |----------------
+	    return n;   |----------------
+	}               |----------------
+	                |----------------
+	int g = 1;      |----------------
+	                |----------------
+	int bar(int a) {|int bar(int a) {
+	    a *= 2;     |    a *= 2;
+	    a += 3;     |    a += 3;
+	    return a;   |    return a;
+	}               |}
+	----------------|
+	----------------|int foo() {
+	----------------|    int n = 999;
+	----------------|    return n;
+	----------------|}
+	----------------|
+	----------------|int g = 1;
+<
+我们想要的是让差异在 `foo()` 上对齐： >
+
+	----------------|int bar(int a) {
+	----------------|    a *= 2;
+	----------------|    a += 3;
+	----------------|    return a;
+	----------------|}
+	----------------|
+	int foo() {     |int foo() {
+	    int n = 1;  |    int n = 999;
+	    return n;   |    return n;
+	}               |}
+	                |
+	int g = 1;      |int g = 1;
+	                |----------------
+	int bar(int a) {|----------------
+	    a *= 2;     |----------------
+	    a += 3;     |----------------
+	    return a;   |----------------
+	}               |----------------
+<
+
+以下是一些设置差异锚点以获得上述结果的方式。每个示例中，'diffopt'
+都需要设置 `anchor` 才能生效。
+
+标记：先在每个文件的 `int foo()` 行上设置 |'a| 标记，然后设置
+锚点： >
+	set diffanchors='a
+
+模式：使用 |pattern|（见 |:/|）指定锚点。这里我们确保始终从
+第 1 行开始搜索以保持一致性： >
+	set diffanchors=1/int\ foo(/
+<
+选择：在每个文件中使用可视模式选择整个 `foo()` 函数体。这里
+我们使用两个锚点。这能更好地确保只有函数体被彼此锚定，而不是
+之后的行。注意下面的 `'>+1`。"+1" 是必要的，因为我们希望分割
+发生在函数最后一行之下，而不是之上： >
+	set diffanchors='<,'>+1
+<
+使用行号通过缓冲区本地选项手动设置两个锚点： >
+	setlocal diffanchors=1,5
+	wincmd w
+	setlocal diffanchors=7,11
+<
+==============================================================================
+6. 差异选项						*diff-options*
+
+另见 'diffopt' 和 'fillchars' 的 "diff" 项。
+
+					    *diff-slow* *diff_translations*
+对于很长的行，差异语法高亮可能会很慢，特别是因为它尝试匹配所有
+不同类型的本地化。要禁用本地化并加速语法高亮，设置全局变量
+g:diff_translations 为零： >
+
+    let g:diff_translations = 0
+<
+设置此变量后，重新加载语法脚本： >
+
+    set syntax=diff
+<
+
+
+查找差异						*diff-diffexpr*
+
+'diffexpr' 选项可以设置为使用除内部差异支持或标准 "diff" 程序之外
+的其他程序来比较两个文件并找出差异。
+
+当 'diffexpr' 为空时，Vim 使用此命令查找 file1 和 file2 之间的
+差异： >
+
+	diff file1 file2 > outfile
+
+">" 被替换为 'shellredir' 的值。
+
+"diff" 的输出必须是正常的 "ed" 风格差异或统一差异。上下文差异
+不可用。对于统一差异，不能使用上下文行。使用 "diff -u" 不行，
+要用 "diff -U0"。
+
+此示例解释了 Vim 期望的 "ed" 风格差异格式： >
+
+	1a2
+	> bbb
+	4d4
+	< 111
+	7c7
+	< GGG
+	---
+	> ggg
+
+"1a2" 项附加了行 "bbb"。
+"4d4" 项删除了行 "111"。
+"7c7" 项将行 "GGG" 替换为 "ggg"。
+
+当 'diffexpr' 不为空时，Vim 评估它以获取上述格式的差异文件。
+这些变量被设置为使用的文件名：
+
+	v:fname_in		原始文件
+	v:fname_new		同一文件的新版本
+	v:fname_out		写入结果差异文件的位置
+
+此外，'diffexpr' 应处理 'diffopt' 中的 "icase" 和 "iwhite"。
+'diffexpr' 不能更改 'lines' 和 'columns' 的值。
+
+使用不带参数的函数调用的优势是速度更快，参见 |expr-option-function|。
+
+示例（这几乎与 'diffexpr' 为空时相同）： >
+
+	set diffexpr=MyDiff()
+	function MyDiff()
+	   let opt = ""
+	   if &diffopt =~ "icase"
+	     let opt = opt .. "-i "
+	   endif
+	   if &diffopt =~ "iwhite"
+	     let opt = opt .. "-b "
+	   endif
+	   silent execute "!diff -a --binary " .. opt .. v:fname_in .. " " .. v:fname_new ..
+		\  " > " .. v:fname_out
+	   redraw!
+	endfunction
+
+"-a" 参数用于强制将文件作为文本进行比较，以二进制方式比较没有用处。
+"--binary" 参数使文件以二进制模式读取，这样 DOS 上的 CTRL-Z 就不会
+终止文本。
+
+`redraw!` 命令可能不是必需的，取决于执行 shell 命令是否在显示上
+显示了什么内容。
+
+如果 'diffexpr' 表达式以 s: 或 |<SID>| 开头，则会被替换为脚本
+ID（|local-function|）。示例： >
+		set diffexpr=s:MyDiffExpr()
+		set diffexpr=<SID>SomeDiffExpr()
+否则，表达式在设置选项的脚本上下文中评估，因此脚本本地项可用。
+
+						*E810* *E97*
+Vim 会测试差异输出是否正常。如果不正常，你会得到错误消息。
+可能的原因：
+-  "diff" 程序无法执行。
+-  "diff" 程序不生成正常的 "ed" 风格差异（见上文）。
+-  'shell' 和相关选项设置不正确。尝试像 ":!sort" 这样的命令
+   是否能正常过滤。
+-  你在使用 'diffexpr' 但它不起作用。
+如果不清楚问题所在，将 'verbose' 选项设置为一或更多以查看更多
+消息。
+
+用于 MS-Windows 的自安装 Vim 包含了一个 diff 程序。如果你没有，
+可以从以下地址下载 diff.exe：
+https://gnuwin32.sourceforge.net/packages/diffutils.htm.
+
+
+使用补丁					*diff-patchexpr*
+
+'patchexpr' 选项可以设置为使用除标准 "patch" 程序之外的其他程序。
+
+当 'patchexpr' 为空时，Vim 会这样调用 "patch" 程序： >
+
+	patch -o outfile origfile < patchfile
+
+这对大多数版本的 "patch" 程序应该工作正常。注意行中间的 CR 可能
+导致问题，它被视为换行。
+
+如果默认方式对你不起作用，设置 'patchexpr' 为具有相同效果的表达式。
+这些变量被设置为使用的文件名：
+
+	v:fname_in		原始文件
+	v:fname_diff		补丁文件
+	v:fname_out		打补丁后的结果文件
+
+使用不带参数的函数调用的优势是速度更快，参见 |expr-option-function|。
+
+示例（这与 'patchexpr' 为空时相同）： >
+
+	set patchexpr=MyPatch()
+	function MyPatch()
+	   :call system("patch -o " .. v:fname_out .. " " .. v:fname_in ..
+	   \  " < " .. v:fname_diff)
+	endfunction
+
+确保使用 "patch" 程序没有不需要的副作用。例如，注意额外生成的
+文件，应该删除它们。它应该只是给文件打补丁，不做其他事情。
+   Vim 会在评估 'patchexpr' 之前将目录更改为 "/tmp" 或另一个临时
+目录。这希望能避免当前目录中的文件被意外打补丁。Vim 还会删除以
+v:fname_in 开头且以 ".rej" 和 ".orig" 结尾的文件。
+
+如果 'patchexpr' 表达式以 s: 或 |<SID>| 开头，则会被替换为脚本
+ID（|local-function|）。示例： >
+		set patchexpr=s:MyPatchExpr()
+		set patchexpr=<SID>SomePatchExpr()
+否则，表达式在设置选项的脚本上下文中评估，因此脚本本地项可用。
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

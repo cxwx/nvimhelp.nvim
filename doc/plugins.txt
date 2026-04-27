@@ -1,0 +1,284 @@
+*plugins.txt*  Nvim
+
+
+                            NVIM REFERENCE MANUAL
+
+                                       Type |gO| to see the table of contents.
+
+==============================================================================
+Nvim 包含的插件和模块                               *plugins*
+
+Nvim 包含各种 Lua 和 Vim 插件或模块，它们可能提供命令（如 :TOhtml）或者你可以
+选择性地 require() 或 :packadd 的模块。Lua 模块不是 |lua-stdlib| 的一部分，
+即它们不在全局 `vim` 模块命名空间中可用。某些插件默认加载，而其他插件直到通过
+|:packadd| 请求时才加载。
+
+==============================================================================
+标准插件                                        *standard-plugin-list*
+
+帮助链接		已加载	简短描述 ~
+|difftool|		否	并排比较两个目录或文件
+|editorconfig|		是	检测和解析 editorconfig
+|ft-shada|		是	允许编辑二进制 |shada| 文件
+|man.lua|		是	在 Nvim 中查看手册页
+|matchit|		是	扩展的 |%| 匹配
+|matchparen|		是	高亮匹配的配对字符
+|netrw|			是	通过网络读写文件
+|package-cfilter|	否	过滤 quickfix/位置列表
+|package-justify|	否	文本两端对齐
+|package-nohlsearch|	否	自动运行 :nohlsearch
+|package-spellfile|	是	缺少拼写文件时自动安装
+|package-termdebug|	否	在 Nvim 内使用 gdb 调试
+|package-tohtml|	否	将缓冲区转换为 html，包含语法
+|package-undotree|	否	交互式文本撤销树
+|pi_gzip.txt|		是	读写压缩文件
+|pi_msgpack.txt|	否	msgpack 工具
+|pi_paren.txt|		是	高亮匹配的括号
+|pi_spec.txt|		是	处理 rpm spec 文件的文件类型插件
+|pi_swapmouse|		否	交换鼠标左右键含义
+|pi_tar.txt|		是	Tar 文件浏览器
+|pi_tutor.txt|		是	交互式教程
+|pi_zip.txt|		是	Zip 归档浏览器
+
+==============================================================================
+内置插件：difftool                                            *difftool*
+
+
+:DiffTool {left} {right}                                           *:DiffTool*
+并排比较两个目录或文件。
+支持目录差异比较、重命名检测，并在 quickfix 列表中高亮变更。用此界面替换
+内置的 `nvim -d` 差异模式。
+
+该插件默认不加载；使用 `:packadd` 来激活它：>
+    :packadd nvim.difftool
+<
+
+使用 `nvim -d` 替换的 `git difftool -d` 集成示例：>ini
+    [difftool "nvim_difftool"]
+      cmd = nvim -c \"packadd nvim.difftool\" -d \"$LOCAL\" \"$REMOTE\"
+    [diff]
+      tool = nvim_difftool
+<
+
+
+open({left}, {right}, {opt})                                 *difftool.open()*
+    比较两个文件或目录的差异
+
+    Parameters: ~
+      • {left}   (`string`)
+      • {right}  (`string`)
+      • {opt}    (`table?`)
+                 • {rename.detect} (`boolean`, 默认: `false`) 是否检测重命名
+                 • {rename.similarity} (`number`, 默认: `0.5`) 重命名检测的
+                   最低相似度（0 到 1）
+                 • {rename.chunk_size} (`number`, 默认: `4096`) 用于相似度
+                   计算的文件最大读取块大小
+                 • {method} (`'auto'|'builtin'|'diffr'`, 默认: `auto`) 使用的
+                   差异方法
+                 • {ignore} (`string[]`, 默认: `{}`) 要忽略的文件模式列表
+                   （例如: `'.git', '*.log'`）
+                 • {rename} (`table`) 控制重命名检测
+
+
+==============================================================================
+内置插件：editorconfig                                    *editorconfig*
+
+EditorConfig 类似于整个（递归）目录的 'modeline'。当打开文件时，在运行
+|ftplugin| 和 |FileType| 自动命令之后，EditorConfig 功能会搜索该文件的所有
+父目录中的 `.editorconfig` 文件，解析它们并应用其属性。更多信息参见
+https://editorconfig.org/。
+
+`.editorconfig` 文件示例：>ini
+    root = true
+
+    [*]
+    charset = utf-8
+    end_of_line = lf
+    indent_size = 4
+    indent_style = space
+    max_line_length = 42
+    trim_trailing_whitespace = true
+
+    [*.{diff,md}]
+    trim_trailing_whitespace = false
+<
+
+                                               *g:editorconfig* *b:editorconfig*
+
+EditorConfig 默认启用。要禁用它，在你的配置中添加：>lua
+    vim.g.editorconfig = false
+<
+
+（Vimscript: `let g:editorconfig = v:false`）。也可以通过设置
+|b:editorconfig| 缓冲区本地变量为 `false` 来按缓冲区禁用。
+
+如果 |b:editorconfig| 不是 `false`，Nvim 会将应用的属性存储在其中。
+
+                                              *editorconfig-custom-properties*
+
+可以通过向 "properties" 表添加新条目来添加新属性。表键是属性名称，值是回调
+函数，接受要修改的缓冲区编号、`.editorconfig` 文件中属性的值，以及（可选）
+包含所有其他属性及其值的表（对于依赖其他属性的属性很有用）。值始终是字符串，
+必要时需要强制转换。示例：>lua
+
+    require('editorconfig').properties.foo = function(bufnr, val, opts)
+      if opts.charset and opts.charset ~= "utf-8" then
+        error("foo can only be set when charset is utf-8", 0)
+      end
+      vim.b[bufnr].foo = val
+    end
+<
+
+                                                     *editorconfig-properties*
+
+默认支持以下属性：
+
+
+charset                                                 *editorconfig.charset*
+    `"utf-8"`、`"utf-8-bom"`、`"latin1"`、`"utf-16be"` 或 `"utf-16le"` 之一。
+    设置 'fileencoding' 和 'bomb' 选项。
+
+end_of_line                                         *editorconfig.end_of_line*
+    `"lf"`、`"crlf"` 或 `"cr"` 之一。分别对应将 'fileformat' 设置为
+    "unix"、"dos" 或 "mac"。
+
+indent_size                                         *editorconfig.indent_size*
+    表示单个缩进大小的数字。或者使用值 "tab" 来使用 tab_width 属性的值。
+    设置 'shiftwidth' 和 'softtabstop' 选项。如果此值不是 "tab" 且未设置
+    tab_width 属性，'tabstop' 也设置为此值。
+
+indent_style                                       *editorconfig.indent_style*
+    `"tab"` 或 `"space"` 之一。设置 'expandtab' 选项。
+
+insert_final_newline                       *editorconfig.insert_final_newline*
+    `"true"` 或 `"false"`，确保文件始终以换行符作为最后一个字节。
+    设置 'fixendofline' 和 'endofline' 选项。
+
+max_line_length                                 *editorconfig.max_line_length*
+    表示单行最大长度的数字。设置 'textwidth' 选项。
+
+root                                                       *editorconfig.root*
+    如果为 "true"，则停止在父目录中搜索 `.editorconfig` 文件。此属性必须
+    在 `.editorconfig` 文件的顶层（即不在 glob 部分内）。
+
+spelling_language                             *editorconfig.spelling_language*
+    格式为 ss 或 ss-TT 的代码，其中 ss 是 ISO 639 语言代码，TT 是 ISO 3166
+    地区标识符。设置 'spelllang' 选项。
+
+tab_width                                             *editorconfig.tab_width*
+    单个制表符的显示大小。设置 'tabstop' 选项。
+
+trim_trailing_whitespace               *editorconfig.trim_trailing_whitespace*
+    当为 `"true"` 时，写入缓冲区时自动删除行尾空白。
+
+
+==============================================================================
+内置插件：spellfile                                  *package-spellfile*
+
+提示用户下载缺失的拼写文件。拼写文件写入到 `stdpath('data') .. 'site/spell'`
+或 'runtimepath' 中第一个可写目录。
+
+可以通过设置 `g:loaded_spellfile_plugin = 1` 来禁用该插件。
+
+
+*nvim.spellfile.Opts*
+    具有以下字段的表：
+
+    Fields: ~
+      • {url}         (`string`) 下载拼写文件的基础 URL。如果设置了
+                      `g:spellfile_URL` 则使用它，否则使用
+                      https://ftp.nluug.nl/pub/vim/runtime/spell。
+      • {timeout_ms}  (`integer`, 默认: 15000) |vim.net.request()| 超时的
+                      毫秒数。
+      • {confirm}     (`boolean`, 默认: `true`) 是否提示用户确认下载。
+
+
+config({opts})                                            *spellfile.config()*
+    配置拼写文件下载选项。例如：>lua
+        require('nvim.spellfile').config({ url = '...' })
+<
+
+    Parameters: ~
+      • {opts}  (`nvim.spellfile.Opts?`) 当省略或 `nil` 时，获取当前配置。
+                否则为配置表。
+
+    Return: ~
+        (`nvim.spellfile.Opts?`) 如果省略 {opts} 则返回当前配置。
+
+get({lang})                                                  *spellfile.get()*
+    如果可用，下载语言 {lang} 的拼写文件。
+
+    Parameters: ~
+      • {lang}  (`string`) 语言代码。
+
+    Return: ~
+        (`table?`) 具有以下字段的表：
+        • {files} (`string[]`)
+        • {key} (`string`)
+        • {lang} (`string`)
+        • {encoding} (`string`)
+        • {dir} (`string`)
+
+
+==============================================================================
+内置插件：tohtml                                        *package-tohtml*
+
+
+:[range]TOhtml {file}                                                *:TOhtml*
+将当前窗口中显示的缓冲区转换为 HTML，在新的分割窗口中打开生成的 HTML，
+并将其内容保存到 {file}。如果未提供 {file}，则使用临时文件（由
+|tempname()| 创建）。
+
+该插件默认不加载；使用 `:packadd` 来激活它：>
+    :packadd nvim.tohtml
+<
+
+
+tohtml({winid}, {opt})                                       *tohtml.tohtml()*
+    将窗口 {winid} 中显示的缓冲区转换为 HTML，并将输出作为字符串列表返回。
+
+    Parameters: ~
+      • {winid}  (`integer?`) 要转换的窗口（默认为当前窗口）
+      • {opt}    (`table?`) 可选参数。
+                 • {title}? (`string|false`, 默认: 缓冲区名称) 在生成的
+                   HTML 代码中设置的 title 标签。
+                 • {number_lines}? (`boolean`, 默认: `false`) 显示行号。
+                 • {font}? (`string[]|string`, 默认: `guifont`) 使用的字体。
+                 • {width}? (`integer`, 默认: 'textwidth' 非零时使用，否则
+                   使用窗口宽度) 用于右对齐或无限重复字符的项目的宽度。
+                 • {range}? (`integer[]`, 默认: 整个缓冲区) 要使用的行范围。
+
+    Return: ~
+        (`string[]`)
+
+
+==============================================================================
+内置插件：undotree                                    *package-undotree*
+
+open({opts})                                                 *undotree.open()*
+    打开一个显示 |undo-tree| 文本表示的窗口，如果窗口已打开则关闭它。
+    也可以通过 `:Undotree` 命令显示。                              *:Undotree*
+
+    在窗口中移动光标会更改撤销状态。
+
+    该插件默认不加载；使用 `:packadd` 来激活它：>
+        :packadd nvim.undotree
+<
+
+    Parameters: ~
+      • {opts}  (`table?`) 具有以下字段的表：
+                • {bufnr} (`integer?`) 用于绘制树的缓冲区。如果省略，
+                  将创建新缓冲区。
+                • {winid} (`integer?`) 用于显示树缓冲区的窗口 id。如果省略，
+                  将使用 {command} 创建新窗口。
+                • {command} (`string?`) 创建窗口的 Vimscript 命令。
+                  默认值为 "30vnew"。仅在 {winid} 为 nil 时使用。
+                • {title} (`(string|fun(bufnr:integer):string?)?`) 窗口标题。
+                  如果是函数，接受源缓冲区的缓冲区编号作为唯一参数，
+                  应返回一个字符串。
+
+    Return: ~
+        (`boolean?`) 如果窗口已打开则返回 true，否则返回 nil
+
+
+ vim:tw=78:ts=8:sw=4:sts=4:et:ft=help:norl:

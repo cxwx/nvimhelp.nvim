@@ -1,0 +1,246 @@
+*digraph.txt*   Nvim
+
+
+		  VIM REFERENCE MANUAL	  able Bram Moolenaar 著
+
+
+二合字母					*digraph* *digraphs* *Digraphs*
+
+二合字母用于输入通常无法通过普通键盘输入的字符。这些大多是可打印的非 ASCII
+字符。二合字母比可以用 CTRL-V 输入的十进制数字更容易记住 (参见 |i_CTRL-V|)。
+
+用户手册中有关于二合字母的简要介绍: |24.9|
+另一种替代方法是使用 'keymap' 选项。
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 定义二合字母					*digraphs-define*
+
+						*:dig* *:digraphs*
+:dig[raphs][!]		显示当前定义的二合字母。
+			使用 [!] 时会使用标题使查找特定字符更容易。
+							*E104* *E39*
+:dig[raphs] {char1}{char2} {number} ...
+			将二合字母 {char1}{char2} 添加到列表。{number} 是
+			字符的十进制表示。通常它是 Unicode 字符，
+			参见 |digraph-encoding|。
+			示例: >
+	:digr e: 235 a: 228
+<			你可以使用 `:exe` 输入十六进制数: >
+	:exe 'digr += ' .. 0x2A72
+<			避免定义以 '_' (下划线) 作为第一个字符的二合字母，
+			它在未来有特殊含义。
+			注意: 此命令不能添加以空白字符开头的二合字母。
+			如果你想添加这样的二合字母，可以使用 |digraph_set()|
+			代替。
+
+":digraphs" 输出的示例: >
+ TH Þ  222  ss ß  223  a! à  224  a' á  225  a> â  226  a? ã  227  a: ä  228
+
+每列中的前两个字符是你必须输入的字符以输入二合字母。
+
+每列中间是结果字符。如果你在不支持二合字母的系统上查看或打印此文件，
+可能会显示混乱。
+
+							*digraph-encoding*
+十进制数通常是字符的 Unicode 编号。注意当 'encoding' 改变时含义不变。
+字符在需要时会从 Unicode 转换为 'encoding'。这确实需要可用的转换，它可能
+会失败。对于 NUL 字符你会看到 "10"。那是因为 NUL 字符内部用 NL 字符表示。
+当你写入文件时它会变成 NUL 字符。
+
+示例: >
+	digraph oe 339
+这为 Unicode 中编号 339 的字符定义了 "oe" 二合字母。
+
+==============================================================================
+2. 使用二合字母					*digraphs-use*
+
+有两种方法输入二合字母:			*i_digraph*
+	CTRL-K {char1} {char2}		或
+	{char1} <BS> {char2}
+第一种总是可用的；第二种仅在设置了 'digraph' 选项时才可用。
+
+如果 {char1}{char2} 的二合字母不存在，Vim 会搜索 {char2}{char1} 的二合字母。
+这在你不记得哪个字符在前时很有帮助。
+
+注意当你输入 CTRL-K {char1} 时，如果 {char1} 是特殊键，Vim 会输入该特殊键
+的代码。这不是二合字母。
+
+输入二合字母后，Vim 将该字符视为在文件和屏幕上只占一个字符的普通字符。
+示例: >
+	'B' <BS> 'B'	将输入断开的 '|' 字符 (166)
+	'a' <BS> '>'	将输入带有抑扬符的 'a' (226)
+	CTRL-K '-' '-'	将输入软连字符 (173)
+
+当前的二合字母可以用 ":digraphs" 命令列出。一些默认的列在下面
+|digraph-table|。
+
+对于 CTRL-K，有一个通用的二合字母: CTRL-K <Space> {char} 将输入最高位被设置
+的 {char}。你可以用此来输入 meta 字符。
+
+<Esc> 字符不能是二合字母的一部分。当按 <Esc> 时，Vim 停止二合字母输入并
+结束插入模式或命令行模式，就像在二合字母上下文之外按 <Esc> 一样。使用
+CTRL-V 155 输入 meta-ESC (CSI)。
+
+如果你意外输入了 'a' 而应该是 'e'，你会输入 'a' <BS> 'e'。但那是一个
+二合字母，所以你不会得到你想要的。要纠正这个，你需要再次输入 <BS> e。
+为避免这种情况不要设置 'digraph' 选项而是使用 CTRL-K 输入二合字母。
+
+在使用值大于 128 的字符时你可能会遇到问题。例如: 你插入 ue (u-umlaut)
+而编辑器在插入模式中回显 \334。离开插入模式后一切正常。在某些 Unix 系统上
+这意味着你必须定义环境变量 LC_CTYPE。如果你使用 csh，那么在你的 .cshrc 中
+放入以下行: >
+	setenv LC_CTYPE en_US.utf8
+(或对不同的语言或国家使用类似的值)。该值必须是你系统上有效的区域设置，
+即在类 Unix 系统上它必须存在于以下命令的输出中 >
+	locale -a
+
+==============================================================================
+3. 默认二合字母					*digraphs-default*
+
+Vim 自带一组默认二合字母。检查 ":digraphs" 的输出来查看它们。
+
+在大多数系统上 Vim 使用相同的二合字母。它们适用于 Unicode 和 ISO-8859-1
+字符集。这些默认二合字母取自 RFC1345 助记符 (有一些补充)。为了使助记符容易
+记住，第二个字符有标准含义:
+
+	char name		char	meaning ~
+	感叹号		!	重音符
+	撇号		'	尖音符
+	大于号		>	抑扬符
+	问号		?	波浪号
+	连字符减号		-	长音符
+	左括号		(	短音符
+	句号		.	上点
+	冒号		:	分音符
+	逗号		,	下加符
+	下划线		_	下划线
+	斜线		/	删除线
+	引号		"	双尖音符
+	分号		;	反尾形符
+	小于号		<	上勾符
+	零		0	上圆圈
+	二		2	钩
+	九		9	角
+
+	等号		=	西里尔文 (= 用作第二个字符)
+	星号		*	希腊文
+	百分号		%	希腊/西里尔文特殊
+	加号		+	小写: 阿拉伯文，大写: 希伯来文
+	三		3	某些拉丁/希腊/西里尔文字母
+	四		4	注音符号
+	五		5	平假名
+	六		6	片假名
+
+示例: a: 是 ä  而 o: 是 ö
+
+这些是单字节字符的 RFC1345 二合字母。参见 ":digraphs" 的输出了解其他字符。
+
+欧元符号
+							*euro* *euro-digraph*
+例外: RFC1345 没有指定欧元符号。在 Vim 中添加了二合字母 =e。注意 latin1 中
+使用二合字母 Cu 表示货币符号，和 latin9 (iso-8859-15) 中使用二合字母 =e
+表示欧元符号的区别，两者都是字符 164，0xa4。为了与 zsh 兼容，也可以使用
+Eu 表示欧元符号。
+
+卢布符号
+
+卢布符号在 2014 年添加为 0x20bd。Vim 支持二合字母 =R 和 =P。注意 R= 和
+P= 是其他字符。
+
+四重素数
+
+使用二合字母 4' 的四重素数在 2023 年添加。虽然它不是 RFC 1345 的一部分，
+但它补充了现有的二合字母实现，因为已经存在使用 1'、2' 和 3' 二合字母的
+PRIME、DOUBLE PRIME 和 TRIPLE PRIME。
+
+						*digraph-table* *digraph-table-mbyte*
+>
+  char  digraph	hex	dec	official name
+  ^@	NU	0x00	  0	NULL (NUL)
+  ^A	SH	0x01	  1	START OF HEADING (SOH)
+  ^B	SX	0x02	  2	START OF TEXT (STX)
+  ^C	EX	0x03	  3	END OF TEXT (ETX)
+  ^D	ET	0x04	  4	END OF TRANSMISSION (EOT)
+  ^E	EQ	0x05	  5	ENQUIRY (ENQ)
+  ^F	AK	0x06	  6	ACKNOWLEDGE (ACK)
+  ^G	BL	0x07	  7	BELL (BEL)
+  ^H	BS	0x08	  8	BACKSPACE (BS)
+  ^I	HT	0x09	  9	CHARACTER TABULATION (HT)
+  ^@	LF	0x0a	 10	LINE FEED (LF)
+  ^K	VT	0x0b	 11	LINE TABULATION (VT)
+  ^L	FF	0x0c	 12	FORM FEED (FF)
+  ^M	CR	0x0d	 13	CARRIAGE RETURN (CR)
+  ^N	SO	0x0e	 14	SHIFT OUT (SO)
+  ^O	SI	0x0f	 15	SHIFT IN (SI)
+  ^P	DL	0x10	 16	DATALINK ESCAPE (DLE)
+  ^Q	D1	0x11	 17	DEVICE CONTROL ONE (DC1)
+  ^R	D2	0x12	 18	DEVICE CONTROL TWO (DC2)
+  ^S	D3	0x13	 19	DEVICE CONTROL THREE (DC3)
+  ^T	D4	0x14	 20	DEVICE CONTROL FOUR (DC4)
+  ^U	NK	0x15	 21	NEGATIVE ACKNOWLEDGE (NAK)
+  ^V	SY	0x16	 22	SYNCHRONOUS IDLE (SYN)
+  ^W	EB	0x17	 23	END OF TRANSMISSION BLOCK (ETB)
+  ^X	CN	0x18	 24	CANCEL (CAN)
+  ^Y	EM	0x19	 25	END OF MEDIUM (EM)
+  ^Z	SB	0x1a	 26	SUBSTITUTE (SUB)
+  ^[	EC	0x1b	 27	ESCAPE (ESC)
+  ^\	FS	0x1c	 28	FILE SEPARATOR (IS4)
+  ^]	GS	0x1d	 29	GROUP SEPARATOR (IS3)
+  ^^	RS	0x1e	 30	RECORD SEPARATOR (IS2)
+  ^_	US	0x1f	 31	UNIT SEPARATOR (IS1)
+	SP	0x20	 32	SPACE
+  #	Nb	0x23	 35	NUMBER SIGN
+  $	DO	0x24	 36	DOLLAR SIGN
+  @	At	0x40	 64	COMMERCIAL AT
+  [	<(	0x5b	 91	LEFT SQUARE BRACKET
+  \	//	0x5c	 92	REVERSE SOLIDUS
+  ]	)>	0x5d	 93	RIGHT SQUARE BRACKET
+  ^	'>	0x5e	 94	CIRCUMFLEX ACCENT
+  `	'!	0x60	 96	GRAVE ACCENT
+  {	(!	0x7b	123	LEFT CURLY BRACKET
+  |	!!	0x7c	124	VERTICAL LINE
+  }	!)	0x7d	125	RIGHT CURLY BRACKET
+  ~	'?	0x7e	126	TILDE
+  ^?	DT	0x7f	127	DELETE (DEL)
+  ~@	PA	0x80	128	PADDING CHARACTER (PAD)
+  ~A	HO	0x81	129	HIGH OCTET PRESET (HOP)
+  ~B	BH	0x82	130	BREAK PERMITTED HERE (BPH)
+  ~C	NH	0x83	131	NO BREAK HERE (NBH)
+  ~D	IN	0x84	132	INDEX (IND)
+  ~E	NL	0x85	133	NEXT LINE (NEL)
+  ~F	SA	0x86	134	START OF SELECTED AREA (SSA)
+  ~G	ES	0x87	135	END OF SELECTED AREA (ESA)
+  ~H	HS	0x88	136	CHARACTER TABULATION SET (HTS)
+  ~I	HJ	0x89	137	CHARACTER TABULATION WITH JUSTIFICATION (HTJ)
+  ~J	VS	0x8a	138	LINE TABULATION SET (VTS)
+  ~K	PD	0x8b	139	PARTIAL LINE FORWARD (PLD)
+  ~L	PU	0x8c	140	PARTIAL LINE BACKWARD (PLU)
+  ~M	RI	0x8d	141	REVERSE LINE FEED (RI)
+  ~N	S2	0x8e	142	SINGLE-SHIFT TWO (SS2)
+  ~O	S3	0x8f	143	SINGLE-SHIFT THREE (SS3)
+  ~P	DC	0x90	144	DEVICE CONTROL STRING (DCS)
+  ~Q	P1	0x91	145	PRIVATE USE ONE (PU1)
+  ~R	P2	0x92	146	PRIVATE USE TWO (PU2)
+  ~S	TS	0x93	147	SET TRANSMIT STATE (STS)
+  ~T	CC	0x94	148	CANCEL CHARACTER (CCH)
+  ~U	MW	0x95	149	MESSAGE WAITING (MW)
+  ~V	SG	0x96	150	START OF GUARDED AREA (SPA)
+  ~W	EG	0x97	151	END OF GUARDED AREA (EPA)
+  ~X	SS	0x98	152	START OF STRING (SOS)
+  ~Y	GC	0x99	153	SINGLE GRAPHIC CHARACTER INTRODUCER (SGCI)
+  ~Z	SC	0x9a	154	SINGLE CHARACTER INTRODUCER (SCI)
+  ~[	CI	0x9b	155	CONTROL SEQUENCE INTRODUCER (CSI)
+  ~\	ST	0x9c	156	STRING TERMINATOR (ST)
+  ~]	OC	0x9d	157	OPERATING SYSTEM COMMAND (OSC)
+  ~^	PM	0x9e	158	PRIVACY MESSAGE (PM)
+  ~_	AC	0x9f	159	APPLICATION PROGRAM COMMAND (APC)
+<
+
+完整的二合字母表请参见源文件或使用 ":digraphs" 命令查看。
+此处省略了大量表格数据 (Latin、Greek、Cyrillic、Hebrew、Arabic、Hiragana、
+Katakana、Bopomofo 以及各种符号字符)，请使用 ":digraphs" 命令或参阅英文
+原始文件获取完整的二合字母表。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

@@ -1,0 +1,345 @@
+*sign.txt*      Nvim
+
+
+		  VIM REFERENCE MANUAL	  by Gordon Prieur
+					  and Bram Moolenaar
+
+
+标记支持功能				*sign-support*
+
+                                      输入 |gO| 查看目录。
+
+==============================================================================
+1. 简介					*sign-intro* *signs* *gutter*
+
+当调试器或其他 IDE 工具驱动编辑器时，它需要能够提供特定的高亮来快速告知用户关于
+文件的有用信息。一个例子是调试器在左侧列中显示一个图标表示断点。另一个例子可能
+是代表程序计数器（PC）的箭头。标记功能允许在窗口左侧放置标记或图标，以及定义将
+应用于该行的高亮。将标记显示为图像很可能只在 gvim 中可行（尽管 Sun Microsystem
+的 dtterm 确实支持此功能，但它是我所知道的唯一支持此功能的终端模拟器）。文本标
+记和高亮应该在任何彩色终端模拟器中可行。
+
+标记和高亮不仅对调试器有用。有一些插件使用标记来标记构建错误或显示版本控制状
+态。
+
+使用标记有两个步骤：
+
+1. 定义标记。这指定了图像、文本和高亮。例如，你可以定义一个 "break" 标记，带有
+   一个停止路标图像和文本 "!!"。
+
+2. 放置标记。这指定了标记显示的文件和行号。一个已定义的标记可以在不同的行和文件
+   中多次放置。
+
+							*sign-column*
+当为文件定义了标记时，Vim 会自动添加一个两字符宽的列来显示它们。当最后一个标记
+被移除时，该列会再次消失。这个行为可以通过 'signcolumn' 选项来更改。
+
+该列的颜色通过 SignColumn 高亮组设置
+|hl-SignColumn|。设置颜色的示例： >
+
+	:highlight SignColumn guibg=darkgrey
+<
+如果启用了 'cursorline'，则使用 CursorLineSign 高亮组
+|hl-CursorLineSign|。
+							*sign-identifier*
+每个已放置的标记都通过一个称为标记标识符的数字来标识。此标识符用于跳转到标记或
+移除标记。标识符在使用 |:sign-place| 命令或 |sign_place()| 函数放置标记时分配。
+每个标记标识符应该是一个唯一的数字（每个缓冲区）。放置相同标识符两次会移动之前
+放置的标记。|sign_place()| 函数可以用零标记标识符调用来分配下一个可用标识符。
+
+							*sign-group*
+每个已放置的标记可以分配到全局组或命名组。放置标记时，如果未提供组名或使用了空
+字符串，则标记被放置在全局组中。否则标记被放置在命名组中。标记标识符在组内是唯
+一的。标记组允许 Vim 插件使用唯一的标记而不会干扰其他使用标记的插件。
+
+							*sign-priority*
+每个已放置的标记被独立于标记组分配一个优先级值。标记的默认优先级为 10，可以在定
+义时为不同的标记指定不同的值来更改此值。当多个各自带有图标或文本的标记被放置在
+同一行时，标记按优先级从高到低从左到右排列，直到达到 'signcolumn' 设置的最大宽
+度。不适合的低优先级标记会被隐藏。具有高亮属性的最高优先级标记始终显示。
+
+当标记所在行被删除时，标记随之移除。
+
+==============================================================================
+2. 命令					*sign-commands* *:sig* *:sign*
+
+这是一个在当前文件第 23 行放置名为 "piet"、显示文本为 ">>" 的标记的示例： >
+	:sign define piet text=>> texthl=Search
+	:exe ":sign place 2 line=23 name=piet file=" .. expand("%:p")
+
+这是删除它的命令： >
+	:sign unplace 2
+
+注意 ":sign" 命令后面不能跟其他命令或注释。如果你确实需要，请使用 |:execute|
+命令。
+
+
+定义标记。			*:sign-define* *E255* *E160* *E612*
+
+参见 |sign_define()| 了解等效的 Vim 脚本函数。
+
+:sig[n] define {name} {argument}...
+		定义一个新标记或为现有标记设置属性。
+		{name} 可以是数字（全部为数字）或以非数字开头的名称。
+		前导零被忽略，因此 "0012"、"012" 和 "12" 被视为相同名
+		称。可以定义大约 120 个不同的标记。
+
+		接受的参数：
+
+	icon={bitmap}
+		定义位图所在的文件名。应该是完整路径。位图应该适合两个
+		字符的位置。这不会被检查。如果位图太大会导致重绘问题。
+			toolkit		supports ~
+			Win32		.bmp, .ico, .cur
+
+	priority={prio}
+		标记的默认优先级，参见 |sign-priority|。
+
+	linehl={group}
+		用于标记所在整行的高亮组。最有用的是定义背景颜色。
+
+	numhl={group}
+		用于标记所在行号的高亮组。与 |hl-LineNr|、
+		|hl-LineNrAbove|、|hl-LineNrBelow| 和 |hl-CursorLineNr|
+		组合使用。
+
+	text={text}						*E239*
+		定义没有图标或未使用 GUI 时显示的文本。只允许可打印字符，
+		且它们必须占据一个或两个显示单元格。
+
+	texthl={group}
+		用于文本项的高亮组。
+
+	culhl={group}
+		当光标在标记同一行且启用了 'cursorline' 时，用于文本项
+		的高亮组。
+
+	示例： >
+		:sign define MySign text=>> texthl=Search linehl=DiffText
+<
+
+删除标记						*:sign-undefine* *E155*
+
+参见 |sign_undefine()| 了解等效的 Vim 脚本函数。
+
+:sig[n] undefine {name}
+		删除先前定义的标记。如果带有此 {name} 的标记仍被放置，
+		这会导致问题。
+
+		示例： >
+			:sign undefine MySign
+<
+
+列出标记						*:sign-list* *E156*
+
+参见 |sign_getdefined()| 了解等效的 Vim 脚本函数。
+
+:sig[n] list	列出所有已定义的标记及其属性。
+
+:sig[n] list {name}
+		列出一个已定义的标记及其属性。
+
+
+放置标记						*:sign-place* *E158*
+
+参见 |sign_place()| 了解等效的 Vim 脚本函数。
+
+:sig[n] place {id} line={lnum} name={name} file={fname}
+		将定义为 {name} 的标记放置在文件 {fname} 的第 {lnum} 行。
+							*:sign-fname*
+		文件 {fname} 必须已经加载到缓冲区中。必须使用确切的文件
+		名，不展开通配符、$ENV 和 ~，空格不需要转义。尾随空格被
+		忽略。
+
+		标记以 {id} 记录，可用于进一步操作。{id} 必须是数字。多
+		次放置相同 {id} 会移动标记。
+
+		以下可选标记属性可以在 "file=" 之前指定：
+			group={group}	将标记放置在标记组 {group} 中
+			priority={prio}	为标记分配优先级 {prio}
+
+		默认情况下，标记被放置在全局标记组中。
+
+		默认情况下，标记被分配默认优先级 10，除非标记定义中另有
+		指定。要分配不同的优先级值，使用 "priority={prio}" 来指
+		定值。优先级用于确定当多个标记放置在同一行时显示哪个标
+		记。
+
+		示例： >
+			:sign place 5 line=3 name=sign1 file=a.py
+			:sign place 6 group=g2 line=2 name=sign2 file=x.py
+			:sign place 9 group=g2 priority=50 line=5
+							\ name=sign1 file=a.py
+<
+:sig[n] place {id} line={lnum} name={name} [buffer={nr}]
+		同上，但使用缓冲区 {nr}。如果未给出缓冲区参数，则将标记
+		放置在当前缓冲区中。
+
+		示例： >
+			:sign place 10 line=99 name=sign3
+			:sign place 10 line=99 name=sign3 buffer=3
+<
+							*E885*
+:sig[n] place {id} name={name} file={fname}
+		将文件 {fname} 中已放置的标记 {id} 更改为使用已定义的标
+		记 {name}。关于 {fname} 参见上面的说明 |:sign-fname|。
+		这可以用于在不移动标记的情况下更改显示的标记（例如，当调
+		试器在断点处停止时）。
+
+		可选的 "group={group}" 属性可以在 "file=" 之前使用来选择
+		特定组中的标记。可选的 "priority={prio}" 属性可用于更改
+		现有标记的优先级。
+
+		示例： >
+			:sign place 23 name=sign1 file=/path/to/edit.py
+<
+:sig[n] place {id} name={name} [buffer={nr}]
+		同上，但使用缓冲区 {nr}。如果未给出缓冲区参数，则使用当
+		前缓冲区。
+
+		示例： >
+			:sign place 23 name=sign1
+			:sign place 23 name=sign1 buffer=7
+<
+
+移除标记						*:sign-unplace* *E159*
+
+参见 |sign_unplace()| 了解等效的 Vim 脚本函数。
+
+:sig[n] unplace {id} file={fname}
+		从文件 {fname} 中移除先前放置的标记 {id}。
+		关于 {fname} 参见上面的说明 |:sign-fname|。
+
+:sig[n] unplace {id} group={group} file={fname}
+		同上，但移除标记组 {group} 中的标记 {id}。
+
+:sig[n] unplace {id} group=* file={fname}
+		同上，但从所有标记组中移除标记 {id}。
+
+:sig[n] unplace * file={fname}
+		移除文件 {fname} 中所有已放置的标记。
+
+:sig[n] unplace * group={group} file={fname}
+		从文件 {fname} 中移除组 {group} 中所有已放置的标记。
+
+:sig[n] unplace * group=* file={fname}
+		从文件 {fname} 中移除所有组中所有已放置的标记。
+
+:sig[n] unplace {id} buffer={nr}
+		从缓冲区 {nr} 中移除先前放置的标记 {id}。
+
+:sig[n] unplace {id} group={group} buffer={nr}
+		从缓冲区 {nr} 中移除组 {group} 中先前放置的标记 {id}。
+
+:sig[n] unplace {id} group=* buffer={nr}
+		从缓冲区 {nr} 的所有组中移除先前放置的标记 {id}。
+
+:sig[n] unplace * buffer={nr}
+		移除缓冲区 {nr} 中所有已放置的标记。
+
+:sig[n] unplace * group={group} buffer={nr}
+		从缓冲区 {nr} 中移除组 {group} 中所有已放置的标记。
+
+:sig[n] unplace * group=* buffer={nr}
+		从缓冲区 {nr} 的所有组中移除所有已放置的标记。
+
+:sig[n] unplace {id}
+		从标记 {id} 出现的所有文件中移除先前放置的标记 {id}。
+
+:sig[n] unplace {id} group={group}
+		从标记 {id} 出现的所有文件中移除组 {group} 中先前放置的
+		标记 {id}。
+
+:sig[n] unplace {id} group=*
+		从标记 {id} 出现的所有文件的所有组中移除先前放置的标记
+		{id}。
+
+:sig[n] unplace *
+		从所有文件中移除全局组中所有已放置的标记。
+
+:sig[n] unplace * group={group}
+		从所有文件中移除组 {group} 中所有已放置的标记。
+
+:sig[n] unplace * group=*
+		从所有文件的所有组中移除所有已放置的标记。
+
+:sig[n] unplace
+		移除光标位置处的一个已放置标记。如果行中放置了多个标记，
+		则只移除一个。
+
+:sig[n] unplace group={group}
+		移除光标位置处组 {group} 中的一个已放置标记。
+
+:sig[n] unplace group=*
+		移除光标位置处任意组中的一个已放置标记。
+
+
+列出已放置的标记					*:sign-place-list*
+
+参见 |sign_getplaced()| 了解等效的 Vim 脚本函数。
+
+:sig[n] place file={fname}
+		列出文件 {fname} 中已放置的标记。
+		关于 {fname} 参见上面的说明 |:sign-fname|。
+
+:sig[n] place group={group} file={fname}
+		列出文件 {fname} 中组 {group} 已放置的标记。
+
+:sig[n] place group=* file={fname}
+		列出文件 {fname} 中所有组已放置的标记。
+
+:sig[n] place buffer={nr}
+		列出缓冲区 {nr} 中已放置的标记。
+
+:sig[n] place group={group} buffer={nr}
+		列出缓冲区 {nr} 中组 {group} 已放置的标记。
+
+:sig[n] place group=* buffer={nr}
+		列出缓冲区 {nr} 中所有组已放置的标记。
+
+:sig[n] place	列出所有文件中全局组已放置的标记。
+
+:sig[n] place group={group}
+		列出所有文件中标记组 {group} 已放置的标记。
+
+:sig[n] place group=*
+		列出所有文件中所有标记组已放置的标记。
+
+
+跳转到标记					*:sign-jump* *E157*
+
+参见 |sign_jump()| 了解等效的 Vim 脚本函数。
+
+:sig[n] jump {id} file={fname}
+		打开文件 {fname} 或跳转到包含 {fname} 的窗口，并将光标
+		定位在标记 {id} 处。
+		关于 {fname} 参见上面的说明 |:sign-fname|。
+		如果文件未在窗口中显示且当前文件不能被 |abandon|，则失
+		败。
+
+:sig[n] jump {id} group={group} file={fname}
+		同上，但跳转到组 {group} 中的标记。
+
+:sig[n] jump {id} [buffer={nr}]				*E934*
+		同上，但使用缓冲区 {nr}。如果缓冲区 {nr} 没有名称则失
+		败。如果未给出缓冲区参数，则使用当前缓冲区。
+
+:sig[n] jump {id} group={group} [buffer={nr}]
+		同上，但跳转到组 {group} 中的标记。
+
+
+==============================================================================
+3. 函数					*sign-functions-details*
+
+参见：
+  - |sign_define()|
+  - |sign_getdefined()|
+  - |sign_getplaced()|
+  - |sign_jump()|
+  - |sign_place()|
+  - |sign_placelist()|
+  - |sign_undefine()|
+  - |sign_unplace()|
+  - |sign_unplacelist()|
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

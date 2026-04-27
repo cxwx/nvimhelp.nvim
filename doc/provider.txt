@@ -1,0 +1,341 @@
+*provider.txt*		Nvim
+
+
+		 NVIM REFERENCE MANUAL	  by Thiago de Arruda
+
+
+提供者					*provider*
+
+Nvim 将某些功能委托给动态"提供者"。本文档描述了各提供者及其安装方法。
+						*E319*
+使用缺少提供者的功能会导致错误：>
+
+    E319: No "foo" provider found. Run ":checkhealth vim.provider"
+
+运行 |:checkhealth| 命令，并查看以下各节。
+
+				      Type |gO| to see the table of contents.
+
+==============================================================================
+Python 集成				*provider-python*
+
+Nvim 支持 Python |remote-plugin| 以及 Vim 传统的 |python3| 和 |pythonx| 接口
+（它们本身是作为远程插件实现的）。
+
+注意：仅支持 Vim 7.3 传统接口，不支持 |python-bindeval|（Vim 7.4）等后续功能；
+请使用 Nvim API 替代。不支持 Python 2。
+
+
+PYTHON 快速入门 ~
+
+要使用 Python 插件，你需要 "pynvim" 模块。运行 |:checkhealth| 查看是否已安装
+（某些包管理器会随 Nvim 一起安装该模块）。
+
+对于 Python 3 插件：
+1. 确保 Python 3.9+ 在你的 $PATH 中可用。
+2. 安装 uv (https://docs.astral.sh/uv/) 或
+   pipx (https://pipx.pypa.io/stable/)。
+3. 安装模块：>bash
+   pipx install pynvim
+   # 或：
+   uv tool install --upgrade pynvim
+
+`--upgrade` 标志确保即使已安装旧版本，你也能获得最新版本。
+
+另见 |python-virtualenv|。
+
+PYTHON 提供者配置 ~
+						*g:python3_host_prog*
+启动 Python 3 的命令（可执行文件，不是目录）。设置此项可加快启动速度。
+适用于虚拟环境。必须在任何 has("python3") 检查之前设置。>vim
+    let g:python3_host_prog = '/path/to/python3'
+<
+						*g:loaded_python3_provider*
+要禁用 Python 3 支持：>vim
+    let g:loaded_python3_provider = 0
+
+
+PYTHON 虚拟环境 ~
+						*python-virtualenv*
+使用通过 uv 或 pipx 安装的 pynvim 0.6.0+，即使激活了其他 Python 虚拟环境，
+Nvim 也会自动检测到 pynvim（技术说明：通过 "pynvim-python" 全局 python 工具）。
+对于旧版 pynvim（或旧版 Neovim），检测涉及找到第一个 Python 解释器并检查其是否
+能导入 pynvim，当另一个虚拟环境处于活动状态时，自动检测会失败。升级到最新版
+pynvim 是推荐的解决方案；但如果无法升级，你可以在 `init.vim` 中设置变量
+|g:python3_host_prog|，指向安装了 `pynvim` 的 Python 解释器的完整路径，
+例如：>vim
+
+  let g:python3_host_prog = '/path/to/pynvim-venv/bin/python'
+<
+另见：https://github.com/zchee/deoplete-jedi/wiki/Setting-up-Python-for-Neovim
+
+==============================================================================
+Ruby 集成			      *provider-ruby*
+
+Nvim 支持 Ruby |remote-plugin| 以及 Vim 传统的 |ruby-vim| 接口（它本身是作为
+Nvim 远程插件实现的）。
+
+
+RUBY 快速入门 ~
+
+要在 Nvim 中使用 Ruby 插件，安装最新的 "neovim" RubyGem：>bash
+    gem install neovim
+
+运行 |:checkhealth| 查看你的系统是否是最新的。
+
+
+RUBY 提供者配置 ~
+						*g:loaded_ruby_provider*
+要禁用 Ruby 支持：>vim
+    let g:loaded_ruby_provider = 0
+<
+						*g:ruby_host_prog*
+启动 Ruby 宿主的命令。默认为 "neovim-ruby-host"。对于项目本地的 Ruby 版本
+（通过 RVM 或 rbenv 等工具），设置此项可以避免在每个项目中安装 "neovim" gem。
+
+使用绝对路径（例如 rbenv 安装）：>vim
+    let g:ruby_host_prog = '~/.rbenv/versions/2.4.1/bin/neovim-ruby-host'
+
+使用 RVM "system" Ruby 安装：>vim
+    let g:ruby_host_prog = 'rvm system do neovim-ruby-host'
+
+==============================================================================
+Perl 集成				*provider-perl*
+
+Nvim 在 Unix 平台上支持 Perl |remote-plugin|。目前所有已知的事件循环实现都缺乏
+对 MS-Windows 上轮询 STDIN 的支持。Vim 传统的 |perl-vim| 接口也受支持（它本身
+是作为 Nvim 远程插件实现的）。
+https://github.com/jacquesg/p5-Neovim-Ext
+
+注意：仅支持 perl 5.22 及以上版本。
+
+PERL 快速入门~
+
+要在 Nvim 中使用 perl 远程插件，安装 "Neovim::Ext" cpan 包：>bash
+    cpanm -n Neovim::Ext
+
+运行 |:checkhealth| 查看你的系统是否是最新的。
+
+
+PERL 提供者配置~
+						*g:loaded_perl_provider*
+要禁用 Perl 支持：>vim
+    :let g:loaded_perl_provider = 0
+<
+						*g:perl_host_prog*
+启动 Perl 可执行文件的命令。必须在任何 has("perl") 检查之前设置。>vim
+    let g:perl_host_prog = '/path/to/perl'
+<
+==============================================================================
+Node.js 集成				*provider-nodejs*
+
+Nvim 支持 Node.js |remote-plugin|。
+https://github.com/neovim/node-client/
+
+
+NODEJS 快速入门~
+
+要在 Nvim 中使用 javascript 远程插件，安装 "neovim" npm 包：>bash
+    npm install -g neovim
+
+运行 |:checkhealth| 查看你的系统是否是最新的。
+
+
+NODEJS 提供者配置~
+						*g:loaded_node_provider*
+要禁用 Node.js 支持：>vim
+    :let g:loaded_node_provider = 0
+<
+						*g:node_host_prog*
+启动 Node.js 宿主的命令。设置此项可加快启动速度。
+
+默认情况下，Nvim 使用 "npm root -g" 搜索 "neovim-node-host"，这可能比较慢。
+要避免此问题，将 g:node_host_prog 设置为宿主路径：>vim
+    let g:node_host_prog = '/usr/local/bin/neovim-node-host'
+<
+==============================================================================
+剪贴板集成			      *provider-clipboard* *clipboard*
+
+Nvim 没有直接连接系统剪贴板。相反，它依赖 |provider|，透明地使用 shell 命令
+与系统剪贴板或任何其他剪贴板"后端"通信。
+
+要始终对所有操作使用剪贴板（而不是显式地与 "+" 和/或 "*" 寄存器交互）：>vim
+    set clipboard+=unnamedplus
+
+详情和选项参见 'clipboard'。
+
+							      *clipboard-tool*
+工作中的剪贴板工具的存在隐式启用 "+" 和 "*" 寄存器。Nvim 支持以下剪贴板工具，
+按优先级排列：
+
+- |g:clipboard| : 用户覆盖（如果设置为字典或下面的任何字符串 "name"；
+  例如 `g:clipboard="tmux"` 强制使用 tmux 剪贴板并跳过自动检测）。
+- "pbcopy"    : pbcopy, pbpaste (macOS)
+- "wl-copy"   : wl-copy, wl-paste (如果设置了 $WAYLAND_DISPLAY)
+- "wayclip"   : waycopy, waypaste (如果设置了 $WAYLAND_DISPLAY)
+- "xsel"      : xsel (如果设置了 $DISPLAY)
+- "xclip"     : xclip (如果设置了 $DISPLAY)
+- "lemonade"  : lemonade (用于 SSH) https://github.com/pocke/lemonade
+- "doitclient": doitclient (用于 SSH) https://www.chiark.greenend.org.uk/~sgtatham/doit/
+- "win32yank" : *win32yank* (Windows)
+- "putclip"   : putclip, getclip (Windows) https://cygwin.com/packages/summary/cygutils.html
+- "clip"      : clip, powershell (Windows) https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/clip
+- "termux"    : termux (通过 termux-clipboard-set, termux-clipboard-get)
+- "tmux"      : tmux (如果设置了 $TMUX)
+- "osc52"     : |clipboard-osc52| (如果你的终端支持)
+
+								 *g:clipboard*
+要配置自定义剪贴板工具，在剪贴板提供者初始化之前，将 `g:clipboard` 设置为
+字符串名称（来自上面的 |clipboard-tool| 列表）或字典（显式指定 shell 命令或
+|lambda| 函数）。
+
+注意：剪贴板提供者通过调用 `has('clipboard')` 来初始化，最好避免在设置
+`g:clipboard` 之前调用。关于解决方法参见 |faq-runtime| 中的
+"G:CLIPBOARD SETTINGS ARE NOT USED"。
+
+如果 "cache_enabled" 为 |TRUE|，则当复制选区时 Nvim 将缓存选区直到复制命令
+进程终止。粘贴时，如果复制进程尚未终止，则应用缓存的选区。
+
+"copy" 函数存储行列表和寄存器类型。"paste" 函数以 `[lines, regtype]` 列表
+形式返回剪贴板，其中 `lines` 是行列表，`regtype` 是符合 |setreg()| 的寄存器
+类型。
+
+示例：设置为 "osc52" 以强制使用 OSC52，跳过终端支持的自动检测：>vim
+
+    let g:clipboard = 'osc52'
+
+示例：设置为 "wayclip" 以强制使用 waycopy/waypaste：>vim
+
+    let g:clipboard = 'wayclip'
+
+示例：设置为集成 tmux 剪贴板的字典：>vim
+
+    let g:clipboard = {
+      \   'name': 'myClipboard',
+      \   'copy': {
+      \      '+': ['tmux', 'load-buffer', '-'],
+      \      '*': ['tmux', 'load-buffer', '-'],
+      \    },
+      \   'paste': {
+      \      '+': ['tmux', 'save-buffer', '-'],
+      \      '*': ['tmux', 'save-buffer', '-'],
+      \   },
+      \   'cache_enabled': 1,
+      \ }
+
+
+示例：设置为使用 g:foo 作为伪剪贴板的字典：>vim
+
+    let g:clipboard = {
+      \   'name': 'myClipboard',
+      \   'copy': {
+      \      '+': {lines, regtype -> extend(g:, {'foo': [lines, regtype]}) },
+      \      '*': {lines, regtype -> extend(g:, {'foo': [lines, regtype]}) },
+      \    },
+      \   'paste': {
+      \      '+': {-> get(g:, 'foo', [])},
+      \      '*': {-> get(g:, 'foo', [])},
+      \   },
+      \ }
+<
+							      *clipboard-wsl*
+对于 Windows WSL，尝试此 g:clipboard 定义：
+>vim
+    let g:clipboard = {
+      \   'name': 'WslClipboard',
+      \   'copy': {
+      \      '+': 'clip.exe',
+      \      '*': 'clip.exe',
+      \    },
+      \   'paste': {
+      \      '+': 'powershell.exe -NoLogo -NoProfile -c [Console]::Out.Write($(Get-Clipboard -Raw).tostring().replace("`r", ""))',
+      \      '*': 'powershell.exe -NoLogo -NoProfile -c [Console]::Out.Write($(Get-Clipboard -Raw).tostring().replace("`r", ""))',
+      \   },
+      \   'cache_enabled': 0,
+      \ }
+<
+							    *clipboard-osc52*
+Nvim 内置了一个剪贴板提供者，允许使用 OSC 52 复制到系统剪贴板。OSC 52 是一种
+"操作系统命令"控制序列，使终端模拟器写入或读取系统剪贴板。
+
+当 Nvim 在 |TUI| 中运行时，它会自动检测宿主终端对 OSC 52 的支持。如果成功，
+当没有找到其他 |clipboard-tool| 且 'clipboard' 未设置时，Nvim 将使用 OSC 52
+进行复制和粘贴。
+注意：使用终端多路复用器（例如 tmux）可能会抑制 OSC 52 支持的自动检测。
+
+							*g:termfeatures*
+要禁用自动检测，在你的 |config| 中早期设置 |g:termfeatures| 的 "osc52" 键为
+false。示例：>lua
+	local termfeatures = vim.g.termfeatures or {}
+	termfeatures.osc52 = false
+	vim.g.termfeatures = termfeatures
+<
+要强制 Nvim 使用 OSC 52 提供者，你可以设置 |g:clipboard|：>lua
+
+    vim.g.clipboard = 'osc52'
+
+等同于：>lua
+    vim.g.clipboard = {
+      name = 'OSC 52',
+      copy = {
+        ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
+        ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
+      },
+      paste = {
+        ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
+        ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
+      },
+    }
+<
+注意：不是所有终端模拟器都支持从系统剪贴板读取（即使支持的，用户也应注意其安全
+影响），因此使用 OSC 52 粘贴可能不可行（也没有必要，因为你可以使用系统粘贴功能
+进行 |paste|）。用户可能需要配置终端模拟器以允许从剪贴板读取。
+<
+==============================================================================
+粘贴							*provider-paste* *paste*
+
+"粘贴"是与 |clipboard| 不同的概念：粘贴意味着"将大量文本倾倒到编辑器中"，
+而剪贴板提供像 |quote+| 这样的功能来直接获取和设置操作系统剪贴板。例如，
+在终端中中键点击或 CTRL-SHIFT-v（macOS：CMD-v）是"粘贴"，而非"剪贴板"：
+终端应用程序（Nvim）只获得文本流，它不直接与剪贴板交互。
+
+							*bracketed-paste-mode*
+在 |TUI| 中粘贴依赖于"括号粘贴"终端功能，该功能允许终端应用程序区分用户输入
+和粘贴的文本。https://cirw.in/blog/bracketed-paste
+如果你的终端支持，这会自动工作。
+
+							*ui-paste*
+GUI 可以通过调用 |nvim_paste()| 来粘贴。
+
+粘贴行为 ~
+
+粘贴在光标后插入文本。行在 <NL>、<CR> 和 <CR><NL> 处断开。
+当粘贴大量文本时，屏幕更新会被节流，消息区域显示 "..." 脉冲。
+
+在命令行模式下，只粘贴第一行，以避免意外执行多个命令。如果确实想粘贴多行到
+命令行，请使用 |cmdline-window|。
+
+你可以通过重新定义 |vim.paste()| 来实现自定义粘贴处理器。
+示例：>lua
+
+  vim.paste = (function(lines, phase)
+    vim.api.nvim_put(lines, 'c', true, true)
+  end)
+
+==============================================================================
+X11 选择机制			      *clipboard-x11* *x11-selection*
+
+X11 剪贴板提供者将文本存储在"选区"中。选区由应用程序拥有，因此当应用程序关闭
+时，选区文本会丢失。选区的内容由发起应用程序持有（例如在复制时），只有当另一个
+应用程序请求时才传递给它（例如在粘贴时）。
+
+				*primary-selection* *quotestar* *quoteplus* *quote+*
+
+X11 有三种记录在案的选区：PRIMARY、SECONDARY 和 CLIPBOARD。
+CLIPBOARD 通常在 X11 应用程序中用于复制/粘贴操作（CTRL-c/CTRL-v），而
+PRIMARY 用于最后选中的文本，通常通过中键点击插入。
+
+Nvim 的 X11 剪贴板提供者仅使用 PRIMARY 和 CLIPBOARD 选区，分别对应 "*" 和
+"+" 寄存器。
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
